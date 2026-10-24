@@ -14,7 +14,7 @@
 inline Point::Point(void) {}
 inline Point::Point(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
 
-extern "C" char Collision(void *, Point, Point);
+#include "skipdraw.h"
 
 // The item being dragged, whose weight a container must not count twice.
 uint16_t dragWeightHack = 0;

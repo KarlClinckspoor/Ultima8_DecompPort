@@ -19,12 +19,12 @@ SndMgr::SndMgr(int16_t numSamples, int16_t numSuspend)
 {
 	sampleCount = numSamples;
 	samples = (SampleEntry *)malloc(sampleCount * sizeof(SampleEntry));
-	setmem(samples, sampleCount * sizeof(SampleEntry), 0);
+	memset(samples, 0, sampleCount * sizeof(SampleEntry));
 	maxSuspended = numSuspend;
 	numSuspended = 0;
 	suspended = (SoundChannel *)malloc(maxSuspended * sizeof(SoundChannel));
-	setmem(suspended, maxSuspended * sizeof(SoundChannel), 0);
-	setmem(channels, sizeof(channels), 0);
+	memset(suspended, 0, maxSuspended * sizeof(SoundChannel));
+	memset(channels, 0, sizeof(channels));
 	dmaParagraph = 0;
 	dmaSelector = 0;
 	activeChannels = 0;
@@ -34,7 +34,6 @@ SndMgr::SndMgr(int16_t numSamples, int16_t numSuspend)
 
 SndMgr::~SndMgr(void)
 {
-	memset(MK_FP(dmaSelector, 0), 0, 256);
 	if (SoundSystemActive)
 	{
 		DGTL_shutdown();
@@ -58,10 +57,6 @@ SndMgr::~SndMgr(void)
 		delete suspended;
 		suspended = 0;
 	}
-	if (dmaSelector)
-	{
-		DosFreeSeg(dmaSelector);
-	}
 }
 
 void SoundBlasterExitListHook(void)
@@ -73,32 +68,12 @@ void SoundBlasterExitListHook(void)
 	}
 }
 
+// DOS took a 256-byte DMA buffer below 1 MB here (two halves of 128 samples, which the card
+// played in turn while DAC_update refilled the other), and set the Sound Blaster mixer's
+// register 83h. The platform's sound output takes the samples instead (sbdac.cpp).
 uint8_t SndMgr::init_sound_blaster(int16_t irq, int16_t port, int16_t dma)
 {
-	if (DosAllocRealSeg(256, &dmaParagraph, &dmaSelector))
-	{
-		return 0;
-	}
-	memset(MK_FP(dmaSelector, 0), 0, 256);
-	while ((dmaParagraph & 0xFFFFL) + 16 > 0xFFFFL)
-	{
-		printf("Boundary error in sound blaster initialization.\n");
-	}
-	// Mixer register 0x83
-	asm {
-		push ax
-		push dx
-		mov dx, port
-		add dx, 4
-		mov al, 0x83
-		out dx, al
-		inc dx
-		mov al, 0x0B
-		out dx, al
-		pop dx
-		pop ax
-	}
-	if (DGTL_init(port, irq, dma, dmaSelector, 0, dmaParagraph) == -1)
+	if (DGTL_init(port, irq, dma, 0, 0, 0) == -1)
 	{
 		return 0;
 	}
@@ -196,12 +171,9 @@ int32_t SndMgr::play(int16_t sample, int16_t priority, int16_t volume, int16_t p
 		samples[sample].users = 0;
 		return 0;
 	}
-	asm pushf
-	asm cli
 	int16_t channel = get_channel(sample, priority);
 	if (channel == -1)
 	{
-		asm popf
 		return 0;
 	}
 	activeChannels++;
@@ -236,7 +208,6 @@ int32_t SndMgr::play(int16_t sample, int16_t priority, int16_t volume, int16_t p
 		DGTL_play(channel, samples[sample].dad->data, samples[sample].dad->size,
 			channels[channel].rate, channels[channel].volume);
 	}
-	asm popf
 	return channels[channel].handle;
 }
 
@@ -274,12 +245,9 @@ int32_t SndMgr::play_ambient(int16_t sample, int16_t priority, int16_t volume, i
 	{
 		return 0;
 	}
-	asm pushf
-	asm cli
 	int16_t channel = get_channel(sample, priority);
 	if (channel == -1)
 	{
-		asm popf
 		return 0;
 	}
 	activeChannels++;
@@ -295,7 +263,6 @@ int32_t SndMgr::play_ambient(int16_t sample, int16_t priority, int16_t volume, i
 	DGTL_play_ambient(channel, samples[sample].dad->data, samples[sample].dad->size,
 		samples[sample].dad->f_08, samples[sample].dad->f_0c,
 		channels[channel].rate, channels[channel].volume);
-	asm popf
 	return channels[channel].handle;
 }
 
@@ -381,8 +348,6 @@ void SndMgr::stop_all(void)
 {
 	int16_t i;
 
-	asm pushf
-	asm cli
 	for (i = 0; i < NUM_CHANNELS; i++)
 	{
 		if (channels[i].handle)
@@ -400,14 +365,13 @@ void SndMgr::stop_all(void)
 			suspended[i].handle = 0;
 		}
 	}
-	asm popf
 }
 
 void SndMgr::flush(void)
 {
 	stop_all();
-	setmem(suspended, maxSuspended * sizeof(SoundChannel), 0);
-	setmem(channels, sizeof(channels), 0);
+	memset(suspended, 0, maxSuspended * sizeof(SoundChannel));
+	memset(channels, 0, sizeof(channels));
 	for (int16_t i = 0; i < sampleCount; i++)
 	{
 		if (samples[i].users)
@@ -645,7 +609,7 @@ void SndMgr::resume_ambient(int16_t channel)
 }
 
 // Called by the driver when a channel finishes its buffer.
-extern "C" void digital_call_back(int16_t channel)
+void digital_call_back(int16_t channel)
 {
 	if (SoundManager->channels[channel].streamed)
 	{

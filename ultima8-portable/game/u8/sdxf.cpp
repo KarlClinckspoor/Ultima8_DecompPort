@@ -288,9 +288,9 @@ int16_t SkipTransformDraw(Vport *vp, int16_t x, int16_t y, const SKIPFRAME *fram
 					cx = -hidden;
 					goto packHeadGap;
 				}
-				cx = *si++;
+				cx = *si;
 				run = cx;
-				si += 2;
+				si += 2;	// past the run byte and, for a fill, its colour
 				cx >>= 1;
 				if (!(run & 1))
 				{

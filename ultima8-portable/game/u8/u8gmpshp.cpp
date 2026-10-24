@@ -20,7 +20,7 @@ inline Rect::Rect(void) {}
 inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
 inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 
-extern "C" int16_t Collision(void *, Point, Point);
+#include "skipdraw.h"
 
 FlexShapeHandler *U8GumpShapeDrawer::theGumpShapeHandler = 0;
 Rect *U8GumpShapeDrawer::rects;

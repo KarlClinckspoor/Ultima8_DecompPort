@@ -1,4 +1,5 @@
-// Miles AIL calls: XMIDI driver DLL (AILXMI) and AIL16 timer services.
+// Miles AIL calls: XMIDI driver DLL (AILXMI) and AIL16 timer services. The port's driver
+// is sound/xmidi.cpp; the game ran its music from a kernel process, not the AIL timers.
 #ifndef AIL_H
 #define AIL_H
 
@@ -6,17 +7,13 @@
 
 typedef uint16_t HSEQUENCE;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void AIL_startup(void);
-void AIL_shutdown(char *signoff_msg);
+void AIL_shutdown(const char *signoff_msg);
 void XMI_SERVE_DRIVER(void);
 void *XMI_describe_driver(void);
 int16_t XMI_detect_device(uint16_t io_addr, uint16_t irq, uint16_t dma, uint16_t drq);
 void XMI_init_driver(uint16_t io_addr, uint16_t irq, uint16_t dma, uint16_t drq);
-void XMI_shutdown_driver(char *signoff_msg);
+void XMI_shutdown_driver(const char *signoff_msg);
 int16_t XMI_state_table_size(void);
 uint16_t XMI_default_timbre_cache_size(void);
 void XMI_define_timbre_cache(void *cache_addr, uint16_t cache_size);
@@ -32,9 +29,5 @@ void XMI_set_relative_volume(HSEQUENCE sequence, uint16_t percent, uint16_t mill
 void XMI_set_relative_tempo(HSEQUENCE sequence, uint16_t percent, uint16_t milliseconds);
 int16_t XMI_measure_count(HSEQUENCE sequence);
 int16_t XMI_branch_index(HSEQUENCE sequence, uint16_t marker);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

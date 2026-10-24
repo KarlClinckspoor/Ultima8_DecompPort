@@ -2,6 +2,7 @@
 // name: AMUSIC.CPP
 
 #include "u8port.h"
+#include "plat.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -104,20 +105,13 @@ int16_t Music::init(char *name, int16_t port, int16_t irq, int16_t dma, int16_t 
 	music_play_state = 1;
 	play_queue = -1;
 	trans_file_ptr = 0;
-	BaseFile file;
 	current_ms.st_ptr = 0;
 	current_other.st_ptr = 0;
 	for (int16_t i = 0; i < 255; i++)
 		music_branch[i] = -1;
-	file.open("AILXMI.DLL", ReadWrite);
-	if (file.seek(0x315d))
-	{
-		file.read(id, 3);
-		id[3] = 0;
-		if (!strcmp(id, "MPU"))
-			mpu_401_device = 1;
-	}
-	file.close();
+	// The DOS game looked for "MPU" in the installed AILXMI.DLL; the port's driver plays the
+	// MT-32 when the platform has one.
+	mpu_401_device = plat_music_device() == 'r';
 	char driver[40];
 	strcpy(driver, "AILXMI.DLL");
 	if (!FileExists(path))

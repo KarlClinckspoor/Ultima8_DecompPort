@@ -387,3 +387,37 @@ int u8_on_stack(const void *p)
 	return (const char *)p >= &here - 0x10000 && (const char *)p <= stack_top + 0x1000
 		&& stack_top - (const char *)p < 0x4000000;
 }
+
+// ---- allocation ----
+// Borland's new, new[], malloc and farmalloc all came from the one heap, and the game frees
+// with whichever it likes: new[] blocks with delete or farfree, farmalloc blocks with delete.
+// So all of them are malloc here, and every pairing of them stays good for the plain data
+// the game allocates. (Arrays of objects with destructors still need delete[].)
+#include <new>
+
+void *operator new(size_t size)
+{
+	// Borland's new gave 0 when memory ran out, and the game checks for it (built with
+	// -fcheck-new so the compiler keeps those checks).
+	return ::malloc(size ? size : 1);
+}
+
+void *operator new[](size_t size)
+{
+	return operator new(size);
+}
+
+void *operator new(size_t size, const std::nothrow_t &) noexcept
+{
+	return ::malloc(size ? size : 1);
+}
+
+void *operator new[](size_t size, const std::nothrow_t &) noexcept
+{
+	return ::malloc(size ? size : 1);
+}
+
+void operator delete(void *p) noexcept { ::free(p); }
+void operator delete[](void *p) noexcept { ::free(p); }
+void operator delete(void *p, size_t) noexcept { ::free(p); }
+void operator delete[](void *p, size_t) noexcept { ::free(p); }

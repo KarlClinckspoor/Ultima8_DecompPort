@@ -39,9 +39,23 @@ struct ffblk {
 	char ff_name[13];
 };
 
+/* The same through Microsoft-style names (<dos.h>'s _dos_findfirst). */
+struct find_t {
+	char reserved[21];
+	char attrib;
+	uint16_t wr_time;
+	uint16_t wr_date;
+	int32_t size;
+	char name[13];
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* 0 when a file was found, else the DOS error (18, no more files). */
+uint16_t _dos_findfirst(const char *pattern, uint16_t attrib, struct find_t *found);
+uint16_t _dos_findnext(struct find_t *found);
 
 /* 0 when a file was found, -1 when none (the DOS error code is not kept). */
 int16_t findfirst(const char *pattern, struct ffblk *found, int16_t attrib);

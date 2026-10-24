@@ -55,7 +55,7 @@ inline uint8_t GumpShape::collide(int16_t x, int16_t y) { return drawer->collide
 inline int16_t CacheFont::width(char *text) { return Font::width(text); }
 inline CacheFont::~CacheFont(void) {}
 
-extern "C" Boolean Collision(void *, Point, Point);
+#include "skipdraw.h"
 
 AvatarStatusGump *theStatGump = 0;
 char *cheatmsg[7] = {"Sunday Cheats", "Monday Cheats", "Tuesday Cheats", "Wednesday Cheats", "Thursday Cheats", "Friday Cheats", "Saterday Cheats"};

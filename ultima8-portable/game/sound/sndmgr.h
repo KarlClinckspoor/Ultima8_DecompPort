@@ -91,10 +91,10 @@ public:
 };
 
 void SoundBlasterExitListHook(void);
-extern "C" void digital_call_back(int16_t);
+void digital_call_back(int16_t);
 
-// Digital sound driver.
-extern "C" {
+// Digital sound driver (DAC.ASM, SBDAC.ASM).
+
 int16_t DGTL_init(int16_t port, int16_t irq, int16_t dma, uint16_t selector, int16_t, uint16_t paragraph);
 void DGTL_shutdown(void);
 void DGTL_channel_volume(int16_t channel, int16_t volume);
@@ -103,9 +103,9 @@ void DGTL_play(int16_t channel, char *data, int16_t length, int16_t rate, int16_
 void DGTL_stop(int16_t channel);
 void DGTL_play_ambient(int16_t channel, char *data, int16_t length, int16_t, int16_t, int16_t rate, int16_t volume);
 void DGTL_release(int16_t channel);
+void DGTL_set_voice(int16_t channel, char *data, int16_t length, int16_t loopStart, int16_t loopLength);
 uint8_t DAC_update(void);
-extern uint8_t DACBuffer[512];
-}
+extern int16_t DACBuffer[256];
 
 extern SndMgr *SoundManager;
 extern uint8_t SoundSystemActive;

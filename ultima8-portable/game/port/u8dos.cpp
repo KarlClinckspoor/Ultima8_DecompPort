@@ -210,3 +210,34 @@ char *_getdcwd(int16_t drive, char *buffer, int16_t size)
 	snprintf(buffer, (size_t) size, "C:\\");
 	return buffer;
 }
+
+static void to_find_t(const struct ffblk *f, struct find_t *found)
+{
+	memcpy(found->reserved, f->ff_reserved, sizeof found->reserved);
+	found->attrib = f->ff_attrib;
+	found->wr_time = f->ff_ftime;
+	found->wr_date = f->ff_fdate;
+	found->size = f->ff_fsize;
+	memcpy(found->name, f->ff_name, sizeof found->name);
+}
+
+uint16_t _dos_findfirst(const char *pattern, uint16_t attrib, struct find_t *found)
+{
+	struct ffblk f;
+
+	if (findfirst(pattern, &f, (int16_t) attrib) != 0)
+		return 18;
+	to_find_t(&f, found);
+	return 0;
+}
+
+uint16_t _dos_findnext(struct find_t *found)
+{
+	struct ffblk f;
+
+	memcpy(f.ff_reserved, found->reserved, sizeof f.ff_reserved);
+	if (findnext(&f) != 0)
+		return 18;
+	to_find_t(&f, found);
+	return 0;
+}

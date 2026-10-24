@@ -934,16 +934,8 @@ void changePitchSFX(int16_t sample, int16_t delta)
 	}
 }
 
-extern "C" void sndSETPASSTOPROTVEC(REALPTR *oldReal, PIHANDLER *oldProt, PIHANDLER handler, int16_t vector)
-{
-	Spanky::dosSetPassToProtVec(vector, handler, oldProt, oldReal);
-}
-
-extern "C" void sndSETREALPROTVEC(REALPTR *oldReal, PIHANDLER *oldProt, REALPTR realHandler,
-	PIHANDLER handler, int16_t vector)
-{
-	Spanky::dosSetRealProtVec(vector, handler, realHandler, oldProt, oldReal);
-}
+// sndSETPASSTOPROTVEC and sndSETREALPROTVEC hooked the Sound Blaster's interrupt for SB.ASM;
+// the platform's sound output has no interrupt to hook.
 
 inline void SoundTimerIITheSequel::process(void)
 {
