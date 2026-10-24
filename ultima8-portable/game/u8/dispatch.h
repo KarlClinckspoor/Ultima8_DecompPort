@@ -42,11 +42,14 @@ public:
 	void uninit(void);
 	void poll(void);
 	void write(Event &);
+	// Borland let a temporary bind to Event &; callers pass them so.
+	void write(Event &&e) { write(e); }
 	void translateMouse(VGAMouseSelectEvent &, Event *);
 	void process(void);
 	uint8_t read(void);
 	uint8_t readingMyFuture(Event &);
 	void send(Event &);
+	void send(Event &&e) { send(e); }
 	void sendInFuture(Event &);
 	void badEvent(NewGump *, Event &);
 	void refresh(Rect);

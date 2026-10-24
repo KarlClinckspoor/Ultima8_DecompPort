@@ -3,10 +3,10 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "kernel.h"
 #include "cfile.h"
-#include "stdint.h"
+#include "u8stdint.h"
 
 // Keeps a poll in progress pointing at the right entry when a pid leaves the list.
 void IntList::removeFromList(uint16_t pid)

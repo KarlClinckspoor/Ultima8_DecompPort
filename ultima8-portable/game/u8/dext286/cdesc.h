@@ -5,73 +5,26 @@
 
 #include "cytable.h"
 
-// An 8-byte 286/386 segment descriptor.
-class Desc
-{
-public:
-	uint16_t limit;
-	uint16_t baseLow;
-	uint8_t baseMid;
-	uint8_t access;
-	uint8_t limitHigh;	// limit bits 16-19 in the low nibble
-	uint8_t baseHigh;
+// The DOS build kept its descriptor-table classes (Desc, LocalDescriptorTable,
+// GlobalDescriptorTable, HoldPointers) and its selector helpers here. With no selectors on
+// the host only the screen helpers remain.
 
-	int32_t getBase(void);
-	void setBase(uint32_t base)
-	{
-		baseLow = base;
-		baseMid = base >> 16;
-		baseHigh = base >> 24;
-	}
-	void setLimit(uint32_t);
-	void display(uint16_t);
-};
-
-#define RESERVED_SELECTORS 32
-
-// Saves the bases of the reserved selectors and puts them back.
-class HoldPointers
-{
-public:
-	uint32_t base[RESERVED_SELECTORS];
-
-	HoldPointers(void);
-	~HoldPointers(void);
-};
-
-class LocalDescriptorTable
-{
-public:
-	static void initialize(void);
-	static Desc *getDesc(uint16_t sel) { return &table[sel >> 3]; }
-	static uint32_t limit;
-	static uint16_t mappedSelector;
-	static Desc *table;
-};
-
-class GlobalDescriptorTable
-{
-public:
-	static void initialize(void);
-	static uint32_t limit;
-	static uint16_t mappedSelector;
-	static Desc *table;
-};
-
+// The video BIOS data area once gave the CRTC port; the VGA's is fixed now.
 void GetBiosSegment(void);
+// Points VgaScreen at the screen memory the platform shows.
 void SetVgaScreenDescriptor(void);
-uint16_t MapSegment(uint16_t, uint16_t);
+// Blends two byte arrays (cpalette's fades): see GRAPHICS\MERGEARY.C.
 int16_t MERGEBYTEARRAY(char *, char *, int16_t);
-uint16_t getLDT(void);
-void initReservedSelectors(void);
-void *makePtr(uint32_t);
+// Its state (init, error, delta, vector, major, iterations in DOS).
+extern int16_t mergeInit;
+extern char *mergeError;
+extern char *mergeDelta;
+extern char *mergeVector;
+extern int16_t mergeMajor;
+extern int16_t mergeIterations;
 
-extern int16_t init;
-extern uint16_t TextSelector;
-extern char *error;
-extern char *delta;
-extern char *vector;
-extern int16_t major;
-extern int16_t iterations;
+// The colour text screen, B800:0000: 80x25 character and attribute pairs. The debug gumps
+// draw into it; nothing shows it on the host.
+extern uint8_t *TextScreen;
 
 #endif

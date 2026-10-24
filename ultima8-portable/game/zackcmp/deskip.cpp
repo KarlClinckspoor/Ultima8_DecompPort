@@ -25,7 +25,6 @@ inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
 inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 inline SharedFile::SharedFile(void) {}
 inline FlexFile::FlexFile(void) {}
-inline int16_t Vport::getSeg(void) { return seg; }
 inline int16_t GraphicYtable::getindex(int16_t y) { return index[y]; }
 inline GraphicYtable *Vport::getYTable(void) { return &graphicYtable; }
 inline Point::Point(void) {}
@@ -36,18 +35,14 @@ inline Vport::Vport(void) { f_0f = 2; }
 inline Vport::~Vport(void) { free(); }
 inline void Vport::slam(Vport *v)
 {
-	SlamScreen(getSeg(), MK_FP(v->getSeg(), v->getYTable()->getindex(0)));
+	SlamScreen(mem, v->mem + v->getYTable()->index[0]);
 }
 
+// Borland's max() macro. With an unsigned operand the comparison was unsigned
+// (16-bit int), so the callers below cast the signed one for it.
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
 inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
-
-// Linear address of the selector behind a pointer.
-inline uint32_t selectorBase(void *p)
-{
-	return LocalDescriptorTable::table[FP_SEG(p) >> 3].getBase();
-}
 
 uint16_t invisible = 0;
 int32_t totalBytes = 0;
@@ -86,8 +81,8 @@ void reconstruct_skipdraw(Vport *vp, int16_t x, int16_t y, uint8_t *data, Vport 
 	int16_t flags;
 	uint8_t *src;
 	int16_t *header;
-	uint16_t refSeg;
-	uint16_t destSeg;
+	uint8_t *refMem;
+	uint8_t *destMem;
 	uint16_t refOff;
 	uint16_t destOff;
 
@@ -100,27 +95,30 @@ void reconstruct_skipdraw(Vport *vp, int16_t x, int16_t y, uint8_t *data, Vport 
 	right = left + header[0] - 1;
 	bottom = top + header[1] - 1;
 	vp->fill(left, top, right, bottom, 0xff);
-	refSeg = 0;
+	// The rows are addressed as the far pointers did: a 16-bit offset into the
+	// viewport's pixels, its row 0 offset plus 320 a row, set afresh (offset
+	// only) for every run. Without ref, refMem is null as the selector was 0.
+	refMem = 0;
 	refOff = 0;
 	if (ref)
-		refOff = FP_OFF(MK_FP(ref->seg, ref->graphicYtable.index[0]));
-	destOff = FP_OFF(MK_FP(vp->seg, vp->graphicYtable.index[0]));
+		refOff = ref->graphicYtable.index[0];
+	destOff = vp->graphicYtable.index[0];
 	if (ref)
-		refSeg = ref->seg;
-	destSeg = vp->seg;
+		refMem = ref->mem;
+	destMem = vp->mem;
 	if (flags & SKIP_RLE)
 		for (row = top; row <= bottom; row++)
 		{
 			uint16_t destRow;
 			uint16_t refRow;
-			uint8_t *dest;
-			uint8_t *refp;
+			uint16_t dest;
+			uint16_t refp;
 			char n;
 
 			destRow = row * 320 + destOff;
 			refRow = row * 320 + refOff;
-			dest = (uint8_t *)MK_FP(destSeg, destRow);
-			refp = (uint8_t *)MK_FP(refSeg, refRow);
+			dest = destRow;
+			refp = refRow;
 			col = left;
 			while (col <= right)
 			{
@@ -133,16 +131,16 @@ void reconstruct_skipdraw(Vport *vp, int16_t x, int16_t y, uint8_t *data, Vport 
 				{
 					count >>= 1;
 					color = *src++;
-					*(uint16_t *)&dest = destRow + col;
+					dest = destRow + col;
 					col += count;
 					while (count--)
-						*dest++ = color;
+						destMem[dest++] = color;
 					continue;
 				}
 				count >>= 1;
 				while (count--)
 				{
-					*(uint16_t *)&dest = destRow + col;
+					dest = destRow + col;
 					n = isEscapeByte[*src];
 					if (n)
 					{
@@ -151,14 +149,14 @@ void reconstruct_skipdraw(Vport *vp, int16_t x, int16_t y, uint8_t *data, Vport 
 							n = *++src;
 							count--;
 						}
-						*(uint16_t *)&refp = refRow + col;
+						refp = refRow + col;
 						col += n;
 						while (n--)
-							*dest++ = *refp++;
+							destMem[dest++] = refMem[refp++];
 					}
 					else
 					{
-						*dest++ = *src;
+						destMem[dest++] = *src;
 						col++;
 					}
 					src++;
@@ -170,14 +168,14 @@ void reconstruct_skipdraw(Vport *vp, int16_t x, int16_t y, uint8_t *data, Vport 
 		{
 			uint16_t destRow;
 			uint16_t refRow;
-			uint8_t *dest;
-			uint8_t *refp;
+			uint16_t dest;
+			uint16_t refp;
 			char n;
 
 			destRow = row * 320 + destOff;
 			refRow = row * 320 + refOff;
-			dest = (uint8_t *)MK_FP(destSeg, destRow);
-			refp = (uint8_t *)MK_FP(refSeg, refRow);
+			dest = destRow;
+			refp = refRow;
 			col = left;
 			while (col <= right)
 			{
@@ -188,7 +186,7 @@ void reconstruct_skipdraw(Vport *vp, int16_t x, int16_t y, uint8_t *data, Vport 
 				count = *src++;
 				while (count--)
 				{
-					*(uint16_t *)&dest = destRow + col;
+					dest = destRow + col;
 					n = isEscapeByte[*src];
 					if (n)
 					{
@@ -197,14 +195,14 @@ void reconstruct_skipdraw(Vport *vp, int16_t x, int16_t y, uint8_t *data, Vport 
 							n = *++src;
 							count--;
 						}
-						*(uint16_t *)&refp = refRow + col;
+						refp = refRow + col;
 						col += n;
 						while (n--)
-							*dest++ = *refp++;
+							destMem[dest++] = refMem[refp++];
 					}
 					else
 					{
-						*dest++ = *src;
+						destMem[dest++] = *src;
 						col++;
 					}
 					src++;
@@ -213,13 +211,13 @@ void reconstruct_skipdraw(Vport *vp, int16_t x, int16_t y, uint8_t *data, Vport 
 		}
 }
 
+// The offset counts from the start of the shape record (this); the record
+// may be larger than 64K, which is why the DOS code went through the linear
+// address of this and a selector made for the sum.
 uint8_t *SkipShape::getFrame(int16_t frame)
 {
-	uint32_t base = selectorBase(this) + FP_OFF(this);
 	int32_t offset = frames[frame].offset & 0x7fffffffL;
-	uint32_t address = base + offset;
-	uint8_t *p = (uint8_t *)makePtr(address);
-	return p;
+	return (uint8_t *)this + offset;
 }
 
 ZackFile::~ZackFile(void) { if (buffer) farfree(buffer); }
@@ -235,10 +233,7 @@ ZackFile::ZackFile(void)
 		buffer = (char *)farmalloc(bufferSize);
 		bufferSize -= 10000;
 	}
-	bufferBase = 0;
-	if (buffer)
-		bufferBase = selectorBase(buffer);
-	else
+	if (buffer == 0)
 		buffering = 0;
 }
 
@@ -284,6 +279,8 @@ int32_t ZackFile::read(char *data, int32_t count, int32_t pos)
 		halt(__FILE__, 373);	// __LINE__
 	else
 		return BaseFile::read(data, count, pos);
+	// Borland returned whatever was left in dx:ax; nothing reads it.
+	return 0;
 }
 
 int32_t ZackFile::write(char *data, int32_t count, int32_t pos)
@@ -292,11 +289,13 @@ int32_t ZackFile::write(char *data, int32_t count, int32_t pos)
 	{
 		if (bufferSize - used < count)
 			dumpIt();
-		memcpy(makePtr(bufferBase + used), data, count);
+		memcpy(buffer + used, data, count);
 		used += count;
 	}
 	else
 		return BaseFile::write(data, count, pos);
+	// Borland returned whatever memcpy left in dx:ax; nothing reads it.
+	return count;
 }
 
 void ZackFile::create(char *name, int16_t count)
@@ -343,9 +342,9 @@ void decompressShape(char *data, ZackFile &file, Vport &front, Vport &back, Vpor
 	{
 		SkipHeader *h = (SkipHeader *)shape->getFrame(frame);
 
-		maxWidth = max(maxWidth, max(h->width, h->xoff));
+		maxWidth = max((uint16_t)maxWidth, max(h->width, (uint16_t)h->xoff));
 		maxXoff = max(maxXoff, h->xoff);
-		maxHeight = max(maxHeight, max(h->height, h->yoff));
+		maxHeight = max((uint16_t)maxHeight, max(h->height, (uint16_t)h->yoff));
 		maxYoff = max(maxYoff, h->yoff);
 	}
 	originX = maxWidth > 150 ? maxXoff + 7 : 150;
@@ -432,7 +431,7 @@ void deskip(char *source, char *dest, char *)
 			"Une installation partielle a \202t\202 d\202c\202l\202e. Veuillez reinstaller.\r\n"
 			"Unvollst\204ndige Installation entdeckt. Bitte installieren Sie erneut.\r\n");
 		musicSlowStop();
-		Exit(0);
+		Exit((int16_t)0);
 	}
 	FlexFile in(source, ReadWrite, -1);
 	if (!in.is_valid())
@@ -475,7 +474,7 @@ void deskip(char *source, char *dest, char *)
 			newIndexes[i].size = end - start;
 			newIndexes[i].offset = start;
 			in.seek(indexes[i].offset);
-			in.setSize(tell(in.handle));
+			in.setSize(in.tell());	// tell(in.handle): BaseFile::tell asks the handle the same
 		}
 	}
 	farfree(shape);

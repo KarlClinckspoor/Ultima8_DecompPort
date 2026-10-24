@@ -3,7 +3,8 @@
 
 #include "u8port.h"
 
-extern "C" void mouseHook(void);
+// The mouse driver's event hook (NEWHOOK.ASM): events, buttons, x, y as int 33h gave them.
+void mouseHook(uint16_t, uint16_t, int16_t, int16_t);
 extern int16_t fakeStackOverflowFlag;
 
 class MouseDevice

@@ -10,7 +10,8 @@
 
 ShapeScanner::ShapeScanner(Vport &vport, int16_t x1, int16_t y1, int16_t x2, int16_t y2, int16_t color)
 {
-	pos = (uint8_t *)MK_FP(vport.seg, ((int16_t *)vport.graphicYtable.index)[y1] + x1);
+	// The offset of (x1, y1) in the viewport's block, 16 bits as in its segment.
+	pos = vport.mem + (uint16_t)(vport.graphicYtable.index[y1] + x1);
 	lineSkip = (vport.rect.f_04 - vport.rect.f_00 + 1) - (x2 - x1 + 1);
 	runLength = 0;
 	x = left = x1;
@@ -70,7 +71,9 @@ FastSkipMaker::FastSkipMaker(uint8_t *buffer, int16_t w, int16_t h, int16_t hotX
 		*rowOffset++ = hotY;
 		if (h)
 		{
-			*rowOffset++ = out - (uint8_t *)rowOffset;
+			// Row offsets count from the entry itself.
+			int16_t *entry = rowOffset++;
+			*entry = out - (uint8_t *)entry;
 		}
 	}
 	x = y = 0;
@@ -139,27 +142,29 @@ uint16_t FastSkipMaker::measure_skip(int16_t len)
 	return size;
 }
 
+// y, width and height are unsigned: Borland compared them with the int arguments unsigned,
+// and newY - y was an unsigned difference.
 uint16_t FastSkipMaker::measure_skip_to(int16_t newX, int16_t newY)
 {
 	uint16_t size = 0;
-	if (y < newY)
+	if (y < (uint16_t)newY)
 	{
 		if (x < width)
 		{
 			size += measure_skip(width - x);
 		}
 		x = 0;
-		while (y < newY)
+		while (y < (uint16_t)newY)
 		{
 			y++;
-			if (newY - y == 1)
+			if ((uint16_t)(newY - y) == 1)
 			{
 				size += measure_skip(width);
 				x = 0;
 			}
 		}
 	}
-	if (height > newY)
+	if (height > (uint16_t)newY)
 	{
 		size += measure_skip(newX - x);
 	}

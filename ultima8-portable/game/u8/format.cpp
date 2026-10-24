@@ -16,7 +16,7 @@ inline CacheFont::~CacheFont(void) {}
 
 // Text markup: '~' breaks the line, '*' breaks the page, '%' indents.
 // Lines end in '\n', pages in '\xff'.
-enum FormatState
+enum FormatState : int16_t
 {
 	FORMAT_DONE,
 	FORMAT_COPY,

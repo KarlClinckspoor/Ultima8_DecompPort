@@ -8,7 +8,7 @@
 
 class NewGump;
 
-enum EventType
+enum EventType : int16_t
 {
 	EventType_0,
 	EVENT_NONE,
@@ -104,7 +104,7 @@ public:
 	void moveto(int16_t, int16_t);
 	void popVisibility(void);
 	void attach(NewGump *);
-	static void *operator new(uint16_t);
+	static void *operator new(size_t);
 	static void operator delete(void *);
 	uint8_t isInvisible(void);
 	void makeInvisible(void);
@@ -119,13 +119,15 @@ public:
 	int16_t get_dy(void);
 	int16_t getRelX(Event &);
 	int16_t getRelY(Event &);
-	void registerHotKeys(...);
+	void registerHotKeys(int16_t, ...);
 	uint8_t searchHotKeys(Event &);
 	void restore(Rect);
 	void restore(void);
 	void setExclusive(NewGump *);
 	void clrExclusive(void);
 	void send(Event &);
+	// Borland let a temporary bind to Event &; callers pass them so.
+	void send(Event &&e) { send(e); }
 	void sendInFuture(Event &);
 	void badEvent(NewGump *, Event &);
 	void check(char *, int16_t);

@@ -20,15 +20,22 @@ struct ShapeHeader
 	int16_t numFrames;
 };
 
+// The frame's offset is three bytes, of which only the low word is read (an
+// int added to a far pointer, which wraps its 16-bit offset part at 64K). It is
+// unsigned here, so an offset of 32K or more still counts forwards, and the sum
+// wraps at 64K from the shape's start, as it did for a shape at offset 0 of its
+// segment. (The fonts' and gumps' frames are all within 32K.)
 struct FrameEntry
 {
-	int16_t offset;
+	uint16_t offset;
 	int16_t unused[2];
 };
 
+static_assert(sizeof(ShapeHeader) == 6 && sizeof(FrameEntry) == 6, "shape headers keep their DOS layout");
+
 // Each frame starts with eight bytes before its own header.
 #define FRAME_ADDRESS(shape, frame) \
-	((char *)(shape) + ((FrameEntry *)((char *)(shape) + sizeof(ShapeHeader)))[frame].offset + 8)
+	((char *)(shape) + (uint16_t)(((FrameEntry *)((char *)(shape) + sizeof(ShapeHeader)))[frame].offset + 8))
 
 int16_t GetMaxShapeWidth(void *shape)
 {

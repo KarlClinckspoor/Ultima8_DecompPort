@@ -109,6 +109,8 @@ int16_t Routine::interpret(int32_t &result)
 	Yamm::currentUnkPid = process->pid;
 	char *killed = process->killed;
 	ProcessSel sels[10];
+	int16_t finderSize;	// search start leaves finder for search next
+	ItemFinder *finder;
 	int16_t opcode;
 	int16_t done;
 
@@ -127,12 +129,12 @@ int16_t Routine::interpret(int32_t &result)
 			break;
 		case 0x5b:	// debug line
 			int16_t line;
-			line = *((int16_t *)ip)++;
+			line = readWord(ip);
 			if (debugger)
 				debugger->lineChange(line);
 			break;
 		case 0x5c:	// debug unit
-			w1 = *((int16_t *)ip)++;
+			w1 = readWord(ip);
 			if (debugger)
 				debugger->pushFile(ip, ip + w1, (char *)this + bp, 0);
 			if (unkDebug)
@@ -172,7 +174,7 @@ int16_t Routine::interpret(int32_t &result)
 			break;
 		case 0x4d:	// store pointer
 			w1 = *ip++;
-			s1 = (char *)popLong();
+			s1 = (char *)u8_ptr_from_far(popLong());
 			memcpy(s1, sp, w1);
 			reserve(-w1);
 			break;
@@ -183,10 +185,10 @@ int16_t Routine::interpret(int32_t &result)
 			pushWord(*ip++);
 			break;
 		case 0x0b:	// push u16
-			pushWord(*((int16_t *)ip)++);
+			pushWord(readWord(ip));
 			break;
 		case 0x0c:	// push u32
-			pushLong(*((int32_t *)ip)++);
+			pushLong(readLong(ip));
 			break;
 		case 0x3e:	// load local byte
 			pushWord(localByte(*ip++));
@@ -209,18 +211,18 @@ int16_t Routine::interpret(int32_t &result)
 			break;
 		case 0x4c:	// load pointer
 			w1 = *ip++;
-			s1 = (char *)popLong();
+			s1 = (char *)u8_ptr_from_far(popLong());
 			s2 = sp;
 			reserve(w1);
 			memcpy(s2 - w1, s1, w1);
 			break;
 		case 0x4e:	// load global
-			w1 = *((int16_t *)ip)++;
+			w1 = readWord(ip);
 			w2 = *ip++;
 			pushWord(GlobalFlag::get(w1, w2));
 			break;
 		case 0x4f:	// store global
-			w1 = *((int16_t *)ip)++;
+			w1 = readWord(ip);
 			w2 = *ip++;
 			GlobalFlag::set(w1, w2, popWord());
 			break;
@@ -264,41 +266,49 @@ int16_t Routine::interpret(int32_t &result)
 			}
 			else
 				reserve(w3);
-			YammList list(w2, w3, w4 & 1);
-			s2 = (char *)list[w1 - 1];
-			if (s2)
 			{
-				if (w4 & 1)
-					*(int16_t *)sp = Yamm::flimFlam(s2);
+				YammList list(w2, w3, w4 & 1);
+				s2 = (char *)list[w1 - 1];
+				if (s2)
+				{
+					if (w4 & 1)
+						*(int16_t *)sp = Yamm::flimFlam(s2);
+					else
+						memcpy(sp, s2, w3);
+				}
 				else
-					memcpy(sp, s2, w3);
+					memset(sp, 0, w3);
+				if (w4 & 2)
+					list.kill();
 			}
-			else
-				memset(sp, 0, w3);
-			if (w4 & 2)
-				list.kill();
 			break;
 		case 0x17:	// concat list
 			w2 = popWord();
 			w1 = popWord();
-			YammList first(w1, 0, 0);
-			YammList second(w2, 0, 0);
-			first += w2;
-			pushWord(first.list);
+			{
+				YammList first(w1, 0, 0);
+				YammList second(w2, 0, 0);
+				first += w2;
+				pushWord(first.list);
+			}
 			break;
 		case 0x66:	// free stack list
 			w1 = *ip++;
-			YammList stackList(*(int16_t *)(sp + w1), 0, 0);
-			stackList.kill();
+			{
+				YammList stackList(*(int16_t *)(sp + w1), 0, 0);
+				stackList.kill();
+			}
 			break;
 		case 0x38:	// list contains
 			w1 = *ip++;
 			w4 = *ip++;
 			w2 = popWord();
 			s1 = sp;
-			YammList searched(w2, w1, w4);
-			w3 = searched.in(s1);
-			searched.kill();
+			{
+				YammList searched(w2, w1, w4);
+				w3 = searched.in(s1);
+				searched.kill();
+			}
 			if (w4)
 				Yamm::scram(*(int16_t *)sp);
 			reserve(-w1);
@@ -309,8 +319,10 @@ int16_t Routine::interpret(int32_t &result)
 			w2 = *ip++;
 			w3 = *ip++;
 			w4 = *ip++;
-			YammList stored(*(int16_t *)((char *)this + bp + w2), w3, w4);
-			stored.setElement(w1, sp);
+			{
+				YammList stored(*(int16_t *)((char *)this + bp + w2), w3, w4);
+				stored.setElement(w1, sp);
+			}
 			break;
 		case 0x43:	// load local string list
 			w1 = *ip++;
@@ -330,22 +342,26 @@ int16_t Routine::interpret(int32_t &result)
 			w1 = *ip++;
 			w3 = popWord();
 			w2 = popWord();
-			YammList left(w2, w1, opcode == 0x19 || opcode == 0x1a);
-			YammList right(w3, w1, opcode == 0x19 || opcode == 0x1a);
-			if (opcode == 0x1a || opcode == 0x1b)
-				left -= right.list;
-			else
-				left ^= right.list;
-			pushWord(left.list);
-			right.kill();
+			{
+				YammList left(w2, w1, opcode == 0x19 || opcode == 0x1a);
+				YammList right(w3, w1, opcode == 0x19 || opcode == 0x1a);
+				if (opcode == 0x1a || opcode == 0x1b)
+					left -= right.list;
+				else
+					left ^= right.list;
+				pushWord(left.list);
+				right.kill();
+			}
 			break;
 		case 0x67:	// free stack string list
-			YammList stringList(stackWord(*ip++), 0, 1);
-			stringList.kill();
+			{
+				YammList stringList(stackWord(*ip++), 0, 1);
+				stringList.kill();
+			}
 			break;
 		case 0x0d:	// push string
 			int16_t length;
-			length = *((int16_t *)ip)++;
+			length = readWord(ip);
 			w1 = Yamm::flimFlam(length + 1);
 			if (!w1)
 				halt(__FILE__, 504);	// __LINE__
@@ -408,18 +424,18 @@ int16_t Routine::interpret(int32_t &result)
 			Yamm::scram(*(int16_t *)((char *)this + bp + w1));
 			break;
 		case 0x6a:	// pointer to string
-			s1 = (char *)popLong();
+			s1 = (char *)u8_ptr_from_far(popLong());
 			w2 = Yamm::flimFlam(s1);
 			pushWord(w2);
 			break;
 		case 0x6b:	// string to pointer
 			w1 = popWord();
 			s1 = Yamm::buffer + w1;
-			pushLong((int32_t)s1);
+			pushLong(u8_far_from_ptr(s1));
 			break;
 		case 0x69:	// string local to pointer
 			w1 = *ip++;
-			pushLong((int32_t)(Yamm::buffer + *(int16_t *)((char *)this + bp + w1)));
+			pushLong(u8_far_from_ptr(Yamm::buffer + *(int16_t *)((char *)this + bp + w1)));
 			break;
 		case 0x14:	// add word
 			pushWord(popWord() + popWord());
@@ -494,28 +510,28 @@ int16_t Routine::interpret(int32_t &result)
 			pushWord(popLong() != popLong());
 			break;
 		case 0x28:	// less word (operands come off the stack in reverse)
-			pushWord(popWord() > popWord());
+			{ int16_t first = popWord(); int16_t second = popWord(); pushWord(first > second); }
 			break;
 		case 0x29:	// less dword
-			pushWord(popLong() > popLong());
+			{ int32_t first = popLong(); int32_t second = popLong(); pushWord(first > second); }
 			break;
 		case 0x2a:	// less or equal word
-			pushWord(popWord() >= popWord());
+			{ int16_t first = popWord(); int16_t second = popWord(); pushWord(first >= second); }
 			break;
 		case 0x2b:	// less or equal dword
-			pushWord(popLong() >= popLong());
+			{ int32_t first = popLong(); int32_t second = popLong(); pushWord(first >= second); }
 			break;
 		case 0x2c:	// greater word
-			pushWord(popWord() < popWord());
+			{ int16_t first = popWord(); int16_t second = popWord(); pushWord(first < second); }
 			break;
 		case 0x2d:	// greater dword
-			pushWord(popLong() < popLong());
+			{ int32_t first = popLong(); int32_t second = popLong(); pushWord(first < second); }
 			break;
 		case 0x2e:	// greater or equal word
-			pushWord(popWord() <= popWord());
+			{ int16_t first = popWord(); int16_t second = popWord(); pushWord(first <= second); }
 			break;
 		case 0x2f:	// greater or equal dword
-			pushWord(popLong() <= popLong());
+			{ int32_t first = popLong(); int32_t second = popLong(); pushWord(first <= second); }
 			break;
 		case 0x32:	// and word
 			w1 = popWord();
@@ -550,10 +566,10 @@ int16_t Routine::interpret(int32_t &result)
 			pushWord(popWord() | popWord());
 			break;
 		case 0x3c:	// shift left word
-			pushWord(popWord() << popWord());
+			{ int16_t first = popWord(); int16_t second = popWord(); pushWord(first << second); }
 			break;
 		case 0x3d:	// shift right word
-			pushWord(popWord() >> popWord());
+			{ int16_t first = popWord(); int16_t second = popWord(); pushWord(first >> second); }
 			break;
 		case 0x3b:	// bit not word
 			pushWord(~popWord());
@@ -561,10 +577,10 @@ int16_t Routine::interpret(int32_t &result)
 		case 0x57:	// spawn
 			if (debugger)
 				debugger->stepDepth++;
-			s1 = (char *)popLong();
+			s1 = (char *)u8_ptr_from_far(popLong());
 			l1 = *ip++;
 			w1 = *ip++;
-			l2 = *((int32_t *)ip)++;
+			l2 = readLong(ip);
 			int16_t pushed;
 			Info saved;
 			pushed = 0;
@@ -598,12 +614,12 @@ int16_t Routine::interpret(int32_t &result)
 				temp = child->pid;
 			break;
 		case 0x58:	// spawn inline
-			w1 = *((int16_t *)ip)++;
-			w2 = *((int16_t *)ip)++;
-			w3 = *((int16_t *)ip)++;
+			w1 = readWord(ip);
+			w2 = readWord(ip);
+			w3 = readWord(ip);
 			w4 = *ip++;
 			w5 = *ip++;
-			child = new UnkProcess(0, *(void **)((char *)this + bp + 6), w4, w1, w2 + w3, 1, (char *)this + bp + 10, w5);
+			child = new UnkProcess(0, u8_ptr_from_far(u8_far_load((char *)this + bp + 6)), w4, w1, w2 + w3, 1, (char *)this + bp + 10, w5);
 			if (*killed)
 			{
 				delete killed;
@@ -684,15 +700,13 @@ int16_t Routine::interpret(int32_t &result)
 			break;
 		case 0x0f:	// call intrinsic
 			int16_t argBytes;
-			void *(*intrinsic)(void);
-			char *args;
 			argBytes = *ip++;
-			intrinsic = (void *(*)(void))resolve(*((uint16_t *)ip)++);
-			_SP -= argBytes;
-			args = (char *)MK_FP(_SS, _SP);
-			memcpy(args, sp, argBytes);
-			temp = (int32_t)intrinsic();
-			_SP += argBytes;
+			// DOS copied the arguments onto the CPU stack and called the C function at the
+			// address cTable gave; callIntrinsic does the same through the function's own
+			// argument types (see intrinsics.cpp). The result came back in DX:AX.
+			w1 = (uint16_t)readWord(ip);
+			resolve(w1);
+			temp = (int32_t)callIntrinsic(w1, sp, argBytes);
 			if (*killed)
 			{
 				delete killed;
@@ -704,7 +718,7 @@ int16_t Routine::interpret(int32_t &result)
 		case 0x11:	// call far
 			if (debugger)
 				debugger->stepDepth++;
-			l1 = *((int32_t *)ip)++;
+			l1 = readLong(ip);
 			pushPtr(ip);
 			if (opcode == 0x11)
 				jumpFar(l1);
@@ -738,7 +752,7 @@ int16_t Routine::interpret(int32_t &result)
 						debugger->popFile();
 					debugger->stepDepth--;
 				}
-				ip = (char *)l1;
+				ip = (char *)u8_ptr_from_far(l1);
 			}
 			break;
 		case 0x70:	// search start
@@ -748,65 +762,65 @@ int16_t Routine::interpret(int32_t &result)
 			w3 = popWord();
 			w4 = popWord();
 			memcpy(WorkString.string, sp, w2);
-			Item item(w3);
-			int16_t finderSize;
-			ItemFinder *finder;
-			switch (w5)
 			{
-			case 2:
-				finder = new AreaItemFinder(item.getX(), item.getY(), w4, WorkString.string, w2);
-				finderSize = sizeof(AreaItemFinder);
-				break;
-			case 3:
-				finder = new RecursiveAreaItemFinder(item.getX(), item.getY(), w4, WorkString.string, w2);
-				finderSize = sizeof(RecursiveAreaItemFinder);
-				break;
-			case 4:
-				finder = new ContainerItemFinder(w4, WorkString.string, w2);
-				finderSize = sizeof(ContainerItemFinder);
-				break;
-			case 5:
-				finder = new RecursiveContainerItemFinder(w4, WorkString.string, w2);
-				finderSize = sizeof(RecursiveContainerItemFinder);
-				break;
-			case 6:
+				Item item(w3);
+				switch (w5)
 				{
-					int16_t what;
-					 Referent surface;
+				case 2:
+					finder = new AreaItemFinder(item.getX(), item.getY(), w4, WorkString.string, w2);
+					finderSize = sizeof(AreaItemFinder);
+					break;
+				case 3:
+					finder = new RecursiveAreaItemFinder(item.getX(), item.getY(), w4, WorkString.string, w2);
+					finderSize = sizeof(RecursiveAreaItemFinder);
+					break;
+				case 4:
+					finder = new ContainerItemFinder(w4, WorkString.string, w2);
+					finderSize = sizeof(ContainerItemFinder);
+					break;
+				case 5:
+					finder = new RecursiveContainerItemFinder(w4, WorkString.string, w2);
+					finderSize = sizeof(RecursiveContainerItemFinder);
+					break;
+				case 6:
+					{
+						int16_t what;
+						 Referent surface;
 
-					if (w4 != -1 && w3 != -1)
-					{
-						what = 3;
-						surface = w4;
-					}
-					else
-					{
-						if (w4 != -1)
+						if (w4 != -1 && w3 != -1)
 						{
-							what = 2;
+							what = 3;
 							surface = w4;
 						}
-						if (w3 != -1)
+						else
 						{
-							what = 1;
-							surface = w3;
+							if (w4 != -1)
+							{
+								what = 2;
+								surface = w4;
+							}
+							if (w3 != -1)
+							{
+								what = 1;
+								surface = w3;
+							}
 						}
+						finder = new SurfaceItemFinder(surface, WorkString.string, w2, what);
+						finderSize = sizeof(SurfaceItemFinder);
 					}
-					finder = new SurfaceItemFinder(surface, WorkString.string, w2, what);
-					finderSize = sizeof(SurfaceItemFinder);
 				}
+				if (!finder)
+					outOfMemory(__FILE__, 1113);	// __LINE__
+				reserve(finderSize - w2);
+				memcpy(sp, finder, finderSize);
+				pushWord(w1);
+				w4 = finder->referent;
+				*(int16_t *)((char *)this + bp + w1) = w4;
+				if (w4)
+					((ItemFinder *)(sp + 2))->findNext();
+				pushWord(w4);
+				delete finder;
 			}
-			if (!finder)
-				outOfMemory(__FILE__, 1113);	// __LINE__
-			reserve(finderSize - w2);
-			memcpy(sp, finder, finderSize);
-			pushWord(w1);
-			w4 = finder->referent;
-			*(int16_t *)((char *)this + bp + w1) = w4;
-			if (w4)
-				((ItemFinder *)(sp + 2))->findNext();
-			pushWord(w4);
-			delete finder;
 			break;
 		case 0x73:	// search next
 			finder = (ItemFinder *)(sp + 2);
@@ -821,7 +835,7 @@ int16_t Routine::interpret(int32_t &result)
 		case 0x76:	// iterate string list
 			w2 = *ip++;
 			w3 = *ip++;
-			w4 = *((int16_t *)ip)++;
+			w4 = readWord(ip);
 			w1 = *(int16_t *)sp;
 			if (w1 == -1)
 				w1 = ((int16_t *)sp)[1];
@@ -847,12 +861,12 @@ int16_t Routine::interpret(int32_t &result)
 			break;
 		case 0x51:	// branch false
 			l1 = popWord();
-			w1 = *((int16_t *)ip)++;
+			w1 = readWord(ip);
 			if (l1 == 0)
 				jump(w1);
 			break;
 		case 0x52:	// branch
-			jump(*((int16_t *)ip)++);
+			jump(readWord(ip));
 			break;
 		case 0x60:	// word to dword
 			pushLong(popWord());

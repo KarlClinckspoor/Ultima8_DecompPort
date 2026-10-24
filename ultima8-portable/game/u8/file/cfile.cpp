@@ -9,7 +9,7 @@
 #include <string.h>
 // #include <sys\stat.h>  (DOS only)
 #include "cfile.h"
-#include "cdesc.h"
+#include "plat.h"
 #include "cexit.h"
 #include "system.h"
 
@@ -134,7 +134,7 @@ void BaseFile::remove(void)
 {
 	if (is_valid())
 		close();
-	if (::remove(filename))
+	if (u8_unlink(filename))
 		fileError(FILE_REMOVE_FAILED);
 }
 
@@ -213,33 +213,14 @@ int32_t BaseFile::seek(int32_t offset, SeekMode from)
 	return pos;
 }
 
-// Reads count bytes at pos (-1: the current position). Buffers over 64K
-// are read in pieces through the descriptor's linear address.
+// Reads count bytes at pos (-1: the current position). DOS read buffers over 64K in pieces
+// through the descriptor's linear address; the host reads them whole.
 int32_t BaseFile::read(char *buffer, int32_t count, int32_t pos)
 {
 	int32_t total = -1;
 
 	if (is_valid())
-	{
-		if (count > 0xffffL)
-		{
-			total = 0;
-			uint32_t address = LocalDescriptorTable::table[FP_SEG(buffer) >> 3].getBase();
-			int32_t left = count;
-			while (left != 0)
-			{
-				char *piece = (char *)makePtr(address);
-				int32_t length = left > 0xffdcL ? 0xffdcL : left;
-				total += ReadFile(handle, pos, length, piece);
-				address += length;
-				if (pos != -1)
-					pos += length;
-				left -= length;
-			}
-		}
-		else
-			total = ReadFile(handle, pos, count, buffer);
-	}
+		total = ReadFile(handle, pos, count, buffer);
 	else
 		fileError(FILE_READ_FAILED);
 	if (fileerr)
@@ -279,25 +260,15 @@ int32_t BaseFile::write(char *buffer, int32_t count, int32_t pos)
 
 	if (is_valid())
 	{
-		if (count > 0xffffL)
+		// DOS wrote buffers over 64K in pieces and returned -1 for them, whatever happened.
+		WriteFile(handle, pos, count, buffer);
+		if (count <= 0xffffL)
 		{
-			uint32_t address = LocalDescriptorTable::table[FP_SEG(buffer) >> 3].getBase();
-			int32_t left = count;
-			while (left != 0)
-			{
-				char *piece = (char *)makePtr(address);
-				int32_t length = left > 0xffdcL ? 0xffdcL : left;
-				WriteFile(handle, pos, length, piece);
-				address += length;
-				if (pos != -1)
-					pos += length;
-				left -= length;
-			}
+			if (fileerr == 0)
+				total = count;
+			else
+				fileError(FILE_WRITE_FAILED);
 		}
-		else if (WriteFile(handle, pos, count, buffer))
-			total = count;
-		else
-			fileError(FILE_WRITE_FAILED);
 	}
 	else
 		fileError(FILE_WRITE_FAILED);
@@ -321,77 +292,44 @@ int32_t BaseFile::size(void)
 	return length;
 }
 
+// The DOS build returned the low 16 bits of the file's access time.
 int32_t BaseFile::getTime(void)
 {
 	uint16_t time = 0;
 
 	if (is_valid())
-	{
-		struct stat info;
-		if (fstat(handle, &info))
-			fileError(FILE_STAT_FAILED);
-		time = info.st_atime;
-	}
+		time = (uint16_t)plat_file_handle_time(handle);
 	else
 		fileError(FILE_STAT_FAILED);
 	return time;
 }
 
+// The host's files are all readable and writable by the game; DOS's stat gave the same.
 char BaseFile::readable(void)
 {
-	char result = 0;
-
-	if (is_valid())
-	{
-		struct stat info;
-		if (fstat(handle, &info))
-			fileError(FILE_STAT_FAILED);
-		result = (info.st_mode & S_IREAD) == S_IREAD;
-	}
-	else
+	if (!is_valid())
 		fileError(FILE_STAT_FAILED);
-	return result;
+	return 1;
 }
 
 char BaseFile::writeable(void)
 {
-	char result = 0;
-
-	if (is_valid())
-	{
-		struct stat info;
-		if (fstat(handle, &info))
-			fileError(FILE_STAT_FAILED);
-		result = (info.st_mode & S_IWRITE) == S_IWRITE;
-	}
-	else
+	if (!is_valid())
 		fileError(FILE_STAT_FAILED);
-	return result;
+	return 1;
 }
 
 char BaseFile::executable(void)
 {
-	char result = 0;
-
-	if (is_valid())
-	{
-		struct stat info;
-		if (fstat(handle, &info))
-			fileError(FILE_STAT_FAILED);
-		result = (info.st_mode & S_IEXEC) == S_IEXEC;
-	}
-	else
+	if (!is_valid())
 		fileError(FILE_STAT_FAILED);
-	return result;
+	return 1;
 }
 
-// DOS commit file; carry set on failure.
+// DOS commit file. The platform writes through at once.
 int16_t BaseFile::flush(void)
 {
-	_AH = 0x68;
-	_BX = handle;
-	geninterrupt(0x21);
-	return !(_FLAGS & 1);
+	return is_valid();
 }
 
 int32_t BaseFile::tell(void)
@@ -457,7 +395,27 @@ void BaseFile::setSize(int32_t size)
 {
 	if (!is_valid())
 		fileError(FILE_WRONG_STATE);
-	if (chsize(handle, size))
+	// chsize: cut the file, or grow it with zeros, keeping the position.
+	int32_t pos = SeekFile(handle, 0, FromCurrent);
+	int32_t length = SeekFile(handle, 0, FromEnd);
+	uint8_t ok = 1;
+	if (size < length)
+	{
+		SeekFile(handle, size, FromStart);
+		ok = (uint8_t)plat_file_truncate(handle);
+	}
+	else if (size > length)
+	{
+		static const char zeros[512] = {0};
+		while (length < size && ok)
+		{
+			int32_t n = size - length > 512 ? 512 : size - length;
+			ok = plat_file_write(handle, zeros, n) == n;
+			length += n;
+		}
+	}
+	SeekFile(handle, pos, FromStart);
+	if (!ok)
 		fileError(FILE_RESIZE_FAILED);
 }
 

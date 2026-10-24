@@ -31,7 +31,7 @@ void MonsterEgg::hatch(void)
 	if (npc.create(shape, 0))
 	{
 		npc.pop(x, y, z);
-		npc.cSetActivity(getActivity());
+		npc.cSetActivity((Activity)getActivity());
 		npc.setStatus(npc.getStatus() | 0x80);
 	}
 	// Place the rest on the first free spot of a 4x4 grid around the egg.
@@ -47,7 +47,7 @@ void MonsterEgg::hatch(void)
 					if (npc.create(shape, 0))
 					{
 						npc.pop(nx, ny, z);
-						npc.cSetActivity(getActivity());
+						npc.cSetActivity((Activity)getActivity());
 						npc.setStatus(npc.getStatus() | 0x80);
 						k = 4;
 						j = 4;

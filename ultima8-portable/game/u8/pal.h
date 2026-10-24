@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "flex.h"
 #include "cpalette.h"
 #include "mlist.h"
@@ -11,7 +11,7 @@
 class BaseFile;
 
 // Palette transforms; FadeProcess also takes PALETTE_CURRENT.
-enum PaletteNum
+enum PaletteNum : int16_t
 {
 	PALETTE_NORMAL,
 	PALETTE_GREYSCALE,

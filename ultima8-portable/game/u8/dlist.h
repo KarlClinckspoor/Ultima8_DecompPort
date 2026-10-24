@@ -7,8 +7,9 @@
 #include "cvport.h"
 
 // The display list orders what is on screen so that each thing is drawn
-// after everything it covers. Nodes and edges live in segments of their own
-// and are passed around as offsets:
+// after everything it covers. Nodes and edges live in blocks of their own
+// (DisplayListNode::buffer, DisplayListEdge::buffer) and are passed around as
+// 16-bit names, 0 meaning none:
 //
 //   upper node --below--> edge --lower--> lower node
 //   lower node --above--> edge --upper--> upper node
@@ -19,8 +20,16 @@
 class DisplayListNode;
 class DisplayListEdge;
 
-#define NODE(n)	((DisplayListNode *)MK_FP(DisplayListNodeSeg, n))
-#define EDGE(e)	((DisplayListEdge *)MK_FP(DisplayListEdgeSeg, e))
+// On DOS a name was the node's offset in its segment. A node now takes more
+// room (the vtable pointer is 8 bytes), and 1500 of them no longer fit in
+// 64K, so a name is the number of the node's slot in its block, and likewise
+// for edges: NODE(n) is buffer + n * slot size. Slot 0 is never handed out,
+// as offset 0 was not. NODE_OFF/EDGE_OFF give a pointer's name back (0 for a
+// null pointer), as FP_OFF did.
+#define NODE(n)	((DisplayListNode *)(DisplayListNode::buffer + (size_t)(uint16_t)(n) * DisplayListNode::slot))
+#define EDGE(e)	((DisplayListEdge *)(DisplayListEdge::buffer + (size_t)(uint16_t)(e) * sizeof(DisplayListEdge)))
+#define NODE_OFF(p)	dlNodeName(p)
+#define EDGE_OFF(p)	dlEdgeName(p)
 
 #define NUM_NODES	1500
 #define NUM_EDGES	4000
@@ -50,16 +59,16 @@ public:
 	ScreenArea(int16_t x, int16_t y) { left = x; top = y; right = x; bottom = y; }
 	ScreenArea(int16_t l, int16_t t, int16_t r, int16_t b) { left = l; top = t; right = r; bottom = b; }
 	ScreenArea(Rect &r) { left = r.f_00; top = r.f_02; right = r.f_04; bottom = r.f_06; }
-	uint8_t intersects(ScreenArea &a)
+	uint8_t intersects(const ScreenArea &a) const
 	{
 		return left <= a.right && top <= a.bottom && right >= a.left && bottom >= a.top;
 	}
-	uint8_t contains(ScreenArea &a)
+	uint8_t contains(const ScreenArea &a) const
 	{
 		return left <= a.left && top <= a.top && right >= a.right && bottom >= a.bottom;
 	}
-	void intersect(ScreenArea &);
-	void include(ScreenArea &);
+	void intersect(const ScreenArea &);
+	void include(const ScreenArea &);
 };
 
 class DisplayListNode
@@ -82,14 +91,16 @@ public:
 	virtual void cleanup(void) {}
 	virtual uint8_t isTranslucent(void) { return 0; }
 	uint8_t waiting(void) { return flags & DLN_WAITING; }
-	static void *operator new(uint16_t);
+	// Hands out a slot of buffer, or 0 when none is free (then no constructor runs).
+	static void *operator new(size_t) noexcept;
 	static void operator delete(void *);
 	static void init(void);
 	static void uninit(void);
 	void link(uint16_t, uint16_t);
 	void unlink(void);
 	static uint16_t freelist;
-	static char *buffer;
+	static char *buffer;		// NUM_NODES slots
+	static const size_t slot;	// bytes per slot: sizeof(DL_ItemNode), the largest node, rounded up to pointer alignment
 	static uint16_t freecount;
 };
 
@@ -130,8 +141,8 @@ public:
 	static void draw(void);
 	static void checkNewItems(void);
 	static uint8_t sort(uint16_t);
-	static void stopAnimating(uint16_t r) { animatingitem[r >> 5] &= ~(1L << (r & 31)); }
-	static void clearNew(uint16_t r) { newitem[r >> 5] &= ~(1L << (r & 31)); }
+	static void stopAnimating(uint16_t r) { animatingitem[r >> 5] &= ~((uint32_t)1 << (r & 31)); }
+	static void clearNew(uint16_t r) { newitem[r >> 5] &= ~((uint32_t)1 << (r & 31)); }
 	static uint8_t animating;
 	static int32_t lasttime;
 	static uint32_t *animatingitem;	// one bit per item
@@ -156,13 +167,14 @@ public:
 	uint16_t prevBelow;
 
 	DisplayListEdge(uint16_t, uint16_t);
-	static void *operator new(uint16_t);
+	// Hands out a slot of buffer, or 0 when none is free (then no constructor runs).
+	static void *operator new(size_t) noexcept;
 	static void operator delete(void *);
 	static void init(void);
 	static void uninit(void);
 	void unlink(void);
 	static uint16_t freelist;
-	static char *buffer;
+	static char *buffer;		// NUM_EDGES slots of sizeof(DisplayListEdge)
 	static uint16_t freecount;
 };
 
@@ -174,12 +186,20 @@ public:
 	virtual int16_t compare(uint16_t) { return 0; }
 };
 
+inline uint16_t dlNodeName(const void *p)
+{
+	return p ? (uint16_t)(((const char *)p - DisplayListNode::buffer) / DisplayListNode::slot) : 0;
+}
+
+inline uint16_t dlEdgeName(const void *p)
+{
+	return p ? (uint16_t)(((const char *)p - DisplayListEdge::buffer) / sizeof(DisplayListEdge)) : 0;
+}
+
 void initDisplayList(void);
 void uninitDisplayList(void);
 
 extern ScreenArea FullScreenArea;
-extern uint16_t DisplayListNodeSeg;
-extern uint16_t DisplayListEdgeSeg;
 extern int16_t ShadowSquareLC;
 extern int16_t ShadowSquareTC;
 extern uint16_t ShadowSquare[SQUARE_ROWS][SQUARE_COLS];

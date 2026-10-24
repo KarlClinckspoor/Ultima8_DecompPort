@@ -8,17 +8,19 @@
 // #include <mem.h>  (DOS only)
 #include <stdarg.h>
 // #include <alloc.h>  (DOS only)
-#include "process.h"
+#include "u8process.h"
 #include "kernel.h"
 #include "chargen.h"
 #include "error.h"
-#include "stdint.h"
+#include "u8stdint.h"
 #include "systimer.h"
 #include "biostime.h"
 #include "filespec.h"
 #include "flex.h"
 #include "cglobvp.h"
-#include "spanker.h"
+#include "interupt.h"
+#include "procsave.h"
+#include "plat.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -30,7 +32,7 @@ inline SharedFile::SharedFile(void) {}
 inline FlexFile::FlexFile(void) {}
 inline Index::Index(void) { size = 0; offset = 0; }
 
-extern "C" void PutPixel(Vport *, int16_t, int16_t, int16_t);
+void PutPixel(Vport *, int16_t, int16_t, int16_t);
 extern CharacterGenerator charGen;
 
 Process **Kernel::processList = 0;
@@ -90,11 +92,14 @@ uint8_t Kernel::wantRealTime = 0;
 uint8_t Kernel::reentrancyFlag = 0;
 uint8_t Kernel::reentrantException = 0;
 uint8_t Kernel::processBlank = 0;
-uint8_t *Kernel::inDosPtr = 0;
-PIHANDLER Kernel::origProt = 0;
+// DOS's InDOS flag, which kept real-time processes out of DOS calls. The host has no DOS
+// to interrupt.
+static uint8_t notInDos = 0;
+uint8_t *Kernel::inDosPtr = &notInDos;
+void *Kernel::origProt = 0;
 uint32_t Kernel::origReal = 0;
-REGS_BINT *Kernel::borlandInterruptRegsPtr = 0;
-REGS_BINT *Kernel::borlandExceptionRegsPtr = 0;
+void *Kernel::borlandInterruptRegsPtr = 0;
+void *Kernel::borlandExceptionRegsPtr = 0;
 uint8_t *Kernel::quickRefProcessArray = 0;
 uint8_t *Kernel::quickProcessTypeArray = 0;
 uint32_t *Kernel::accumulatorTable = 0;
@@ -111,43 +116,17 @@ void uninitKernel(void)
 	Kernel::uninit();
 }
 
+// The DOS build also took real-mode stacks for its interrupt handlers here and found DOS's
+// InDOS flag; the host runs real-time processes on the game thread (see pitTick).
 void Kernel::init(void)
 {
-	uint16_t es;
-	uint16_t bx;
-	uint16_t para;
-	uint16_t sel;
-	uint32_t linear;
-	uint16_t seg;
-	uint16_t offset;
 	BiosTimer *timer;
-	REGS16 regs;
 
 	if (initialized)
 		halt(__FILE__, 261);	// __LINE__
 	initialized = 1;
 	initMemory();
 	hertz = 0;
-	if (DosAllocRealSeg(interruptStackSize, &para, &sel))
-		halt(__FILE__, 283);	// __LINE__
-	interruptStackSegment = sel;
-	if (DosAllocRealSeg(exceptionStackSize, &para, &sel))
-		halt(__FILE__, 288);	// __LINE__
-	exceptionStackSegment = sel;
-
-	// Find DOS's InDOS flag.
-	memset(&regs, 0, sizeof(regs));
-	regs.ax = 0x3400;
-	DosRealIntr(0x21, &regs, 0L, 0);
-	asm sti
-	es = regs.es;
-	bx = regs.bx;
-	linear = (es << 4) + bx;
-	offset = linear & 0xf;
-	seg = linear >> 4;
-	DosMapRealSeg(seg, 16L, &sel);
-	inDosPtr = (uint8_t *)MK_FP(sel, offset);
-
 	disableInterrupt(0);
 	seizeRealTimeVector();
 	stdIntHandler = new StdIntHandler;
@@ -183,12 +162,8 @@ void Kernel::doProcesses(void)
 {
 	Process *p;
 	uint8_t priority;
-	int16_t size;
-	REGS_BINT regs;
 
 	processing = 1;
-	memset(&regs, 0, sizeof(regs));
-	size = sizeof(regs);
 	for (currentProcess = 0; currentProcess < maxProcesses; currentProcess++) {
 		p = processList[currentProcess];
 		if (isProcess(p)) {
@@ -208,16 +183,12 @@ void Kernel::doProcesses(void)
 				}
 			}
 		}
+		// The timer may be due; on DOS it interrupted wherever the program was.
+		plat_pump();
 		if (interruptPending && realTimeEnabled) {
-			asm pushf
-			asm cli
-			asm xor ax, ax
-			asm mov es, ax
 			processBlank = 1;
-			realTimeInterruptHandler(regs);
-			asm add sp, size
+			realTimeInterruptHandler();
 			processBlank = 0;
-			asm popf
 		}
 		freePhantoms();
 		if (abortDoProcesses) {
@@ -294,8 +265,6 @@ void Kernel::reconfigureShrink(uint16_t newMax)
 	oldList = processList;
 	oldSize = processSize;
 	oldIds = idStringList;
-	asm pushf
-	asm cli
 	processList = newList;
 	processSize = newSize;
 	idStringList = newIds;
@@ -304,10 +273,9 @@ void Kernel::reconfigureShrink(uint16_t newMax)
 		reconfigureCounter = 150;
 	else
 		reconfigureCounter = 0xffff;
-	asm popf
-	delete oldList;
-	delete oldSize;
-	delete oldIds;
+	delete[] oldList;
+	delete[] oldSize;
+	delete[] oldIds;
 }
 
 uint8_t Kernel::reconfigureExpand(void)
@@ -344,17 +312,14 @@ uint8_t Kernel::reconfigureExpand(void)
 	oldList = processList;
 	oldSize = processSize;
 	oldIds = idStringList;
-	asm pushf
-	asm cli
 	processList = newList;
 	processSize = newSize;
 	idStringList = newIds;
 	maxProcesses += 30;
 	reconfigureCounter = 150;
-	asm popf
-	delete oldList;
-	delete oldSize;
-	delete oldIds;
+	delete[] oldList;
+	delete[] oldSize;
+	delete[] oldIds;
 	return 1;
 }
 
@@ -857,44 +822,160 @@ void Kernel::freeMemory(void)
 	freeProcesses();
 	freeDaemons();
 	freePhantoms();
-	free(processList);
-	free(processSize);
-	free(priorityCount);
+	delete[] processList;
+	delete[] processSize;
+	delete[] priorityCount;
 	processList = 0;
 	processSize = 0;
 	priorityCount = 0;
 	if (realTimeList.isAllocated())
 		realTimeList.clear();
-	free(quickRefProcessArray);
+	delete[] quickRefProcessArray;
 	quickRefProcessArray = 0;
-	free(quickProcessTypeArray);
+	delete[] quickProcessTypeArray;
 	quickProcessTypeArray = 0;
-	free(accumulatorTable);
+	delete[] accumulatorTable;
 	accumulatorTable = 0;
-	free(idStringList);
+	delete[] idStringList;
 	idStringList = 0;
 }
 
+// The kernel's statics as the DOS build saved them: the 157 bytes of its data segment from
+// processList to magicNumberEnd, at their DOS offsets. Pointers (stale on loading anyway,
+// and reallocated by initMemory) and realTimeList (saved in a record of its own) are zero.
+#define STATICS_SIZE 157
+
+static void putWord(uint8_t *p, uint16_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+static void putLong(uint8_t *p, uint32_t v) { putWord(p, (uint16_t)v); putWord(p + 2, (uint16_t)(v >> 16)); }
+static uint16_t getWord(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
+static uint32_t getLong(const uint8_t *p) { return getWord(p) | (uint32_t)getWord(p + 2) << 16; }
+
+void Kernel::packStatics(uint8_t *b)
+{
+	memset(b, 0, STATICS_SIZE);
+	putWord(b + 0x08, reconfigureCounter);
+	putWord(b + 0x0a, currentScanSlot);
+	putWord(b + 0x0c, currentLinearScanPid);
+	putWord(b + 0x0e, maxProcesses);
+	putWord(b + 0x10, totalProcesses);
+	putWord(b + 0x12, currentProcess);
+	putWord(b + 0x14, currentProcessSize);
+	b[0x16] = expandOnDemand;
+	b[0x17] = processing;
+	b[0x18] = initialized;
+	b[0x19] = keyboardVectorChanged[0];
+	b[0x1a] = keyboardBufferOverflow[0];
+	b[0x1b] = restarting;
+	putWord(b + 0x1c, numPhantoms);
+	putWord(b + 0x1e, searchingRef);
+	putWord(b + 0x20, searchingProcessType);
+	memcpy(b + 0x22, keyboardBufferHead, 2);
+	memcpy(b + 0x24, keyboardBufferTail, 2);
+	putLong(b + 0x2a, theCurrentTick);
+	b[0x2e] = currentPriority;
+	b[0x2f] = abortDoProcesses;
+	putWord(b + 0x30, currentPolledIntPid);
+	memcpy(b + 0x32, origKeyboardProt, 4);
+	memcpy(b + 0x36, origKeyboardReal, 4);
+	putWord(b + 0x3e, pitDivisor);
+	putLong(b + 0x40, pitPeriod);
+	b[0x53] = interruptDebug;
+	putWord(b + 0x54, hertz);
+	putWord(b + 0x56, totalSafe);
+	putWord(b + 0x58, totalNonSafe);
+	putWord(b + 0x5e, interruptStackSize);
+	putWord(b + 0x64, exceptionStackSize);
+	putWord(b + 0x6e, currentInterruptPid);
+	putWord(b + 0x70, currentExceptionPid);
+	b[0x72] = inInterrupt;
+	b[0x73] = interruptPending;
+	b[0x74] = easyAtomicFlag;
+	b[0x75] = intStatusChanged;
+	b[0x76] = realTimeEnabled;
+	b[0x77] = timerVectorChanged;
+	b[0x78] = wantRealTime;
+	b[0x79] = reentrancyFlag;
+	b[0x7a] = reentrantException;
+	b[0x7b] = processBlank;
+	putLong(b + 0x84, origReal);
+	b[0x9c] = magicNumberEnd;
+}
+
+void Kernel::unpackStatics(const uint8_t *b)
+{
+	reconfigureCounter = getWord(b + 0x08);
+	currentScanSlot = getWord(b + 0x0a);
+	currentLinearScanPid = getWord(b + 0x0c);
+	maxProcesses = getWord(b + 0x0e);
+	totalProcesses = getWord(b + 0x10);
+	currentProcess = getWord(b + 0x12);
+	currentProcessSize = getWord(b + 0x14);
+	expandOnDemand = b[0x16];
+	processing = b[0x17];
+	initialized = b[0x18];
+	keyboardVectorChanged[0] = b[0x19];
+	keyboardBufferOverflow[0] = b[0x1a];
+	restarting = b[0x1b];
+	numPhantoms = getWord(b + 0x1c);
+	searchingRef = getWord(b + 0x1e);
+	searchingProcessType = getWord(b + 0x20);
+	memcpy(keyboardBufferHead, b + 0x22, 2);
+	memcpy(keyboardBufferTail, b + 0x24, 2);
+	theCurrentTick = getLong(b + 0x2a);
+	currentPriority = b[0x2e];
+	abortDoProcesses = b[0x2f];
+	currentPolledIntPid = getWord(b + 0x30);
+	memcpy(origKeyboardProt, b + 0x32, 4);
+	memcpy(origKeyboardReal, b + 0x36, 4);
+	pitDivisor = getWord(b + 0x3e);
+	pitPeriod = getLong(b + 0x40);
+	interruptDebug = b[0x53];
+	hertz = getWord(b + 0x54);
+	totalSafe = getWord(b + 0x56);
+	totalNonSafe = getWord(b + 0x58);
+	interruptStackSize = getWord(b + 0x5e);
+	exceptionStackSize = getWord(b + 0x64);
+	currentInterruptPid = getWord(b + 0x6e);
+	currentExceptionPid = getWord(b + 0x70);
+	inInterrupt = b[0x72];
+	interruptPending = b[0x73];
+	easyAtomicFlag = b[0x74];
+	intStatusChanged = b[0x75];
+	realTimeEnabled = b[0x76];
+	timerVectorChanged = b[0x77];
+	wantRealTime = b[0x78];
+	reentrancyFlag = b[0x79];
+	reentrantException = b[0x7a];
+	processBlank = b[0x7b];
+	magicNumberEnd = b[0x9c];
+}
+
+// kernel.dat, a flex file:
+//   record 0      "Defines=... Id=..." text
+//   record 1      the kernel's statics (see packStatics)
+//   record 2      realTimeList
+//   records 3-7   processSize, quickRefProcessArray, quickProcessTypeArray, priorityCount,
+//                 idStringList
+//   from 10       two per process slot: the process object, then what its save() wrote
+// The DOS build saved each process object as its bytes, vtable pointer and all; a near
+// vtable pointer was the same in every run of U8.EXE. On the host each object record starts
+// with its class's name, and loading rebuilds the object through that class's copy
+// constructor (game/u8/procreg.cpp), which sets its vtable pointers and its members'.
+// idStringList held DGROUP offsets; it holds offsets into the program's image now.
 void Kernel::load(char *name)
 {
 	uint16_t i;
 	int16_t record = 0;
-	uint16_t offset;
 	Process *p;
 	FileSpec spec("", name, "kernel", "dat");
 
 	if (inInterrupt || !initialized)
 		halt(__FILE__, 1770);	// __LINE__
 	if (spec.exists()) {
-		uint8_t *savedInDos;
-		uint16_t savedIntSeg;
-		uint16_t savedIntOff;
-		uint16_t savedExcSeg;
-		uint16_t savedExcOff;
-		PIHANDLER savedProt;
-		uint32_t savedReal;
 		Process *timer;
 		uint8_t found;
+		uint8_t statics[STATICS_SIZE];
+		Index index;
 
 		disableRealTimeInterrupts();
 		setPitDivisor(0);
@@ -904,23 +985,10 @@ void Kernel::load(char *name)
 		FlexFile file(spec, ReadOnly, -1);
 		record++;
 
-		// The kernel's statics come back in one record; keep what belongs
-		// to this session.
-		savedInDos = inDosPtr;
-		savedIntSeg = interruptStackSegment;
-		savedIntOff = interruptStackOffset;
-		savedExcSeg = exceptionStackSegment;
-		savedExcOff = exceptionStackOffset;
-		savedProt = origProt;
-		savedReal = origReal;
-		file.readRecord(record++, &processList);
-		inDosPtr = savedInDos;
-		interruptStackSegment = savedIntSeg;
-		interruptStackOffset = savedIntOff;
-		exceptionStackSegment = savedExcSeg;
-		exceptionStackOffset = savedExcOff;
-		origProt = savedProt;
-		origReal = savedReal;
+		// The kernel's statics come back in one record; the stacks, InDOS flag and timer
+		// vectors of this session (gone on the host) are not among them.
+		file.readRecord(record++, statics);
+		unpackStatics(statics);
 
 		initMemory();
 		file.seekRecord(record++);
@@ -929,11 +997,12 @@ void Kernel::load(char *name)
 		file.readRecord(record++, quickRefProcessArray);
 		file.readRecord(record++, quickProcessTypeArray);
 		file.readRecord(record++, priorityCount);
-		file.readRecord(record++, idStringList);
-		for (i = 0; i < maxProcesses; i++) {
-			offset = FP_OFF(idStringList[i]);
-			if (offset)
-				idStringList[i] = (char *)MK_FP(_DS, offset);
+		{
+			uint32_t *offsets = new uint32_t[maxProcesses];
+			file.readRecord(record++, offsets);
+			for (i = 0; i < maxProcesses; i++)
+				idStringList[i] = (char *)ImageAddress(offsets[i]);
+			delete[] offsets;
 		}
 
 		record = 10;
@@ -942,11 +1011,15 @@ void Kernel::load(char *name)
 				record += 2;
 				continue;
 			}
-			processList[i] = (Process *)operator new(processSize[i]);
-			p = processList[i];
+			file.getIndex(record, index);
+			char *saved = new char[index.size];
+			file.readRecord(record++, saved);
+			p = RestoreProcess(saved, index.size);
+			delete[] saved;
 			if (!p)
 				halt(__FILE__, 1930);	// __LINE__
-			file.readRecord(record++, p, processSize[i]);
+			processList[i] = p;
+			processSize[i] = ProcessClassSize(p);
 			file.seekRecord(record++);
 			p->load(&file);
 		}
@@ -1020,7 +1093,11 @@ void Kernel::save(char *name)
 	sprintf(buffer, "Defines=%x Id=%s", defines, id);
 	file.writeRecord(record++, buffer, strlen(buffer) + 1);
 
-	file.writeRecord(record++, &processList, 157);
+	{
+		uint8_t statics[STATICS_SIZE];
+		packStatics(statics);
+		file.writeRecord(record++, statics, STATICS_SIZE);
+	}
 	file.getIndex(record, index);
 	file.seek(0, FromEnd);
 	index.offset = file.size();
@@ -1031,13 +1108,22 @@ void Kernel::save(char *name)
 	file.writeRecord(record++, quickRefProcessArray, 1152);
 	file.writeRecord(record++, quickProcessTypeArray, 9216);
 	file.writeRecord(record++, priorityCount, 64);
-	file.writeRecord(record++, idStringList, maxProcesses * 4);
+	{
+		uint32_t *offsets = new uint32_t[maxProcesses];
+		for (i = 0; i < maxProcesses; i++)
+			offsets[i] = ImageOffset(idStringList[i]);
+		file.writeRecord(record++, offsets, maxProcesses * 4);
+		delete[] offsets;
+	}
 
 	record = 10;
 	for (i = 0; i < maxProcesses; i++) {
 		p = processList[i];
 		if (isProcess(p) && p->isSaved()) {
-			file.writeRecord(record++, p, processSize[i]);
+			uint16_t size;
+			char *saved = SaveProcess(p, size);
+			file.writeRecord(record++, saved, size);
+			delete[] saved;
 			file.getIndex(record, index);
 			file.seek(0, FromEnd);
 			index.offset = file.size();
@@ -1055,24 +1141,17 @@ void Kernel::save(char *name)
 	realTimeOn();
 }
 
+// The PIT's channel 0 divisor (1193182 Hz / divisor). The host's timer takes the period in
+// microseconds instead (setPitPeriod); 0, the BIOS rate, is 54925 us.
 void Kernel::setPitDivisor(uint16_t divisor)
 {
-	asm pushf
-	asm cli
-	asm mov al, 0x36
-	asm out 0x43, al
-	asm mov ax, divisor
-	asm out 0x40, al
-	asm mov al, ah
-	asm nop
-	asm out 0x40, al
-	asm popf
+	uint32_t period = divisor ? (uint32_t)((uint64_t)divisor * 1000000u / 1193182u) : 54925u;
+
+	plat_pit_set(timerVectorChanged ? pitTick : 0, period);
 }
 
 void Kernel::setPitPeriod(uint32_t microseconds)
 {
-	asm pushf
-	asm cli
 	hertz = 1000000L / microseconds;
 	pitPeriod = microseconds;
 	if (microseconds <= 54920L)
@@ -1080,8 +1159,16 @@ void Kernel::setPitPeriod(uint32_t microseconds)
 	else
 		halt(__FILE__, 2293);	// __LINE__
 	pitDivisor = microseconds;
-	setPitDivisor(microseconds);
-	asm popf
+	// The divisor is what the PIT got; on the host the period itself sets the rate.
+	plat_pit_set(timerVectorChanged ? pitTick : 0, pitPeriod);
+}
+
+// IRQ 0 on the host: plat_pump calls this every PIT period. On DOS the handler ran whenever
+// the timer interrupted, unless the game had masked IRQ 0.
+void Kernel::pitTick(void)
+{
+	if (timerVectorChanged && !isInterruptMasked(0))
+		realTimeInterruptHandler();
 }
 
 void Kernel::realTimeExecutor(void)
@@ -1162,12 +1249,9 @@ void Kernel::realTimeExecutor(void)
 						currentProcess = savedCurrent;
 					}
 				} else if (p->isSafeInterrupt()) {
-					asm pushf
-					asm cli
 					currentInterruptPid = pid;
 					p->realTimeCycle();
 					currentInterruptPid = 0;
-					asm popf
 				} else if (runAll && (p->getPriority() == currentPriority || p->getPriority() == 31)) {
 					savedCurrent = currentProcess;
 					currentProcess = pid;
@@ -1189,19 +1273,15 @@ done:
 	;
 }
 
+// Whether the interrupt came from real mode (Phar Lap could tell); never, on the host.
 uint8_t Kernel::isRealInterrupt(void)
 {
 	if (!inInterrupt)
 		halt(__FILE__, 2526);	// __LINE__
-	if (reentrantException) {
-		if (DosIsRealIntr(borlandExceptionRegsPtr))
-			return 1;
-	} else if (DosIsRealIntr(borlandInterruptRegsPtr))
-		return 1;
 	return 0;
 }
 
-REGS_BINT *Kernel::getRegsStructure(void)
+void *Kernel::getRegsStructure(void)
 {
 	if (reentrantException)
 		return borlandExceptionRegsPtr;
@@ -1252,23 +1332,22 @@ void Kernel::removeFromRealTime(uint16_t pid)
 	disableRealTimeInterrupts();
 }
 
+// Takes the timer interrupt (IRQ 0, vector 8) for the kernel; the BIOS handler it replaced
+// went on running through BiosTimer.
 void Kernel::seizeRealTimeVector(void)
 {
 	if (timerVectorChanged) {
 		halt(__FILE__, 2671);	// __LINE__
 		return;
 	}
-	Spanky::dosSetPassToProtVec(8, realTimeInterruptHandler, &origProt, &origReal);
 	timerVectorChanged = 1;
+	plat_pit_set(pitTick, pitPeriod ? pitPeriod : 54925u);
 }
 
 void Kernel::releaseRealTimeVector(void)
 {
-	PIHANDLER prot;
-	REALPTR real;
-
 	if (timerVectorChanged) {
-		Spanky::dosSetRealProtVec(8, origProt, origReal, &prot, &real);
+		plat_pit_set(0, 0);
 		timerVectorChanged = 0;
 	}
 }
@@ -1281,11 +1360,8 @@ void Kernel::enableRealTimeInterrupts(void)
 		return;
 	}
 	if (realTimeList.isAllocated()) {
-		asm pushf
-		asm cli
 		realTimeEnabled = 1;
 		enableInterrupt(0);
-		asm popf
 	}
 }
 
@@ -1296,11 +1372,8 @@ void Kernel::disableRealTimeInterrupts(void)
 		intStatusChanged = 1;
 		return;
 	}
-	asm pushf
-	asm cli
 	disableInterrupt(0);
 	realTimeEnabled = 0;
-	asm popf
 }
 
 // The PIT runs at the rate of the most frequent real-time process.
@@ -1313,8 +1386,6 @@ void Kernel::calculateTimerRate(void)
 	uint32_t period;
 	uint32_t shortest;
 
-	asm pushf
-	asm cli
 	if (realTimeList.isAllocated()) {
 		last = realTimeList.count - 1;
 		for (i = 0, shortest = 1000000L; i < last; i++) {
@@ -1325,7 +1396,6 @@ void Kernel::calculateTimerRate(void)
 		}
 		setPitPeriod(shortest);
 	}
-	asm popf
 }
 
 void Kernel::execute(uint32_t ticks, void (*idle)(void))
@@ -1336,7 +1406,7 @@ void Kernel::execute(uint32_t ticks, void (*idle)(void))
 		if (idle)
 			idle();
 		while (theCurrentTick + ticks > systemTimer->ticks)
-			;
+			plat_yield();
 	}
 }
 
@@ -1353,42 +1423,22 @@ void Kernel::realTimeOff(void)
 		disableInterrupt(0);
 }
 
-// Moves onto the kernel's own stack: the exception stack when it interrupts
-// itself.
-void interrupt Kernel::realTimeInterruptHandler(REGS_BINT regs)
+// The timer interrupt's handler. On DOS it moved onto the kernel's own stack (the exception
+// stack when it interrupted itself) and acknowledged the PIC. On the host it is called from
+// plat_pump, which never runs inside itself, so it does not interrupt itself either; the
+// reentrancy flags are kept as they were.
+void Kernel::realTimeInterruptHandler(void)
 {
-	if (reentrancyFlag) {
+	if (reentrancyFlag)
 		reentrantException = 1;
-		borlandExceptionRegsPtr = &regs;
-		oldExceptionStackSeg = _SS;
-		oldExceptionStackOff = _SP;
-		_AX = exceptionStackSegment;
-		_SS = _AX;
-		_SP = exceptionStackSize + exceptionStackOffset;
-	} else {
+	else
 		reentrancyFlag = 1;
-		borlandInterruptRegsPtr = &regs;
-		oldIntStackSeg = _SS;
-		oldIntStackOff = _SP;
-		_AX = interruptStackSegment;
-		_SS = _AX;
-		_SP = interruptStackSize + interruptStackOffset;
-	}
-	if (processBlank) {
-		if (reentrantException)
-			sendEoi(0);
-	} else
-		sendEoi(0);
 	interruptHandlerStage2();
 	if (reentrantException) {
 		reentrantException = 0;
-		_SS = oldExceptionStackSeg;
-		_SP = oldExceptionStackOff;
 		return;
 	}
 	reentrancyFlag = 0;
-	_SS = oldIntStackSeg;
-	_SP = oldIntStackOff;
 }
 
 void Kernel::interruptHandlerStage2(void)
@@ -1407,10 +1457,7 @@ void Kernel::interruptHandlerStage2(void)
 	if (!safe)
 		disableInterrupt(0);
 	inInterrupt = 1;
-	asm sti
-	asm cld
 	realTimeExecutor();
-	asm cli
 	inInterrupt = 0;
 	borlandInterruptRegsPtr = 0;
 	if (intStatusChanged) {

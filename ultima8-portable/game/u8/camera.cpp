@@ -28,19 +28,18 @@
 
 // Inline in the shared headers when this file was built.
 inline GraphicYtable::GraphicYtable(void) { f_04 = 2; index = 0; }
-inline Vport::Vport(void) { seg = 0; f_0f = 2; f_10 = 0; }
+inline Vport::Vport(void) { mem = 0; f_0f = 2; f_10 = 0; }
 inline Vport::~Vport(void) { free(); }
-inline int16_t Vport::getSeg(void) { return seg; }
 inline GraphicYtable *Vport::getYTable(void) { return &graphicYtable; }
 inline int16_t GraphicYtable::getindex(int16_t y) { return index[y]; }
-inline void Vport::slam(Vport *from) { SlamScreen(getSeg(), MK_FP(from->getSeg(), from->getYTable()->getindex(0))); }
+inline void Vport::slam(Vport *from) { SlamScreen(getMem(), from->getMem() + from->getYTable()->getindex(0)); }
 inline Point::Point(void) {}
 inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
 inline Rect::Rect(void) {}
 inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
 inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
 
-extern "C" int16_t PutPixel(Vport *, int16_t, int16_t, uint8_t);
+int16_t PutPixel(Vport *, int16_t, int16_t, uint8_t);
 
 extern uint8_t inGameMode;
 
@@ -317,7 +316,7 @@ void Camera::add_items_to_list(void)
 					if (grid.intersects(area))
 					{
 						DL_ItemNode *node = new DL_ItemNode;
-						uint16_t n = FP_OFF(node);
+						uint16_t n = NODE_OFF(node);
 						if (n)
 						{
 							node->set(r);

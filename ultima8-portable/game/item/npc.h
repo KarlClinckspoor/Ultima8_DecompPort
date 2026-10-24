@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "flex.h"
 #include "animcach.h"
 #include "animprim.h"
@@ -15,7 +15,7 @@ class BaseFile;
 class NpcDataFile;
 class WorldPoint;
 
-enum Activity
+enum Activity : int16_t
 {
 	Activity_0
 };
@@ -73,6 +73,8 @@ public:
 	static void load(void);
 	Boolean isBusy(void);
 	int16_t doAnim(AnimSet, int16_t, int16_t, uint8_t);
+	// Borland turned a number into an enum by itself; callers pass numbers.
+	int16_t doAnim(int a, int16_t b, int16_t c, uint8_t d) { return doAnim((AnimSet)a, b, c, d); }
 	int16_t getNumTypes(Type, uint16_t);
 	void setTarget(Referent);
 	int16_t getTarget(void);

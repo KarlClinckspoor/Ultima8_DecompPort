@@ -152,7 +152,8 @@ void KillerTextEditGump::deleteChar(int16_t l, int16_t c)
 {
 	if (c < 25)
 	{
-		for (int16_t i = col; i < 25; i++)
+		int16_t i;	// Borland kept a for loop's variable after the loop
+		for (i = col; i < 25; i++)
 			text[l * 26 + i] = text[l * 26 + i + 1];
 		text[l * 26 + i] = 0;
 		printLine(l);

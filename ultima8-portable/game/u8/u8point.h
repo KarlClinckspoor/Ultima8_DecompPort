@@ -7,7 +7,7 @@
 
 class BaseFile;
 
-enum PointerModes
+enum PointerModes : int16_t
 {
 	PointerModes_0
 };

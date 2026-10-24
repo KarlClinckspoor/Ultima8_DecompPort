@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "item.h"
 
 // Keeps a barking NPC playing its talk animation while its bark is shown.

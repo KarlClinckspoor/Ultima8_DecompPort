@@ -34,6 +34,9 @@ int16_t CacheHandler::reserve(int16_t count)
 		return first;
 	}
 	halt(__FILE__, 56);	// __LINE__
+	// Not reached: halt exits. Borland returned whatever was left in ax; falling off the
+	// end is undefined behaviour in C++, so return something.
+	return 0;
 }
 
 void initCacheHandler(void)

@@ -6,14 +6,14 @@
 class Vport;
 
 // Scroll a viewport's contents by the given number of pixels.
-extern "C" void MoveScreenUp(Vport *, int16_t);
-extern "C" void MoveScreenDown(Vport *, int16_t);
-extern "C" void MoveScreenLeft(Vport *, int16_t);
-extern "C" void MoveScreenRight(Vport *, int16_t);
-extern "C" void MoveScreenUpLeft(Vport *, int16_t, int16_t);
-extern "C" void MoveScreenUpRight(Vport *, int16_t, int16_t);
-extern "C" void MoveScreenDownLeft(Vport *, int16_t, int16_t);
-extern "C" void MoveScreenDownRight(Vport *, int16_t, int16_t);
+void MoveScreenUp(Vport *, int16_t);
+void MoveScreenDown(Vport *, int16_t);
+void MoveScreenLeft(Vport *, int16_t);
+void MoveScreenRight(Vport *, int16_t);
+void MoveScreenUpLeft(Vport *, int16_t, int16_t);
+void MoveScreenUpRight(Vport *, int16_t, int16_t);
+void MoveScreenDownLeft(Vport *, int16_t, int16_t);
+void MoveScreenDownRight(Vport *, int16_t, int16_t);
 
 void MoveScreen(Vport *, int16_t, int16_t);
 

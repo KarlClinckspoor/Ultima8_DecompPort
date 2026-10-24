@@ -89,7 +89,8 @@ ItemRelativeGump::ItemRelativeGump(IRGumpType type, NewGump *parent, Rect r, uin
 	if (parent)
 		while (parent->newGumpList.hasType(0x43, gump))
 			used[gump->newGumpId.getInstance()] = 1;
-	for (int16_t i = 0; i < 256; i++)
+	int16_t i;	// Borland kept a for loop's variable after the loop
+	for (i = 0; i < 256; i++)
 		if (!used[i])
 		{
 			id = i;

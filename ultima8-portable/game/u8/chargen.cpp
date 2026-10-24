@@ -11,27 +11,28 @@
 #include "error.h"
 #include "chargen.h"
 
-extern "C" uint8_t *getRomFontPtr(int16_t);
+#include "font.h"
+#include "cvport.h"
+#include "cdesc.h"
 
-uint16_t textBufferSeg;
+uint8_t *textBuffer;
 CharacterGenerator charGen;
 
 CharacterGenerator::CharacterGenerator(void)
 {
-	uint16_t seg;
-
 	smallFont = 0;
-	font = getRomFontPtr(2);
+	font = getRomFontPtr((int16_t)2);
 	fgColor = 15;
 	bgColor = 0;
-	DosMapRealSeg(0xb800, 8000L, &textBufferSeg);
-	DosMapRealSeg(0xa000, 64000L, &seg);
-	setSeg(seg);
+	// DOS mapped selectors onto the text screen (B800:0000) and the graphics screen
+	// (A000:0000) here.
+	textBuffer = TextScreen;
+	setScreen(VgaScreen);
 }
 
-void CharacterGenerator::setSeg(uint16_t seg)
+void CharacterGenerator::setScreen(uint8_t *s)
 {
-	screen = (uint8_t *)MK_FP(seg, 0);
+	screen = s;
 }
 
 // Glyphs are 8x14; the small font keeps every other column and drops the top and bottom rows.

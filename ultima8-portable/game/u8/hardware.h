@@ -3,10 +3,10 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "procmon.h"
 
-enum CPU
+enum CPU : int16_t
 {
 	CPU_0,
 	CPU_8086 = 0,

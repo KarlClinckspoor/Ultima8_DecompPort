@@ -6,7 +6,7 @@
 class CommandLineOptions;
 class LargeGameSystem;
 
-enum Language
+enum Language : int16_t
 {
 	Language_0,
 	ENGLISH = 0,

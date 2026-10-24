@@ -17,13 +17,13 @@ public:
 	uint8_t bgColor;
 
 	CharacterGenerator(void);
-	void setSeg(uint16_t);
+	void setScreen(uint8_t *);	// setSeg(selector) in DOS
 	void writeChar(int16_t, int16_t, char);
 	void writeString(int16_t, int16_t, char *);
 	void makeString(int16_t, int16_t, char *, ...);
 };
 
-extern uint16_t textBufferSeg;
+extern uint8_t *textBuffer;	// textBufferSeg, B800:0000, in DOS
 extern CharacterGenerator charGen;
 
 #endif

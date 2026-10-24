@@ -2,6 +2,7 @@
 // name: DISPATCH.C
 
 #include "u8port.h"
+#include "plat.h"
 
 #include "newgump.h"
 #include "error.h"
@@ -163,11 +164,7 @@ void Dispatcher::uninit(void)
 // Nonzero when a key is waiting in the BIOS buffer.
 int16_t keyWaiting(void)
 {
-	asm mov ah, 1
-	asm int16_t 16h
-	asm jnz done
-	asm xor ax, ax
-done:
+	return plat_key_available();
 }
 
 void Dispatcher::poll(void)
@@ -202,10 +199,9 @@ void Dispatcher::poll(void)
 		key = 0;
 		char scan = 0;
 		char ascii = 0;
-		asm xor ah, ah
-		asm int16_t 16h
-		scan = _AH;
-		ascii = _AL;
+		uint16_t bios = plat_key_bios();
+		scan = (char)(bios >> 8);
+		ascii = (char)bios;
 		if (ascii)
 			key = ascii;
 		else
@@ -390,7 +386,10 @@ void Dispatcher::restore(Rect r)
 	if (r.f_02 < 0)
 		r.f_02 = 0;
 	if (BaseCamera::inTextMode)
-		r.clip(Rect(0, 0, 79, 49));
+	{
+		Rect text(0, 0, 79, 49);
+		r.clip(text);
+	}
 	else
 	{
 		r.clip(*GlobalVport::global_ptr->getRect());

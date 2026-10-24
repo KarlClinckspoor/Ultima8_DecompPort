@@ -6,7 +6,7 @@
 class MemHandle
 {
 public:
-	uint32_t f_00;
+	char *f_00;	// the block (a far pointer kept as a long in DOS)
 	uint8_t f_04;
 	uint32_t f_05;
 

@@ -2,6 +2,7 @@
 // name: HARDWARE.C
 
 #include "u8port.h"
+#include "plat.h"
 
 #include "error.h"
 #include "cprotmem.h"
@@ -37,19 +38,8 @@ HardwareChecker::HardwareChecker(int32_t diskSpace, int32_t memory, int32_t larg
 // Free bytes on a drive (0 = current).
 int32_t HardwareChecker::getHardDriveSpace(int16_t drive)
 {
-	uint16_t sectorsPerCluster, bytesPerSector, freeClusters;
-	int32_t space;
-
-	asm {
-		mov	ah, 36h
-		mov	dx, drive
-		int16_t	21h
-		mov	sectorsPerCluster, ax
-		mov	freeClusters, bx
-		mov	bytesPerSector, cx
-	}
-	space = (int32_t)sectorsPerCluster * bytesPerSector * freeClusters;
-	return space;
+	// DOS get free disk space (int 21h function 36h).
+	return (int32_t)plat_disk_free();
 }
 
 int32_t HardwareChecker::getTotalMemory(void)
@@ -70,40 +60,17 @@ int32_t HardwareChecker::getLargestMemoryFragment(void)
 	return largest;
 }
 
-// An 8086 pushes sp after decrementing it; a 286 cannot set flag bits 12-13.
+// An 8086 pushes sp after decrementing it; a 286 cannot set flag bits 12-13. Every host is
+// at least a 386.
 int16_t HardwareChecker::getCpu(void)
 {
-	asm {
-		push	sp
-		pop	ax
-		cmp	ax, sp
-		jne	is8086
-		pushf
-		pop	ax
-		or	ax, 3000h
-		push	ax
-		popf
-		pushf
-		pop	ax
-		test	ax, 3000h
-		je	is286
-		jmp	is386
-	}
-is8086:
-	return CPU_8086;
-is286:
-	return CPU_286;
-is386:
 	return CPU_386;
 }
 
+// int 33h function 0: the platform always has a pointer.
 uint8_t HardwareChecker::mouseInstalled(void)
 {
-	asm {
-		xor	ax, ax
-		int16_t	33h
-	}
-	return _AX != 0;
+	return 1;
 }
 
 uint8_t HardwareChecker::verifyAll(uint8_t verbose)

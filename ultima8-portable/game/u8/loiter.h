@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "mlist.h"
 
 // Wanders an npc about its spot, fidgeting now and then.

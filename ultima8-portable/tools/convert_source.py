@@ -19,7 +19,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(os.path.dirname(ROOT), "source")
 DST = os.path.join(ROOT, "game")
 
-DROP_HEADERS = {"dos.h", "conio.h", "alloc.h", "mem.h", "dir.h", "io.h", "fcntl.h",
+DROP_HEADERS = {"dos.h", "conio.h", "alloc.h", "mem.h", "dir.h", "direct.h", "io.h", "fcntl.h",
                 "phapi.h", "bios.h", "process.h", "malloc.h", "sys\\stat.h", "sys/stat.h",
                 "share.h", "values.h", "dpmi.h", "graphics.h"}
 KEEP_SYSTEM = {"stdio.h", "stdlib.h", "string.h", "ctype.h", "stdarg.h", "math.h",

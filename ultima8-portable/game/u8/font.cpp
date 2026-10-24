@@ -109,8 +109,8 @@ int16_t Font::width(char *text)
 	return width;
 }
 
-// The argument list is found by hand: C++ va_start (args = ...) would give
-// every later function in the file a stack frame, getRomFontPtr included.
+// The DOS build found the argument list by hand ((va_list)(&format + 1)), to keep
+// later functions in the file from getting stack frames; va_start does it on the host.
 
 // align: 'c' centres on the screen, 'l' starts at the left edge.
 void Font::printf(int16_t x, int16_t y, char align, char *format, ...)
@@ -118,8 +118,9 @@ void Font::printf(int16_t x, int16_t y, char align, char *format, ...)
 	va_list args;
 	if (format && *format && format != (char *)WorkString)
 	{
-		args = (va_list)(&format + 1);
+		va_start(args, format);
 		vsprintf(WorkString, format, args);
+		va_end(args);
 	}
 	else
 		*(char *)WorkString = 0;
@@ -139,13 +140,16 @@ int16_t Font::printf(int16_t x, int16_t y, char *format, ...)
 	va_list args;
 	if (format && *format && format != (char *)WorkString)
 	{
-		args = (va_list)(&format + 1);
+		va_start(args, format);
 		vsprintf(WorkString, format, args);
+		va_end(args);
 	}
 	else
 		*(char *)WorkString = 0;
 	gotoXY(x, y);
 	print(WorkString);
+	// Borland returned whatever print left in AX; no caller uses it.
+	return 0;
 }
 
 void Font::printf(int16_t x, int16_t y, int16_t maxWidth, char *format, ...)
@@ -153,8 +157,9 @@ void Font::printf(int16_t x, int16_t y, int16_t maxWidth, char *format, ...)
 	va_list args;
 	if (format && *format && format != (char *)WorkString)
 	{
-		args = (va_list)(&format + 1);
+		va_start(args, format);
 		vsprintf(WorkString, format, args);
+		va_end(args);
 	}
 	else
 		*(char *)WorkString = 0;
@@ -167,8 +172,9 @@ void Font::printf(char *format, ...)
 	va_list args;
 	if (format && *format && format != (char *)WorkString)
 	{
-		args = (va_list)(&format + 1);
+		va_start(args, format);
 		vsprintf(WorkString, format, args);
+		va_end(args);
 	}
 	else
 		*(char *)WorkString = 0;
@@ -216,20 +222,9 @@ void Font::setYSpacing(int16_t spacing)
 	xSpacing = spacing;
 }
 
-// Returns the address of a VGA BIOS ROM font. The caller passes the font
-// number, which is read straight off the stack.
+// The address of the VGA BIOS ROM font (DOS: the caller passed the font number, read
+// straight off the stack); see game/port/romfont.cpp.
 void *getRomFontPtr(void)
 {
-	asm enter 0, 0
-	asm push es
-	asm push bp
-	_AH = 0x11;
-	_AL = 0x30;
-	asm mov bh, [bp + 6]
-	geninterrupt(0x10);
-	_DX = _ES;
-	_AX = _BP;
-	asm pop bp
-	asm pop es
-	asm leave
+	return getRomFontPtr((int16_t)2);
 }

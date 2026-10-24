@@ -33,6 +33,12 @@ inline void footprint(TypeFlag &type, int16_t &xd, int16_t &yd, int16_t &zd)
 		zd = 1;
 }
 
+// Borland's abs (an intrinsic here) worked on 16-bit ints: abs(-32768) is -32768.
+static inline int16_t abs16(int16_t v)
+{
+	return (int16_t)(v < 0 ? -v : v);
+}
+
 MotionTracker::MotionTracker(void)
 {
 	collisions = 0;
@@ -89,7 +95,7 @@ void MotionTracker::collision(uint16_t other, int16_t x, int16_t y, int16_t z, u
 {
 	if (blocking)
 	{
-		if (abs(x) < abs(hitDx) || abs(y) < abs(hitDy) || abs(z) < abs(hitDz))
+		if (abs16(x) < abs16(hitDx) || abs16(y) < abs16(hitDy) || abs16(z) < abs16(hitDz))
 		{
 			if (target == other)
 			{
@@ -233,9 +239,10 @@ uint8_t MotionTracker::isClear(uint16_t type, const WorldPoint &from, int16_t x,
 		left = edge;
 	if ((edge = y - yd) < top)
 		top = edge;
-	if ((edge = x + 480) > right)
+	// int against unsigned: Borland compared these unsigned.
+	if ((uint16_t)(edge = x + 480) > right)
 		right = edge;
-	if ((edge = y + 480) > bottom)
+	if ((uint16_t)(edge = y + 480) > bottom)
 		bottom = edge;
 
 	if (left < 0) left = 0;
@@ -300,13 +307,13 @@ void MotionTracker::makeItSo(void)
 	{
 		if (hitItem)
 		{
-			int16_t ax = abs(dx >> 2);
-			int16_t ay = abs(dy >> 2);
-			int16_t az = abs(dz);
+			int16_t ax = abs16(dx >> 2);
+			int16_t ay = abs16(dy >> 2);
+			int16_t az = abs16(dz);
 
 			most = ax > ay ? ax : ay;
 			most = most > az ? most : az;
-			force = (ax + ay + az + most) >> 1;
+			force = (int16_t)(ax + ay + az + most) >> 1;	// a 16-bit sum
 		}
 
 		Item(item).move(point.x, point.y, point.z);
@@ -316,7 +323,7 @@ void MotionTracker::makeItSo(void)
 			count += 2;
 
 		for (node = collisions; node; node = node->next)
-			if (node->item != hitItem && (abs(node->dx) <= abs(hitDx) || abs(node->dy) <= abs(hitDy) || abs(node->dz) <= abs(hitDz)))
+			if (node->item != hitItem && (abs16(node->dx) <= abs16(hitDx) || abs16(node->dy) <= abs16(hitDy) || abs16(node->dz) <= abs16(hitDz)))
 				count += 2;
 
 		RefStorage storage(count);
@@ -328,7 +335,7 @@ void MotionTracker::makeItSo(void)
 			if ((family == QUAN_FAMILY || family == REAGENT_FAMILY) &&
 				CollisionItem(hitItem).getType() == CollisionItem(item).getType())
 			{
-				((Combinable &)Item(item)).combine(hitItem);
+				Combinable(item).combine(hitItem);
 			}
 			else
 			{
@@ -340,7 +347,7 @@ void MotionTracker::makeItSo(void)
 		for (node = collisions; node; node = node->next)
 		{
 			if (hitItem != node->item &&
-				(abs(node->dx) <= abs(hitDx) || abs(node->dy) <= abs(hitDy) || abs(node->dz) <= abs(hitDz)))
+				(abs16(node->dx) <= abs16(hitDx) || abs16(node->dy) <= abs16(hitDy) || abs16(node->dz) <= abs16(hitDz)))
 			{
 				storage.set(new StorageData(&storage, HIT_EVENT, item, node->item, 0));
 				storage.set(new StorageData(&storage, GOT_HIT_EVENT, node->item, item, 0));

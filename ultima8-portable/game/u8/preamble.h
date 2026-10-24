@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "itemfind.h"
 
 // Holds the camera process while it waits, then restores the music.

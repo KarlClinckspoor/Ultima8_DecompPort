@@ -6,13 +6,13 @@
 #include "cmouse.h"
 
 // Whether the mouse interrupt may draw the pointer.
-enum CatState
+enum CatState : int16_t
 {
 	CAT_BUSY,
 	CAT_FREE
 };
 
-enum MouseButton
+enum MouseButton : int16_t
 {
 	NO_BUTTON,
 	LEFT_BUTTON,
@@ -20,7 +20,7 @@ enum MouseButton
 	BOTH_BUTTONS
 };
 
-enum MouseSelectCommand
+enum MouseSelectCommand : int16_t
 {
 	NO_SELECT,
 	SELECT_CLICK,

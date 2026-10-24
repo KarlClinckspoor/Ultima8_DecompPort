@@ -46,6 +46,13 @@ struct FrameHeader
 	int16_t yoff;
 };
 
+// These are the layouts of U8SHAPES.FLX records as they sit in the cache.
+static_assert(sizeof(FrameSlot) == 6, "FrameSlot is 6 bytes");
+static_assert(sizeof(ShapeHeader) == 6, "ShapeHeader is 6 bytes");
+static_assert(sizeof(ShapeIndex) == 12, "ShapeIndex is the header and one slot");
+static_assert(sizeof(FrameData) == 8, "FrameData is 8 bytes");
+static_assert(sizeof(FrameHeader) == 10, "FrameHeader is 10 bytes");
+
 #define FRAME_ON_DISK	0x80000000L
 #define FRAME_FLAG	0x40000000L
 

@@ -63,7 +63,7 @@ int16_t CollisionBuffer::scanAreaCell(int16_t x1, int16_t y1, int16_t x2, int16_
 	uint16_t worldX2 = (x2 << 5) + 31;
 	uint16_t worldY2 = (y2 << 5) + 31;
 	uint8_t worldZ1 = z1 << 3;
-	uint8_t worldZ2 = z2 << 3 + 7;
+	uint8_t worldZ2 = z2 << (3 + 7);	// the original's "z2 << 3 + 7": its low byte is always 0
 
 	return scanArea(worldX1, worldY1, worldX2, worldY2, worldZ1, worldZ2);
 }
@@ -91,7 +91,8 @@ int16_t CollisionBuffer::scanArea(uint16_t x1, uint16_t y1, uint16_t x2, uint16_
 		{
 			type = GlobalTypes.typeFlags[ItemData::typeArray[item.referent]];
 			footprint(type, xd, yd, zd);
-			if (ItemData::xArray[item.referent] - xd + 1 <= x2 && ItemData::yArray[item.referent] - yd + 1 <= y2 && ItemData::zArray[item.referent] + zd - 1 >= z1)
+			// Unsigned 16-bit in Borland (unsigned - int is unsigned).
+			if ((uint16_t)(ItemData::xArray[item.referent] - xd + 1) <= x2 && (uint16_t)(ItemData::yArray[item.referent] - yd + 1) <= y2 && ItemData::zArray[item.referent] + zd - 1 >= z1)
 			{
 				flags |= volumeFlags(type) & ~COLLIDE_ANY;
 			}
@@ -126,7 +127,7 @@ Boolean CollisionBuffer::isSupported(Referent referent)
 		{
 			type = GlobalTypes.typeFlags[ItemData::typeArray[item.referent]];
 			footprint(type, xd, yd, zd);
-			if (ItemData::xArray[item.referent] - xd + 1 <= x && ItemData::yArray[item.referent] - yd + 1 <= y && ItemData::zArray[item.referent] + zd == z)
+			if ((uint16_t)(ItemData::xArray[item.referent] - xd + 1) <= x && (uint16_t)(ItemData::yArray[item.referent] - yd + 1) <= y && ItemData::zArray[item.referent] + zd == z)
 			{
 				supportFlags |= volumeFlags(type) & ~COLLIDE_ANY;
 			}

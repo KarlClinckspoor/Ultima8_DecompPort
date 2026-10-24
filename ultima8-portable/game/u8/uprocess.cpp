@@ -22,13 +22,14 @@
 #include "yamm.h"
 #include "kernel.h"
 #include "uprocess.h"
+#include "intrinsics.h"
+#include "farptr.h"
 
 // Inline in the shared headers when this file was built.
 inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
 inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 inline Index::Index(void) { size = 0; offset = 0; }
 
-void main(int16_t, char **);
 
 Overload *RoutineIndex::overloadTable = 0;
 int32_t RoutineIndex::unkMemoryUsed = 0;
@@ -42,6 +43,7 @@ uint16_t numCFunctions;
 
 // Turns a C prototype from the link map ("name(int, char far*)") into the
 // name the usecode file uses for it.  Returns 0 if the line has no name.
+// (The host never reads the link map; see initCFunctions.)
 uint8_t mangleName(char *mangled, char *name)
 {
 	char *paren;
@@ -175,140 +177,43 @@ void enumMangle(char *out, const char *in)
 	out[j] = 0;
 }
 
-// Fixed-size records of unkcsym.dat, one C function name each.
-#define SYMBOL_SIZE	74
-
-// Builds cTable, the address of every C function usecode can call.  The
-// addresses come from the link map when it is newer than the cached table
-// (unkcoff.dat), whose last entry is the address of main.
+// Builds cTable, the C function each intrinsic number calls.
+//
+// The DOS build read the addresses from the link map (u8.map) when it was newer than its
+// cache, unkcoff.dat in the usecode folder, else from the cache: one far address per
+// intrinsic, the last that of main, in the map's segment numbering, relocated to selectors
+// here. The shipped game has the cache. The host's functions have no such addresses, so the
+// table of intrinsics (intrinsics.cpp) keeps each one's address in U8.EXE's map, and the
+// cache's addresses pick the entries; with no cache the intrinsics take their U8.EXE order.
 void initCFunctions(void)
 {
-	uint16_t mainSeg;
-	uint8_t useCache;
-	int16_t delta;
-	uint16_t i;
 	FileSpec coffSpec(0, UsecodeDir, "unkcoff", ".dat");
-	FileSpec symSpec(0, UsecodeDir, "unkcsym", ".dat");
-	FileSpec mapSpec(0, 0, "u8", ".map");
 
-	useCache = 0;
-	if (mapSpec.exists() && symSpec.exists())
-	{
-		if (mapSpec.isYounger(symSpec) || symSpec.isYounger(coffSpec))
-		{
-			FILE *map;
-			uint32_t size;
-			char *symbols;
-			char line[200];
-			uint16_t j;
-
-			map = fopen(mapSpec, "rb");
-			if (map == 0)
-				unableToOpenFile(__FILE__, 259, mapSpec);	// __LINE__
-			BaseFile symFile(symSpec, ReadWrite);
-			BaseFile coffFile;
-			coffFile.forceOpen(coffSpec, ReadWrite);
-			size = symFile.size();
-			numCFunctions = size / SYMBOL_SIZE;
-			cTable = new void *[numCFunctions];
-			if (cTable == 0)
-				outOfMemory(__FILE__, 271);	// __LINE__
-			memset(cTable, 0, numCFunctions * 4);
-			symbols = new char[size];
-			if (symbols == 0)
-				outOfMemory(__FILE__, 278);	// __LINE__
-			symFile.read(symbols, size);
-			do
-				fgets(line, 200, map);
-			while (!strstr(line, "Publics by Name"));
-			// Map lines read " 0001:0234       _name".
-			do
-			{
-				char *name;
-				uint8_t found;
-				uint16_t n;
-				char *sym;
-				char mangled[256];
-
-				fgets(line, 200, map);
-				name = line + 17;
-				found = mangleName(WorkString.string, name);
-				enumMangle(mangled, WorkString.string);
-				if (!strcmp(name, "_main"))
-				{
-					line[5] = 0;
-					line[22] = 0;
-					mainSeg = strtol(line + 1, 0, 16);
-				}
-				if (found)
-				{
-					for (n = 0, sym = symbols; n < numCFunctions; n++, sym += SYMBOL_SIZE)
-					{
-						if (!strcmp(sym, WorkString.string) || !strcmp(sym, mangled))
-						{
-							uint16_t seg;
-							uint16_t off;
-
-							line[5] = 0;
-							line[10] = 0;
-							seg = strtol(line + 1, 0, 16);
-							off = strtol(line + 6, 0, 16);
-							cTable[n] = MK_FP(seg, off);
-						}
-					}
-				}
-			}
-			while (!strstr(line, "Publics by Value"));
-			for (j = 0; j < numCFunctions; j++)
-			{
-				if (cTable[j] == 0)
-				{
-					char key;
-
-					trace(TRACE_ALWAYS, "\r\nUnresolved c symbol %s", &symbols[j * SYMBOL_SIZE]);
-					printf("\r\nContinue anyway? ");
-					key = getch();
-					printf("\r\n");
-					if (key != 'y' && key != 'Y')
-					{
-						failedInit = 1;
-						break;
-					}
-				}
-			}
-			delete symbols;
-			if (failedInit)
-			{
-				traceGet(TRACE_ALWAYS, "\r\nNo Usecode! (press any key)\r\n\r\n");
-				return;
-			}
-			coffFile.write((char *)cTable, numCFunctions * 4);
-		}
-		else
-			useCache = 1;
-	}
-	else
-		useCache = 1;
-	if (useCache)
+	if (coffSpec.exists())
 	{
 		BaseFile coffFile(coffSpec, ReadWrite);
 		uint16_t size = coffFile.size();
+		uint32_t *addresses;
+		uint16_t i;
 
 		numCFunctions = size / 4;
+		addresses = new uint32_t[numCFunctions];
 		cTable = new void *[numCFunctions];
-		if (cTable == 0)
+		if (addresses == 0 || cTable == 0)
 			outOfMemory(__FILE__, 366);	// __LINE__
-		coffFile.read((char *)cTable, size);
-		mainSeg = FP_SEG(cTable[numCFunctions - 1]);
+		coffFile.read((char *)addresses, size);
+		for (i = 0; i < numCFunctions; i++)
+			cTable[i] = (void *)findIntrinsic(addresses[i] >> 16, (uint16_t)addresses[i]);
+		delete[] addresses;
 	}
-	// The map gives real-mode segments; relocate them to selectors.
-	delta = (FP_SEG(main) >> 3) - mainSeg;
-	for (i = 0; i < numCFunctions; i++)
+	else
 	{
-		uint16_t seg = (FP_SEG(cTable[i]) + delta) << 3;
-		uint16_t sel = seg | 7;
+		uint16_t i;
 
-		cTable[i] = MK_FP(sel, FP_OFF(cTable[i]));
+		numCFunctions = numIntrinsics;
+		cTable = new void *[numCFunctions];
+		for (i = 0; i < numCFunctions; i++)
+			cTable[i] = (void *)&intrinsics[i];
 	}
 }
 
@@ -367,6 +272,8 @@ UnkProcess::UnkProcess(uint32_t *dest, void *thisPtr, uint16_t size, uint16_t un
 	routine((char *)thisPtr, size, RoutineIndex::getCode(unitNumber, entry, isOffset, -1), this)
 {
 	Kernel::setIdString(pid, RoutineIndex::overloadTable[unitNumber].name);
+	// Far pointers into this process's stack name it by pid (farptr.h).
+	u8_far_register(FAR_STACK + pid, &routine, sizeof(routine));
 	finished = 0;
 	thisSize = size;
 	thisOffset = 0;
@@ -385,7 +292,8 @@ UnkProcess::UnkProcess(uint32_t *dest, void *thisPtr, uint16_t size, uint16_t un
 		{
 			char *p = thisSp;
 
-			*(int32_t *)(routine.sp -= 4) = (int32_t)p;
+			routine.sp -= 4;
+			u8_far_store(routine.sp, u8_far_from_ptr(p));
 			thisOffset = routine.sp - routine.buffer;
 		}
 	}
@@ -417,6 +325,7 @@ void UnkProcess::process(void)
 
 void UnkProcess::freeMemory(void)
 {
+	u8_far_unregister(FAR_STACK + pid);
 	Process::freeMemory();
 	RoutineIndex::markUnused(unit);
 	if (!finished)
@@ -442,7 +351,9 @@ void UnkProcess::save(BaseFile *file)
 	file->write((char *)&thisSize, 1);
 	if (killed)
 		file->write(killed, 1);
-	offset = (uint16_t)routine.ip;
+	// DOS saved the offset part of ip, which under Phar Lap was the offset into the unit's
+	// code (each block had a selector of its own, at offset 0).
+	offset = (uint16_t)(routine.ip - RoutineIndex::codeBase(unit));
 	file->write((char *)&offset, 2);
 }
 
@@ -461,8 +372,9 @@ void UnkProcess::load(BaseFile *file)
 		file->read(killed, 1);
 	}
 	resultDest = 0;
+	u8_far_register(FAR_STACK + pid, &routine, sizeof(routine));
 	if (thisOffset)
-		*(char **)&routine.buffer[thisOffset] = &routine.buffer[200 - thisSize];
+		u8_far_store(&routine.buffer[thisOffset], u8_far_from_ptr(&routine.buffer[200 - thisSize]));
 	routine.sp = &routine.buffer[spOffset];
 	routine.top = &routine.buffer[200];
 	file->read((char *)&offset, 2);
@@ -525,7 +437,7 @@ RoutineIndex::~RoutineIndex(void)
 
 	for (i = 0; i < MAX_UNITS; i++)
 		if (unitIndex[i].code)
-			delete unitIndex[i].code;
+			delete[] unitIndex[i].code;
 }
 
 // The code of a unit's routine: entry is an offset into the unit when
@@ -547,6 +459,7 @@ char *RoutineIndex::getCode(uint16_t unit, uint16_t entry, uint8_t isOffset, int
 		slot->unit = unit;
 		slot->size = size;
 		slot->code = file.load(unit);
+		u8_far_register(FAR_CODE + unit, slot->code, size);
 		index = slot;
 		unkMemoryUsed += size;
 	}
@@ -555,11 +468,27 @@ char *RoutineIndex::getCode(uint16_t unit, uint16_t entry, uint8_t isOffset, int
 	if (isOffset)
 		code += entry;
 	else
-		code += ((int32_t *)index->code)[entry];
+	{
+		int32_t start;
+		memcpy(&start, index->code + entry * 4, 4);
+		code += start;
+	}
 
 	if (offset != -1)
 		code += (uint16_t)offset;
 	return code;
+}
+
+// The unit's code while it is cached; 0 when it is not.
+char *RoutineIndex::codeBase(uint16_t unit)
+{
+	UnitIndex *index;
+	uint16_t i;
+
+	for (i = 0, index = unitIndex; i < MAX_UNITS; i++, index++)
+		if (index->unit == unit)
+			return index->code;
+	return 0;
 }
 
 void RoutineIndex::markUnused(uint16_t unit)
@@ -592,7 +521,8 @@ uint8_t RoutineIndex::cacheOut(int16_t which)
 			return 0;
 		i = which;
 	}
-	delete unitIndex[i].code;
+	u8_far_unregister(FAR_CODE + unitIndex[i].unit);
+	delete[] unitIndex[i].code;
 	unitIndex[i].code = 0;
 	unkMemoryUsed -= unitIndex[i].size;
 	unitIndex[i].size = 0;

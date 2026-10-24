@@ -41,8 +41,10 @@ public:
 	void fade_from_color(RGB &, int16_t, uint8_t, int16_t);
 };
 
-extern "C" void GETCOLORBANKRGB(uint8_t, int16_t, RGB *);
-extern "C" void SETCOLORBANKRGB(uint8_t, int16_t, RGB *);
-extern "C" void SETCOLORRGB(uint8_t, RGB *);
+// The VGA DAC (GETRGB.ASM, SETRGB.ASM): count entries from first on, three bytes each.
+void GETCOLORRGB(uint8_t, RGB *);
+void GETCOLORBANKRGB(uint8_t, int16_t, RGB *);
+void SETCOLORBANKRGB(uint8_t, int16_t, RGB *);
+void SETCOLORRGB(uint8_t, RGB *);
 
 #endif

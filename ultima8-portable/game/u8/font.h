@@ -55,6 +55,7 @@ public:
 	~CurrentFont(void);
 };
 
-extern "C" void *getRomFontPtr(void);
+void *getRomFontPtr(void);
+uint8_t *getRomFontPtr(int16_t);
 
 #endif

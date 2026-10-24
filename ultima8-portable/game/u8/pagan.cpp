@@ -34,7 +34,7 @@ inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
 inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
 inline Rect::Rect(void) {}
 inline GraphicYtable::GraphicYtable(void) { f_04 = 2; index = 0; }
-inline Vport::Vport(void) { seg = 0; f_0f = 2; f_10 = 0; }
+inline Vport::Vport(void) { mem = 0; f_0f = 2; f_10 = 0; }
 inline Vport::~Vport(void) { free(); }
 inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
 inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
@@ -165,7 +165,7 @@ void PaganProcess::interruptHandler(uint32_t type, uint32_t)
 			musicPlay(music);
 			GlobalVport::global_ptr->clear(0);
 			GlobalVport::main_screen->clear(0);
-			memcpy(background, MK_FP(GlobalVport::main_screen->seg, *GlobalVport::main_screen->graphicYtable.index), 64000);
+			memcpy(background, GlobalVport::main_screen->row(0), 64000);
 			new FadeProcess((PaletteNum)currentPalette, 0x7fff, 1);
 			state = 1;
 		}
@@ -173,7 +173,7 @@ void PaganProcess::interruptHandler(uint32_t type, uint32_t)
 			uint16_t top = 45 * 320;
 			if (*next == '+' && !current->scrolling())
 				top = 0;
-			memcpy((char *)MK_FP(GlobalVport::global_ptr->seg, *GlobalVport::global_ptr->graphicYtable.index) + top,
+			memcpy((char *)GlobalVport::global_ptr->row(0) + top,
 				background + top, 64000 - top);
 			if (state == 0) {
 				if (!current->scrolling()) {

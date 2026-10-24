@@ -44,7 +44,7 @@ void ListBoxGump::draw(int16_t x, int16_t y)
 	int16_t line = 0;
 	for (int16_t i = top; list && line < visibleLines && i < count; i++, line++)
 	{
-		GlobalFont::global_ptr->printf(x + 3, lineY, rect.width() - 12, getString(i));
+		GlobalFont::global_ptr->printf(x + 3, lineY, (int16_t)(rect.width() - 12), getString(i));
 		lineY += lineHeight;
 	}
 }

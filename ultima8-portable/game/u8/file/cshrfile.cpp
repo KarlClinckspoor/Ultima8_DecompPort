@@ -26,46 +26,16 @@ void SharedFile::open(const char *name, OpenMode mode)
 }
 
 // DOS lock region; TRUE on success.
-uint8_t SharedFile::lock(int32_t start, int32_t length)
+uint8_t SharedFile::lock(int32_t, int32_t)
 {
-	uint16_t startHigh = start >> 16;
-	uint16_t startLow = start;
-	uint16_t lengthHigh = length >> 16;
-	uint16_t lengthLow = length;
-	int16_t file = handle;
-	uint8_t locked;
-
-	_AH = 0x5c;
-	_AL = 0;
-	_BX = file;
-	_CX = startHigh;
-	_DX = startLow;
-	_SI = lengthHigh;
-	_DI = lengthLow;
-	geninterrupt(0x21);
-	locked = !(_FLAGS & 1);
-	return locked;
+	// DOS lock region (int 21h function 5Ch); one program uses the files on the host.
+	return 1;
 }
 
-uint8_t SharedFile::unlock(int32_t start, int32_t length)
+uint8_t SharedFile::unlock(int32_t, int32_t)
 {
-	uint16_t startHigh = start >> 16;
-	uint16_t startLow = start;
-	uint16_t lengthHigh = length >> 16;
-	uint16_t lengthLow = length;
-	int16_t file = handle;
-	uint8_t unlocked;
-
-	_AH = 0x5c;
-	_AL = 1;
-	_BX = file;
-	_CX = startHigh;
-	_DX = startLow;
-	_SI = lengthHigh;
-	_DI = lengthLow;
-	geninterrupt(0x21);
-	unlocked = !(_FLAGS & 1);
-	return unlocked;
+	// DOS unlock region (int 21h function 5Ch); one program uses the files on the host.
+	return 1;
 }
 
 int32_t SharedFile::read(char *buffer, int32_t count, int32_t pos)

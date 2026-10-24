@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "animprim.h"
 #include "dispatch.h"
 
@@ -106,6 +106,7 @@ public:
 	void pop(uint16_t);
 	void pop(void);
 	void pop(WorldPoint &);
+	void pop(WorldPoint &&p) { pop(p); }
 	void popToEnd(uint16_t);
 	void push(void);
 	void destroy(void);
@@ -114,9 +115,11 @@ public:
 	void move(uint16_t, uint16_t, uint8_t);
 	void move(uint16_t);
 	Boolean legal_move(WorldPoint &, uint16_t, uint16_t);
+	Boolean legal_move(WorldPoint &&p, uint16_t a, uint16_t b) { return legal_move(p, a, b); }
 	Boolean legal_move(Referent &, uint16_t);
 	Boolean superlegal_move(WorldPoint &, uint16_t, uint16_t, uint16_t, Boolean *, Referent *);
 	void move(WorldPoint &);
+	void move(WorldPoint &&p) { move(p); }
 	void move(char);
 	char getDirToCoords(uint16_t, uint16_t);
 	int16_t getDirFromCoords(uint16_t, uint16_t);

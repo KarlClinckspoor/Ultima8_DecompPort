@@ -9,7 +9,7 @@
 // #include <mem.h>  (DOS only)
 // #include <dir.h>  (DOS only)
 // #include <dos.h>  (DOS only)
-#include "direct.h"
+// #include <direct.h>  (DOS only)
 #include "newgump.h"
 #include "crect.h"
 #include "dispatch.h"

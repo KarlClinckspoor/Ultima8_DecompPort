@@ -10,13 +10,15 @@
 #include <string.h>
 // #include <phapi.h>  (DOS only)
 #include "cexit.h"
-#include "cprotmem.h"
 #include "handler.h"
 #include "shaphand.h"
 #include "error.h"
 #include "anim.h"
 
 #define DEFAULT_CACHE	0x800000L
+// The DOS build took all the free memory of the extender's first fragment; the port uses a
+// fixed 16 MB, enough to keep most of U8SHAPES.FLX (15 MB) cached.
+#define CACHE_BYTES	0x1000000L
 #define CLEAR_CHUNK	64000L
 
 // Three dummy nodes anchor the block, free and MRU threads.
@@ -35,7 +37,6 @@ int32_t CacheNodePtr::largestFreeBytes = 0;
 int32_t CacheNodePtr::allocatedBytes = 0;
 int32_t CacheNodePtr::slop = 0;
 uint16_t CacheNodePtr::garbageCount = 0;
-uint32_t CacheNodePtr::base = 0;
 uint16_t CacheNodePtr::numHandlers = 0;
 uint8_t CacheNodePtr::hasUninit = 0;
 uint16_t CacheNodePtr::initialized = 0;
@@ -49,10 +50,13 @@ void initCache(int32_t size)
 	CacheNodePtr::initCache(size);
 }
 
+// The DOS build's exit routine, registered with the extender's DosExitList by
+// CacheNodePtr::initCache; it ended with DosExitList(EXLST_EXIT) to run the next routine.
+// There are no extender exit hooks now: nothing registers or calls this, and the game's
+// own shutdown calls uninitCache.
 void UNINITCACHE(uint16_t)
 {
 	CacheNodePtr::uninitCache();
-	DosExitList(EXLST_EXIT, 0);
 }
 
 void uninitCache(void)
@@ -72,13 +76,10 @@ void profileCache(void)
 
 void dump(void)
 {
-	asm {
-		mov al, 0x83
-		mov ah, 0
-		int16_t 0x10
-	}
-	textmode(C80);
-	textmode(C4350);
+	// The BIOS set video mode 83h (80x25 text, memory kept), then textmode(C80) and
+	// textmode(C4350) for 43/50 lines: the console needs nothing, the calls are kept.
+	textmode(3);	// C80
+	textmode(64);	// C4350
 	CacheNodePtr::dumpCache(0);
 }
 
@@ -91,7 +92,7 @@ void CacheNodePtr::initCache(int32_t size)
 	slop = 0;
 	initialized = 1;
 	hasUninit = 0;
-	DosExitList(EXLST_ADD, UNINITCACHE);
+	// DosExitList(EXLST_ADD, UNINITCACHE) registered the exit routine here.
 }
 
 void CacheNodePtr::uninitCache(void)
@@ -108,24 +109,24 @@ void CacheNodePtr::uninitCache(void)
 			node = next;
 		}
 		if (memBase)
-			farfree(memBase);
+			::free(memBase);
 	}
 }
 
+// Takes the cache block and clears it. The DOS build sized it as the free memory of the
+// extender's fragment 0 less 4K, and took its selector's linear base for getPtr; the block
+// is CACHE_BYTES of plain memory now, and getPtr adds offsets to memBase.
 void CacheNodePtr::allocateCache(void)
 {
 	char *block;
-	uint32_t total, free;
-	ProtMemoryManager::fragments[0].getMemStatus(total, free);
-	totalBytes = free - 0x1000;
-	memBase = ProtMemoryManager::allocate(totalBytes, 0, 0);
+	totalBytes = CACHE_BYTES;
+	memBase = malloc(totalBytes);
 	if (memBase == 0)
 		halt(__FILE__, 187);	// __LINE__
-	Desc *desc = LocalDescriptorTable::getDesc(FP_SEG(memBase));
-	base = desc->getBase();
 	cache.offset = 0;
 	int16_t chunks = totalBytes / CLEAR_CHUNK;
-	for (int32_t i = 0; i < chunks; i++)
+	int32_t i;
+	for (i = 0; i < chunks; i++)
 	{
 		block = (char *)getPtr(i * CLEAR_CHUNK);
 		memset(block, 0, CLEAR_CHUNK);
@@ -169,7 +170,7 @@ CacheNodePtr CacheNodePtr::findSpace(int32_t size)
 	if (totalBytes - DUMMY_BYTES <= size)
 		halt(__FILE__, 253);	// __LINE__
 	CacheNodePtr largest = largestFreeNode;
-	if (size > largestFreeBytes || largest.getHandle() != FREE_HANDLE)
+	if (size > largestFreeBytes || (uint16_t)largest.getHandle() != FREE_HANDLE)
 	{
 		if (freeBytes + slop >= size)
 		{
@@ -280,13 +281,13 @@ int32_t CacheNodePtr::deallocate(CacheNodePtr node)
 	node.addToFreeChain();
 	int32_t freed = size;
 	CacheNodePtr next = node.getNext();
-	if (next.getHandle() == FREE_HANDLE)
+	if ((uint16_t)next.getHandle() == FREE_HANDLE)
 	{
 		node.merge();
 		freed += NODE_HEADER;
 	}
 	CacheNodePtr prev = node.getPrev();
-	if (prev.getHandle() == FREE_HANDLE)
+	if ((uint16_t)prev.getHandle() == FREE_HANDLE)
 	{
 		prev.merge();
 		freed += NODE_HEADER;
@@ -454,7 +455,9 @@ void CacheNodePtr::shiftUp(int32_t distance)
 	reset(CacheNodePtr(to));
 	char *dest = (char *)getPtr(to);
 	char *src = (char *)getPtr(offset);
-	memcpy(dest, src, getSize() + NODE_HEADER);
+	// Borland's inline memcpy copied forwards, which is right for dest below src. Its count
+	// was a 16-bit size_t: a node over 64K would have been cut short (none is moved).
+	memmove(dest, src, getSize() + NODE_HEADER);
 	int16_t type = ((CacheNode *)dest)->type;
 	CacheNodePtr moved;	// never used, but it has a frame slot
 	if (type < 0xff)
@@ -473,7 +476,7 @@ void CacheNodePtr::shiftUpToFreeBlock(void)
 	shiftUpSet(CacheNodePtr(to));
 	char *dest = (char *)getPtr(to);
 	char *src = (char *)getPtr(offset);
-	memcpy(dest, src, getSize() + getSizeDiff() + NODE_HEADER);
+	memmove(dest, src, getSize() + getSizeDiff() + NODE_HEADER);
 	CacheNodePtr moved(to);
 	moved.setPrev(before);
 	freeBytes += NODE_HEADER;
@@ -505,13 +508,10 @@ int16_t CacheNodePtr::deallocateLru(CacheNodeType type)
 
 void CacheNodePtr::verifyFailed(uint16_t check, char *file, uint16_t line)
 {
-	asm {
-		mov al, 0x83
-		mov ah, 0
-		int16_t 0x10
-	}
-	textmode(C80);
-	textmode(C4350);
+	// The BIOS set video mode 83h (80x25 text, memory kept), then textmode(C80) and
+	// textmode(C4350) for 43/50 lines: the console needs nothing, the calls are kept.
+	textmode(3);	// C80
+	textmode(64);	// C4350
 	traceGet((TraceLevel)50, "verify failed at %d in %s, line %d\r\n", check, file, line);
 	dumpCache(0);
 	if (haltOnFail)
@@ -522,14 +522,15 @@ void CacheNodePtr::verifyFailed(uint16_t check, char *file, uint16_t line)
 // argument of each verifyFailed call is the line of the failed check.
 void CacheNodePtr::verify(char *file, uint16_t line)
 {
-	HoldPointers hold;
+	// HoldPointers saved and restored the reserved selectors' bases here.
 	if (!initialized)
 		return;
-	if (largestFreeNode.getHandle() != FREE_HANDLE && freeBytes != 0)
+	if ((uint16_t)largestFreeNode.getHandle() != FREE_HANDLE && freeBytes != 0)
 		verifyFailed(979, file, line);
-	if (totalAllocatedBlocks + totalFreeBlocks != totalBlocks)
+	if ((uint16_t)(totalAllocatedBlocks + totalFreeBlocks) != totalBlocks)
 		verifyFailed(983, file, line);
-	if (totalBytes - (totalBlocks * NODE_HEADER + allocatedBytes + slop + NODE_HEADER) != freeBytes)
+	// totalBlocks * NODE_HEADER was an unsigned (16-bit) product, as here.
+	if (totalBytes - ((uint16_t)(totalBlocks * NODE_HEADER) + allocatedBytes + slop + NODE_HEADER) != freeBytes)
 		verifyFailed(987, file, line);
 	CacheNodePtr last = blockRoot.getPrev();
 	int32_t lastSize = last.getSize();
@@ -546,7 +547,7 @@ void CacheNodePtr::verify(char *file, uint16_t line)
 		forward = forward.getNext();
 		back = back.getPrev();
 		total += forward.getSize() + back.getSize() + forward.getSizeDiff() + back.getSizeDiff() + 2 * NODE_HEADER;
-		if ((forward.getHandle() == 0xffff || forward.getHandle() == FREE_HANDLE) && forward.getType() != 0xff)
+		if (((uint16_t)forward.getHandle() == 0xffff || (uint16_t)forward.getHandle() == FREE_HANDLE) && forward.getType() != 0xff)
 			verifyFailed(1025, file, line);
 		int16_t type = forward.getType();
 		if (type < 6 && handlers[type] && !handlers[type]->verify(forward.offset))
@@ -565,7 +566,7 @@ void CacheNodePtr::verify(char *file, uint16_t line)
 		forward = forward.getLess();
 		back = back.getMore();
 		total += forward.getSize() + back.getSize();
-		if ((forward.getHandle() == 0xffff || forward.getHandle() == FREE_HANDLE) && forward.getType() != 0xff)
+		if (((uint16_t)forward.getHandle() == 0xffff || (uint16_t)forward.getHandle() == FREE_HANDLE) && forward.getType() != 0xff)
 			verifyFailed(1057, file, line);
 	}
 	if (forward.offset != blockRoot.offset || back.offset != blockRoot.offset)
@@ -581,7 +582,7 @@ void CacheNodePtr::verify(char *file, uint16_t line)
 		forward = forward.getLess();
 		back = back.getMore();
 		total += forward.getSize() + back.getSize();
-		if (forward.getHandle() == 0xffff || forward.getHandle() == FREE_HANDLE)
+		if ((uint16_t)forward.getHandle() == 0xffff || (uint16_t)forward.getHandle() == FREE_HANDLE)
 		{
 			if (forward.getType() != 0xff)
 				verifyFailed(1077, file, line);
@@ -619,7 +620,7 @@ void CacheNodePtr::verify(char *file, uint16_t line)
 
 void CacheNodePtr::dumpCache(uint8_t)
 {
-	HoldPointers hold;
+	// HoldPointers saved and restored the reserved selectors' bases here.
 	printf("total = %ld allocated = %ld free = %ld slop = %ld\r\n", totalBytes, allocatedBytes, freeBytes, slop);
 	printf("total blocks = %d allocated blocks = %d free blocks = %d largest bytes = %ld", totalBlocks, totalAllocatedBlocks, totalFreeBlocks, largestFreeBytes);
 	printf("\r\n         block  size   diff next   prev   type handle \r\n");
@@ -635,28 +636,28 @@ void CacheNodePtr::dumpCache(uint8_t)
 
 void CacheNodePtr::dump(void)
 {
-	char *blockMark;
+	const char *blockMark;
 	if (offset == blockRoot.offset)
 		blockMark = "BR";
 	else
 		blockMark = "  ";
-	char *freeMark;
+	const char *freeMark;
 	if (offset == freeRoot.offset)
 		freeMark = "FR";
 	else
 		freeMark = "  ";
-	char *largestMark;
+	const char *largestMark;
 	if (offset == largestFreeNode.offset)
 		largestMark = "LF";
 	else
 		largestMark = "  ";
 	char handle[16];
-	if (getHandle() == FREE_HANDLE)
+	if ((uint16_t)getHandle() == FREE_HANDLE)
 		strcpy(handle, "FREE");
-	else if (getHandle() == 0xffff)
+	else if ((uint16_t)getHandle() == 0xffff)
 		strcpy(handle, "DUMMY");
 	else
-		sprintf(handle, "%0X", getHandle());
+		sprintf(handle, "%0X", (uint16_t)getHandle());
 	uint16_t shape = 0;
 	uint16_t frame = 0;
 	int16_t type = getType();
@@ -667,7 +668,7 @@ void CacheNodePtr::dump(void)
 		frame = data->frame;
 	}
 	printf("%2s %2s %2s %06lX %06lX %04x %06lX %06lX %02X %04X %04X %02X %-5s", blockMark, freeMark, largestMark,
-		offset, getSize(), getSizeDiff(), getNext(), getPrev(), getType(), getHandle(), shape, frame, handle);
+		offset, getSize(), getSizeDiff(), getNext(), getPrev(), getType(), (uint16_t)getHandle(), shape, frame, handle);
 	printf("\r\n");
 }
 
@@ -738,7 +739,7 @@ void CacheNodePtr::save(char *name)
 		fwrite(&data, 4, 1, file);
 	}
 	memcpy(getPtr(cache.offset), image, totalBytes);
-	delete image;
+	delete[] image;
 	fclose(file);
 }
 

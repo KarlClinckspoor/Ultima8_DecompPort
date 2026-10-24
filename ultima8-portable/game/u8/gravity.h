@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "animprim.h"
 #include "item.h"
 #include "type.h"
@@ -24,6 +24,7 @@ public:
 	ItemSupport(void) {}
 	ItemSupport(uint16_t, uint8_t);
 	void figureInfo(uint16_t, WorldPoint &, uint8_t, uint16_t);
+	void figureInfo(uint16_t a, WorldPoint &&p, uint8_t b, uint16_t c) { figureInfo(a, p, b, c); }
 	uint8_t isSupported(void) { return flags & SUPPORTED; }
 	Boolean onlyNorth(void) { return (flags & 9) && !(flags & 6); }
 	Boolean onlyEast(void) { return (flags & 3) && !(flags & 0xc); }

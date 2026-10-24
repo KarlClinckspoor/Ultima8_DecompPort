@@ -66,7 +66,8 @@ public:
 	void draw(int16_t);
 };
 
-extern "C" void SaveRect(Vport *, void *, Rect *);
-extern "C" void RestoreRect(Vport *, void *, Rect *);
+// TMSVRECT.ASM, TMRSRECT.ASM: the rect's pixels, row after row, to and from a buffer.
+void SaveRect(Vport *, void *, Rect *);
+void RestoreRect(Vport *, void *, Rect *);
 
 #endif

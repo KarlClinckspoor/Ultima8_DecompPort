@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 
 // Counts frames and prints process, memory and timing figures once a frame.
 class ProcessMonitor : public ProcessRealTime

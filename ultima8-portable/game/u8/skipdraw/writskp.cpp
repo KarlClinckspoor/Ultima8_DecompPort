@@ -24,12 +24,14 @@ SkipMaker::SkipMaker(uint8_t *buffer, int16_t w, int16_t h, int16_t hotX, int16_
 
 // As FastSkipMaker::skip_to, but a finished row that matches an earlier one
 // is dropped and shares that row's data, and blank rows share one copy.
+// The compares with newY and the differences y - 1, y + 1 and newY - y were unsigned
+// 16-bit in Borland, as y, width and height are unsigned.
 int16_t SkipMaker::skip_to(int16_t newX, int16_t newY)
 {
 	int16_t size = 0;
 	uint16_t i;
 
-	if (y < newY)
+	if (y < (uint16_t)newY)
 	{
 		if (x < width)
 		{
@@ -40,7 +42,7 @@ int16_t SkipMaker::skip_to(int16_t newX, int16_t newY)
 		{
 			int16_t *row = firstRow;
 			uint8_t *last = (uint8_t *)(rowOffset - 1) + rowOffset[-1];
-			for (i = 0; i < y - 1; i++)
+			for (i = 0; i < (uint16_t)(y - 1); i++)
 			{
 				uint8_t *data = (uint8_t *)row + *row;
 				if (memcmp(data, last, out - last) == 0)
@@ -52,11 +54,12 @@ int16_t SkipMaker::skip_to(int16_t newX, int16_t newY)
 				row++;
 			}
 		}
-		while (y < newY)
+		while (y < (uint16_t)newY)
 		{
-			if (y + 1 < height)
+			if ((uint16_t)(y + 1) < height)
 			{
-				if (newY - y > 1)
+				int16_t *entry = rowOffset++;
+				if ((uint16_t)(newY - y) > 1)
 				{
 					if (blankRow == 0)
 					{
@@ -64,17 +67,17 @@ int16_t SkipMaker::skip_to(int16_t newX, int16_t newY)
 						size += add_skip(width);
 						x = 0;
 					}
-					*rowOffset++ = blankRow - (uint8_t *)rowOffset;
+					*entry = blankRow - (uint8_t *)entry;
 				}
 				else
 				{
-					*rowOffset++ = out - (uint8_t *)rowOffset;
+					*entry = out - (uint8_t *)entry;
 				}
 			}
 			y++;
 		}
 	}
-	if (height > newY)
+	if (height > (uint16_t)newY)
 	{
 		size += add_skip(newX - x);
 	}
@@ -301,7 +304,7 @@ uint16_t EstimateWriteSkip(Vport &vport, int16_t x1, int16_t y1, int16_t x2, int
 	int16_t height = y2 - y1 + 1;
 	ShapeScanner scanner(vport, x1, y1, x2, y2, skipColor);
 	SkipMaker maker(0, width, height, 0, 0, flags);
-	int32_t size = height * 2 + 10L;
+	int32_t size = (int16_t)(height * 2) + 10L;	// height * 2 in 16 bits
 
 	while (scanner.find_segment())
 	{

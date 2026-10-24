@@ -25,10 +25,9 @@ inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
 inline Rect::Rect(void) {}
 inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
 inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
-inline int16_t Vport::getSeg(void) { return seg; }
 inline GraphicYtable *Vport::getYTable(void) { return &graphicYtable; }
 inline int16_t GraphicYtable::getindex(int16_t y) { return index[y]; }
-inline void Vport::slam(Vport *from) { SlamScreen(getSeg(), MK_FP(from->getSeg(), from->getYTable()->getindex(0))); }
+inline void Vport::slam(Vport *from) { SlamScreen(getMem(), from->getMem() + from->getYTable()->getindex(0)); }
 
 BaseCamera *theBaseCamera = 0;
 uint8_t BaseCamera::needSlam = 0;
@@ -45,22 +44,8 @@ void BaseCamera::textVideoMode(void)
 	{
 		inTextMode = 1;
 		theMouse->suspend();
-		asm {
-			mov al, 83h
-			mov ah, 0
-			int16_t 10h
-			mov ax, 1112h
-			xor bl, bl
-			int16_t 10h
-			mov al, 0Ah
-			mov bx, 0
-			mov cx, 0FFFFh
-			mov dx, 5749h
-			int16_t 33h
-			mov ax, 1
-			int16_t 33h
-			mov ax, 1Eh
-		}
+		// DOS: 80x50 text mode (BIOS mode 3 with the 8x8 font) and a text-mode mouse
+		// pointer, for the debugger. The host keeps showing the game screen.
 		screen = text;
 	}
 }
@@ -74,13 +59,9 @@ void BaseCamera::graphicVideoMode(void)
 	if (inTextMode)
 	{
 		inTextMode = 0;
-		asm {
-			mov al, 93h
-			mov ah, 0
-			int16_t 10h
-		}
+		// DOS: back to mode 13h without clearing the screen.
 		theMouse->resume();
-		window(1, 1, 80, 25);
+		u8_window(1, 1, 80, 25);
 		gotoxy(1, 1);
 		initPalette();
 		screen = graphics;

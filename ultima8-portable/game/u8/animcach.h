@@ -8,7 +8,7 @@
 class AnimNode;
 
 // Animation numbers within a shape's anim.dat entry.
-enum AnimSet
+enum AnimSet : int16_t
 {
 	ANIM_WALK = 0,
 	ANIM_RUN = 1,

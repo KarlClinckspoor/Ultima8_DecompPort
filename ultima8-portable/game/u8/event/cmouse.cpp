@@ -2,6 +2,7 @@
 // name: EVENT\CMOUSE.C
 
 #include "u8port.h"
+#include "plat.h"
 
 // #include <dos.h>  (DOS only)
 #include "cexit.h"
@@ -25,85 +26,53 @@ MouseDevice::~MouseDevice(void)
 	remove_mouse_hook();
 }
 
+// The mouse driver's calls (int 33h) are the platform's now.
 void MouseDevice::init(void)
 {
-	_AX = 0;
-	geninterrupt(0x33);
-	if (_AX == 0xFFFF)
-		installed_flag = 1;
-	else
-		installed_flag = 0;
-	number_of_buttons = _BX;
+	installed_flag = 1;
+	number_of_buttons = 2;
 	move_to(0, 0);
 	mouseLastX = mouseLastY = 0;
-	// Mickeys per 8 pixels.
-	_AX = 0x0F;
-	_CX = 3;
-	_DX = 0x10;
-	geninterrupt(0x33);
+	// The DOS build set 3 mickeys per 8 pixels across and 16 down; the host's pointer moves
+	// with the host's.
 	install_mouse_hook();
 }
 
 int16_t MouseDevice::reset(void)
 {
-	_AX = 0;
-	geninterrupt(0x33);
-	return _AX;
+	return -1;	// installed
 }
 
 // Swaps mouseHook in for every driver event, keeping the old handler.
 void MouseDevice::install_mouse_hook(void)
 {
-	_ES = FP_SEG(mouseHook);
-	_DX = FP_OFF(mouseHook);
-	_AX = 0x14;
-	_CX = 0x3F;
-	geninterrupt(0x33);
-	original_handler_mask = _CX;
-	original_handler[1] = _ES;
-	original_handler[0] = _DX;
+	original_handler_mask = 0;
+	original_handler[0] = original_handler[1] = 0;
+	plat_mouse_set_handler(mouseHook);
 }
 
 void MouseDevice::remove_mouse_hook(void)
 {
-	_DX = original_handler[0];
-	_ES = original_handler[1];
-	_AX = 0x14;
-	_CX = original_handler_mask;
-	geninterrupt(0x33);
+	plat_mouse_set_handler(0);
 }
 
-// These four set only AL, so AH must already be 0.
 void MouseDevice::move_to(int16_t x, int16_t y)
 {
-	_AL = 4;
-	_CX = x;
-	_DX = y;
-	geninterrupt(0x33);
+	plat_mouse_move_to(x, y);
 }
 
 void MouseDevice::set_x_bounds(int16_t min, int16_t max)
 {
-	_AL = 7;
-	_CX = min;
-	_DX = max;
-	geninterrupt(0x33);
+	plat_mouse_set_bounds(min, -1, max, -1);
 }
 
 void MouseDevice::set_y_bounds(int16_t min, int16_t max)
 {
-	_AL = 8;
-	_CX = min;
-	_DX = max;
-	geninterrupt(0x33);
+	plat_mouse_set_bounds(-1, min, -1, max);
 }
 
-void MouseDevice::set_speed(int16_t x, int16_t y)
+void MouseDevice::set_speed(int16_t, int16_t)
 {
-	_AL = 0x0F;
-	_CX = x;
-	_DX = y;
-	geninterrupt(0x33);
 }
 
 int16_t MouseDevice::get_last_x(void)
@@ -125,34 +94,13 @@ void MouseDevice::freeze(void)
 {
 	int16_t x, y;
 
-	asm {
-		mov ax, 3
-		int16_t 33h
-		mov x, cx
-		mov y, dx
-		mov ax, 7
-		mov cx, x
-		mov dx, x
-		int16_t 33h
-		mov ax, 8
-		mov cx, y
-		mov dx, y
-		int16_t 33h
-	}
+	plat_mouse_state(&x, &y, 0);
+	plat_mouse_set_bounds(x, y, x, y);
 }
 
 void MouseDevice::release(void)
 {
-	asm {
-		mov ax, 7
-		mov cx, 0
-		mov dx, 639
-		int16_t 33h
-		mov ax, 8
-		mov cx, 0
-		mov dx, 199
-		int16_t 33h
-	}
+	plat_mouse_set_bounds(0, 0, 639, 199);
 }
 
 char MouseDevice::is_installed(void)

@@ -40,7 +40,7 @@ inline uint8_t NewGumpId::getInstance(void) { return instance & 0xff; }
 inline void NewGump::moveto(int16_t x, int16_t y) { rect.moveto(x, y); }
 inline CacheFont::~CacheFont(void) {}
 inline GraphicYtable::GraphicYtable(void) { f_04 = 2; index = 0; }
-inline Vport::Vport(void) { seg = 0; f_0f = 2; f_10 = 0; }
+inline Vport::Vport(void) { mem = 0; f_0f = 2; f_10 = 0; }
 inline Vport::~Vport(void) { free(); }
 inline SimpleVirtualString::operator char *(void) { return string; }
 inline YammList::YammList(uint16_t l, uint16_t s, int16_t str) { list = l; size = s; isString = str; }

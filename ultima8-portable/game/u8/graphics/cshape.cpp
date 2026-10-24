@@ -19,7 +19,7 @@ inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::s
 inline MemHandle::MemHandle(void) { f_00 = 0; f_04 = 0; f_05 = 0; }
 inline MemHandle::~MemHandle(void) { free(0); }
 inline char *MemHandle::get_ptr(void) { return (char *)f_00; }
-inline void MemHandle::init(char *p, uint8_t owned) { f_00 = (uint32_t)p; f_04 = owned; f_05 = 0; }
+inline void MemHandle::init(char *p, uint8_t owned) { f_00 = p; f_04 = owned; f_05 = 0; }
 inline void MemHandle::init(MemHandle &from) { init(from.get_ptr(), 0); }
 inline void MemHandle::take_ownership(MemHandle &from) { from.f_04 = 0; f_04 = 1; }
 inline int16_t MemHandle::is_valid(void) { return f_00 != 0; }

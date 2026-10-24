@@ -2,6 +2,7 @@
 // name: EVENT\CMSELECT.C
 
 #include "u8port.h"
+#include "plat.h"
 
 // #include <dos.h>  (DOS only)
 #include "systimer.h"
@@ -62,9 +63,8 @@ void MouseSelectChronicler::handle(int16_t mask, int16_t buttons, int16_t x, int
 		event._action = MOUSE_DOWN;
 	else
 		event._action = MOUSE_MOVED;
-	_AH = 2;
-	geninterrupt(0x16);
-	event.extraStatus = _AL;
+	// int 16h function 2: the shift keys.
+	event.extraStatus = (uint8_t)plat_key_modifiers();
 	write_event(&event);
 }
 

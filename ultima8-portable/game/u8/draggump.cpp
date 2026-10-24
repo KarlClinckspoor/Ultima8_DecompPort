@@ -23,10 +23,10 @@ inline int16_t Rect::width(void) { return f_04 - f_00 + 1; }
 inline int16_t Rect::height(void) { return f_06 - f_02 + 1; }
 inline void NewGump::popVisibility(void) { visibilityStack >>= 2; }
 inline GraphicYtable::GraphicYtable(void) { f_04 = 2; index = 0; }
-inline Vport::Vport(void) { seg = 0; f_0f = 2; f_10 = 0; }
+inline Vport::Vport(void) { mem = 0; f_0f = 2; f_10 = 0; }
 inline Vport::~Vport(void) { free(); }
 inline Rect *Vport::getRect(void) { return &rect; }
-inline void MemHandle::init(char *p, uint8_t owned) { f_00 = (uint32_t)p; f_04 = owned; f_05 = 0; }
+inline void MemHandle::init(char *p, uint8_t owned) { f_00 = p; f_04 = owned; f_05 = 0; }
 inline MemHandle::MemHandle(void) { init(0, 0); }
 inline MemHandle::~MemHandle(void) { free(0); }
 inline char *MemHandle::get_ptr(void) { return (char *)f_00; }

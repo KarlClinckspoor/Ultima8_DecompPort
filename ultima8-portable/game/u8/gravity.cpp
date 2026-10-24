@@ -2,6 +2,7 @@
 // name: GRAVITY.C
 
 #include "u8port.h"
+#include "plat.h"
 
 // #include <dos.h>  (DOS only)
 #include <stdlib.h>
@@ -174,7 +175,7 @@ GravityTracker::~GravityTracker(void)
 				else
 					damage = (fall - 9) << 1;
 				npc.receiveHit(0, npc.getDir(), damage, 0x180);
-				playSFX(51, 250);
+				playSFX(51, (int16_t)250);
 			}
 			else if (npc.getLastAnimSet() != ANIM_DIE)
 			{
@@ -489,9 +490,12 @@ uint8_t GravityTrackerCling::move(void)
 	uint8_t buttons;
 	Boolean caught = 0;
 
-	_AX = 3;
-	geninterrupt(0x33);
-	buttons = _BL;
+	// int 33h function 3: the buttons held now.
+	{
+		uint16_t held;
+		plat_mouse_state(0, 0, &held);
+		buttons = (uint8_t)held;
+	}
 	if (buttons & 2)
 	{
 		Npc npc(ref);

@@ -6,7 +6,16 @@
 // #include <dos.h>  (DOS only)
 #include "cintlist.h"
 
-typedef void interrupt (*Vector)(...);
+typedef void (*Vector)(...);
+
+// The interrupt vector table, as getvect and setvect read and wrote it. Nothing on the host
+// calls through it: nothing in U8.EXE hooked a vector through this list.
+static Vector vectorTable[256];
+static Vector getvect(int16_t vector) { return vectorTable[vector & 0xff]; }
+static void setvect(int16_t vector, Vector handler) { vectorTable[vector & 0xff] = handler; }
+// cli and sti.
+static void disable(void) {}
+static void enable(void) {}
 
 // Inline in the shared headers when this file was built.
 inline DoubleLink::DoubleLink(DoubleLink *n, DoubleLink *p) { next = n; prev = p; }

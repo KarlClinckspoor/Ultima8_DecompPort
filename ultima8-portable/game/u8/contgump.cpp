@@ -522,16 +522,10 @@ void ContainerGump::commandMouseLeft(Event &event)
 		{
 			if (event.isAlt() && event.isShift() && event.isCtrl())
 			{
-				asm {
-					push ax
-					push cx
-					push dx
-					mov ax, 0x2a00
-					int16_t 0x21
-					mov day, al
-					pop dx
-					pop cx
-					pop ax
+				// DOS get date: AL is the day of the week, 0 for Sunday.
+				{
+					time_t now = time(0);
+					day = (uint8_t)localtime(&now)->tm_wday;
 				}
 				if (cheats1[day] == cheatcheck1 && cheats2[day] == cheatcheck2 && cheats3[day] == cheatcheck3)
 					cheat = 1;

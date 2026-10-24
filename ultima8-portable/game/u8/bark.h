@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "cafont.h"
 #include "dispatch.h"
 #include "irgump.h"

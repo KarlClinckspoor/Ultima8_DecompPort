@@ -69,6 +69,6 @@ void PanelGump::printf(int16_t x, int16_t y, char *format, ...)
 	{
 		FORMAT_WORKSTRING(format, args);
 		strcpy(buffer, WorkString);
-		font->printf(get_dx() + x, get_dy() + y, rect.width() - x, buffer);
+		font->printf(get_dx() + x, get_dy() + y, (int16_t)(rect.width() - x), buffer);
 	}
 }

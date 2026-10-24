@@ -175,7 +175,7 @@ NewGump::~NewGump(void)
 	}
 }
 
-void *NewGump::operator new(uint16_t size)
+void *NewGump::operator new(size_t size)
 {
 	void *p = ::operator new(size);
 	if (!p)
@@ -191,7 +191,7 @@ void *NewGump::operator new(uint16_t size)
 void NewGump::operator delete(void *p)
 {
 	// Gumps built on the stack are only counted.
-	if (_SS != FP_SEG(p))
+	if (!u8_on_stack(p))
 		::operator delete(p);
 	gumpCount--;
 }
@@ -404,15 +404,20 @@ void NewGump::command(Event &event)
 }
 
 // Adds a zero-terminated list of keys to the ones this gump answers.
-void NewGump::registerHotKeys(...)
+void NewGump::registerHotKeys(int16_t first, ...)
 {
 	int16_t total;
 	int16_t oldCount = 0;
 	int16_t newCount = 0;
-	// The keys follow this on the stack: saved BP, return address, this.
-	va_list args = (va_list)MK_FP(_SS, _BP + 10);
-	while (((int16_t *)args)[newCount])
-		newCount++;
+	// The DOS build read the keys off the stack after this (saved BP, return address, this).
+	int16_t args[256];
+	va_list list;
+
+	va_start(list, first);
+	args[0] = first;
+	while (args[newCount] && newCount < 255)
+		args[++newCount] = (int16_t)va_arg(list, int);
+	va_end(list);
 	if (newCount == 0)
 	{
 		if (hotKeys)

@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "stdint.h"
+#include "u8stdint.h"
 
 // Armor class bonus by frame of each armor type; -128 ends a table.
 char ArmorData::shieldBonus[3] = {4, 3, -128};

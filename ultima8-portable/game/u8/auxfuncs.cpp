@@ -3,12 +3,12 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "kernel.h"
 #include "npc.h"
 #include "main.h"
 #include "statrest.h"
-#include "stdint.h"
+#include "u8stdint.h"
 
 HeadShaker *headShaker = 0;
 

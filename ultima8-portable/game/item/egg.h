@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "item.h"
 
 // Keeps the avatar in stasis until it runs.

@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "inter.h"
 
 class BaseFile;
@@ -59,6 +59,7 @@ public:
 	static int16_t getNumFree(void);
 	static char *getCode(uint16_t, uint16_t, uint8_t, int32_t);
 	static void markUnused(uint16_t);
+	static char *codeBase(uint16_t);
 	static uint8_t cacheOut(int16_t);
 	static Overload *overloadTable;
 	static int32_t unkMemoryUsed;

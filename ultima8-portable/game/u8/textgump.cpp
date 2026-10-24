@@ -2,6 +2,7 @@
 // name: TEXTGUMP.C
 
 #include "u8port.h"
+#include "plat.h"
 
 // #include <dos.h>  (DOS only)
 // #include <mem.h>  (DOS only)
@@ -20,8 +21,9 @@
 // Text mode screen: 80 columns of character and attribute bytes.
 #define TEXT_ROW	160
 
-#define HIDE_MOUSE()	_AX = 2; geninterrupt(0x33)
-#define SHOW_MOUSE()	_AX = 1; geninterrupt(0x33)
+// int 33h functions 2 and 1: the driver's text-mode pointer, which the host does not draw.
+#define HIDE_MOUSE()
+#define SHOW_MOUSE()
 
 char *doubleFrame = "\311\273\310\274\315\272";
 char *singleFrame = "\332\277\300\331\304\263";
@@ -60,7 +62,7 @@ void WindowGump::clear(void)
 		*p = ' ';
 	int16_t x = get_dx();
 	int16_t y = get_dy();
-	char *screen = (char *)MK_FP(TextSelector, y * TEXT_ROW + x * 2);
+	char *screen = (char *)TextScreen + y * TEXT_ROW + x * 2;
 	int16_t bytes = rect.width() * 2;
 	int16_t rows = rect.height();
 	for (int16_t i = 0; i < rows; i++, screen += TEXT_ROW)
@@ -75,13 +77,8 @@ void WindowGump::gotoxy(int16_t x, int16_t y)
 	cursorY = y;
 	uint8_t column = get_dx() + x;
 	uint8_t row = get_dy() + y;
-	asm {
-		mov ah, 2
-		xor bx, bx
-		mov dl, column
-		mov dh, row
-		int16_t 10h
-	}
+	// int 10h function 2: the text cursor.
+	plat_console_goto(column + 1, row + 1);
 }
 
 void WindowGump::print(char *format, ...)
@@ -102,7 +99,7 @@ void WindowGump::print(char *format, ...)
 	x = get_dx() + cursorX;
 	y = get_dy() + cursorY;
 	cursorX += len;
-	screen = (char *)MK_FP(TextSelector, y * TEXT_ROW + x * 2);
+	screen = (char *)TextScreen + y * TEXT_ROW + x * 2;
 	memset(screen, color, len * 2);
 	while (len > 0)
 	{
@@ -125,7 +122,7 @@ void WindowGump::print(char c)
 	int16_t x = get_dx() + cursorX;
 	int16_t y = get_dy() + cursorY;
 	cursorX++;
-	char *screen = (char *)MK_FP(TextSelector, y * TEXT_ROW + x * 2);
+	char *screen = (char *)TextScreen + y * TEXT_ROW + x * 2;
 	screen[1] = color;
 	screen[0] = c;
 	gotoxy(cursorX, cursorY);
@@ -153,13 +150,8 @@ void WindowGump::activate(void)
 
 void WindowGump::moveCursor(int16_t x, int16_t y)
 {
-	asm {
-		mov ah, 2
-		mov bh, 0
-		mov dl, byte ptr x
-		mov dh, byte ptr y
-		int16_t 10h
-	}
+	// int 10h function 2: the text cursor.
+	plat_console_goto((uint8_t)x + 1, (uint8_t)y + 1);
 }
 
 WindowFrame::WindowFrame(NewGumpId id, NewGump *parent, Rect r, char *chars, char color) :

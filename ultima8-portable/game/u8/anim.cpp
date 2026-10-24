@@ -2,6 +2,7 @@
 // name: ANIM.C
 
 #include "u8port.h"
+#include "plat.h"
 
 // #include <conio.h>  (DOS only)
 // #include <dos.h>  (DOS only)
@@ -401,9 +402,9 @@ void ctrlF1Key(void)
 	waitForKey();
 }
 
+// DOS: int 3, a breakpoint for a debugger running the game.
 void ctrlF2Key(void)
 {
-	asm int16_t 3;
 }
 
 void ctrlF3Key(void)
@@ -468,7 +469,7 @@ void shiftF1Key(void)
 // Debug: drops one of each weapon around the Avatar.
 void shiftF2Key(void)
 {
-	uint16_t _ss *weapon;
+	uint16_t *weapon;
 	int16_t tries;
 	uint16_t weapons[16] = {540, 541, 542, 420, 419, 418, 417, 815, 822, 816, 821, 820, 819, 818, 817, 0};
 
@@ -581,9 +582,7 @@ void handleTracker(uint16_t x, uint16_t y, uint16_t buttons)
 	uint8_t shift;
 	uint8_t keys = 0x0e;
 
-	_AH = 2;
-	geninterrupt(0x16);
-	shift = _AL;
+	shift = (uint8_t)plat_key_modifiers();	// int 16h function 2
 	if ((shift & keys) == keys)
 	{
 		if (x <= 3 && y <= 3)
@@ -591,14 +590,14 @@ void handleTracker(uint16_t x, uint16_t y, uint16_t buttons)
 			if ((buttons & 3) == 3 && ++count == 16)
 			{
 				count = 0;
-				playSFX(218, 100);
+				playSFX(218, (int16_t)100);
 				avatar.canCheat = !avatar.canCheat;
 			}
 		}
 		else if (x == 638 && y == 0)
 		{
 			count = 0;
-			asm int16_t 3;
+			// DOS: int 3, a breakpoint.
 		}
 		else
 			count = 0;

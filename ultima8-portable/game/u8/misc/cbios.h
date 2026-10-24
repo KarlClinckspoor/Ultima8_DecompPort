@@ -10,7 +10,7 @@ struct CursorPosition
 };
 
 // Text-mode scan line counts for BIOS video function 12h/30h.
-enum ScanCodes
+enum ScanCodes : int16_t
 {
 	SCANS_200,
 	SCANS_350,

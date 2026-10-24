@@ -1354,7 +1354,7 @@ Boolean Item::findTarget(int16_t x, int16_t y)
 	if (ContainerGump::findTarget(x, y, referent))
 		return referent != 0;
 	int16_t target = DisplayList::find_target(x, y);
-	DL_ItemNode *node = (DL_ItemNode *)MK_FP(DisplayListNodeSeg, target);
+	DL_ItemNode *node = (DL_ItemNode *)NODE(target);
 	if (target && node->nodetype() == 2)
 	{
 		referent = node->referent;
@@ -1769,7 +1769,7 @@ void Item::receiveHit(Referent other, char dir, int16_t damage, uint16_t type)
 			{
 				newHp = npc.getStr() * 2;
 				npc.setHp(newHp);
-				playSFX(59, 250);
+				playSFX(59, (int16_t)250);
 				npc.clrWithstandDeath();
 			}
 		}
@@ -2071,9 +2071,9 @@ int16_t Item::explode(void)
 {
 	AreaItemFinder finder;
 	if (urandom(2))
-		playSFX(31, 100);
+		playSFX(31, (int16_t)100);
 	else
-		playSFX(158, 100);
+		playSFX(158, (int16_t)100);
 	int16_t sprite = createSprite(578, 20, 34, 34, 1, 2, getX() + 128, getY() + 128, getZ());
 	uint16_t x = getX();
 	uint16_t y = getY();

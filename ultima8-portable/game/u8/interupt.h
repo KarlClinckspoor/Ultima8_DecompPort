@@ -3,11 +3,14 @@
 
 #include "u8port.h"
 
-// The 8259 PIC and DOS interrupt vector helpers.
-extern "C" void setInterrupt(char, int16_t, int16_t);
-extern "C" void *getInterrupt(char);
-extern "C" void disableInterrupt(char);
-extern "C" void enableInterrupt(char);
-extern "C" void sendEoi(char);
+// The 8259 PIC's mask, as INTERUPT.ASM drove it: an interrupt the game masked is not
+// delivered. Only IRQ 0 (the timer, which runs the kernel's real-time processes from
+// plat_pump) is still delivered on the host.
+void disableInterrupt(char);
+void enableInterrupt(char);
+// The end-of-interrupt the handlers sent; nothing to acknowledge on the host.
+void sendEoi(char);
+// Nonzero while the game has this IRQ masked.
+uint8_t isInterruptMasked(char);
 
 #endif

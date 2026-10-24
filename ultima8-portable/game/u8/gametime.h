@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 
 // Counts game loops; starts the npc schedules when the game hour changes.
 class GameTime : public Process

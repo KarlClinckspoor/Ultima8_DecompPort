@@ -7,7 +7,7 @@
 
 class FlexShapeHandler;
 
-enum FontType
+enum FontType : int16_t
 {
 	FontType_0
 };

@@ -37,14 +37,10 @@ void unhook_timer_process(void)
 	ailTimer->disconnectFromRealTime();
 }
 
-// Called from assembly, so keeps every register.
+// Called from assembly (AIL16), so the DOS build kept every register.
 void set_PIT_period(int16_t period)
 {
-	asm pusha;
-	asm push es;
 	ailTimer->setPeriod((uint16_t)period);
-	asm pop es;
-	asm popa;
 }
 
 void AilTimer::process(void)

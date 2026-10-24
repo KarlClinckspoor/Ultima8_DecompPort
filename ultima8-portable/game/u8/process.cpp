@@ -4,18 +4,17 @@
 #include "u8port.h"
 
 // #include <dos.h>  (DOS only)
-#include "process.h"
+#include "u8process.h"
 #include "cfile.h"
 #include "kernel.h"
 #include "error.h"
 #include "cprotmem.h"
-#include "stdint.h"
+#include "u8stdint.h"
 
 Process::Process(void)
 {
-	// Processes are found through pointers kept by the kernel.
-	if (_SS == FP_SEG(this))
-		halt(__FILE__, 35);	// __LINE__
+	// Processes are found through pointers kept by the kernel, so none may live on the
+	// stack (the DOS build compared the selectors of the stack and this).
 	ref = 0;
 	flags = 0;
 	f_10 = 1;
@@ -38,7 +37,7 @@ Process::Process(void)
 	Kernel::checkSynchronization(this);
 }
 
-void *Process::operator new(uint16_t size)
+void *Process::operator new(size_t size)
 {
 	void *p;
 
@@ -165,6 +164,11 @@ void Process::checkDependencies(uint16_t deadPid)
 	uint16_t a, b;
 	PidEntry entry;
 	uint16_t myPid = pid;
+	// The DOS build evaluated the expression on the CPU stack with push and pop.
+	uint16_t stack[64];
+	int16_t top = 0;
+#define PUSH(v) (top < 64 ? (void)(stack[top++] = (v)) : halt(__FILE__, 0))
+#define POP() (top > 0 ? stack[--top] : 0)
 
 	if (deadPid) {
 		p = Kernel::getProcess(deadPid);
@@ -179,26 +183,26 @@ void Process::checkDependencies(uint16_t deadPid)
 		member = dependList.getMember(i);
 		switch (member) {
 		case DEP_TRUE:
-			asm push 1
+			PUSH(1);
 			break;
 		case DEP_AND:
-			asm pop a
-			asm pop b
+			a = POP();
+			b = POP();
 			if (a && b)
-				asm push 1
+				PUSH(1);
 			else
-				asm push 0
+				PUSH(0);
 			break;
 		case DEP_OR:
-			asm pop a
-			asm pop b
+			a = POP();
+			b = POP();
 			if (a || b)
-				asm push 1
+				PUSH(1);
 			else
-				asm push 0
+				PUSH(0);
 			break;
 		case DEP_END:
-			asm pop member
+			member = POP();
 			if (member) {
 				for (i = 0; (entry = dependList.getMember(i)).value != DEP_END; i++) {
 					if (entry.isPid()) {
@@ -219,50 +223,31 @@ void Process::checkDependencies(uint16_t deadPid)
 			}
 			return;
 		default:
-			asm push 0
+			PUSH(0);
 			break;
 		}
 	}
+#undef PUSH
+#undef POP
 }
 
-// Copies the DEP_END-terminated arguments onto the stack again and passes
-// them on to constructList.
-void Process::makeDependencyList(...)
+// Passes the DEP_END-terminated arguments on to constructList. (The DOS build copied them
+// onto the stack again itself; nothing in U8.EXE called it.)
+void Process::makeDependencyList(uint16_t first, ...)
 {
-	int16_t size;
+	uint16_t words[0x400];
+	uint16_t n = 0;
+	va_list args;
 
-	asm {
-		mov bx, bp
-		add bx, 10
-		push ss
-		pop es
-		mov di, bx
-		mov ax, DEP_END
-		mov dx, 0x400
-		mov cx, dx
-		cld
-		repne scasw
-		je found
+	va_start(args, first);
+	words[n++] = first;
+	while (words[n - 1] != DEP_END) {
+		if (n == 0x400)
+			halt(__FILE__, 542);	// __LINE__
+		words[n++] = (uint16_t)va_arg(args, int);
 	}
-	halt(__FILE__, 542);	// __LINE__
-found:
-	asm {
-		sub dx, cx
-		mov cx, dx
-		shl dx, 1
-		mov size, dx
-		add bx, dx
-		sub bx, 2
-	}
-again:
-	asm {
-		mov ax, ss:[bx]
-		push ax
-		sub bx, 2
-		loop again
-	}
-	dependList.constructList(pid);
-	asm add sp, size
+	va_end(args);
+	dependList.constructList(pid, words, n);
 }
 
 void Process::clrPassiveInt(uint16_t p)
@@ -545,7 +530,8 @@ int16_t Process::allocate(uint32_t size)
 	p = ProtMemoryManager::allocate(size, pid, 1);
 	if (p) {
 		allocations++;
-		return (int16_t)p;
+		// The DOS build returned the block's offset (always 0 under Phar Lap) as success.
+		return 1;
 	}
 	halt(__FILE__, 1101);	// __LINE__
 }
@@ -639,37 +625,28 @@ void ProcessRealTime::connectToRealTime(uint8_t level)
 
 void ProcessRealTime::disconnectFromRealTime(void)
 {
-	asm pushf
-	asm cli
 	Kernel::removeFromRealTime(pid);
 	flags &= ~PROC_ONREALTIME;
-	asm popf
 }
 
 void ProcessRealTime::setSafeInterrupt(void)
 {
 	if (!isSafeInterrupt()) {
-		asm pushf
-		asm cli
-		setFlags(flags | PROC_SAFE);
+				setFlags(flags | PROC_SAFE);
 		if (isOnRealTime()) {
 			Kernel::totalNonSafe--;
 			Kernel::totalSafe++;
 		}
-		asm popf
-	}
+		}
 }
 
 void ProcessRealTime::clrSafeInterrupt(void)
 {
 	if (isSafeInterrupt()) {
-		asm pushf
-		asm cli
-		setFlags(flags & ~PROC_SAFE);
+				setFlags(flags & ~PROC_SAFE);
 		if (isOnRealTime()) {
 			Kernel::totalSafe--;
 			Kernel::totalNonSafe++;
 		}
-		asm popf
-	}
+		}
 }

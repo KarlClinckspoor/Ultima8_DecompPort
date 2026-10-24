@@ -3,6 +3,7 @@
 
 #include "u8port.h"
 
-extern "C" void scale(void *, int16_t, int16_t, int16_t, int16_t, void *);
+// scale (SCALE.ASM) is declared with the other shape drawers.
+#include "skipdraw.h"
 
 #endif

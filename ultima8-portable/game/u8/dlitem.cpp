@@ -29,13 +29,15 @@ inline Rect::Rect(void) {}
 inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
 inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
 
-extern "C" int16_t SkipDraw(Vport *, int16_t, int16_t, char *);
-extern "C" int16_t FlipSkipDraw(Vport *, int16_t, int16_t, char *);
-extern "C" int16_t SkipTransformDraw(Vport *, int16_t, int16_t, char *, uint8_t *);
-extern "C" int16_t FlipSkipTransformDraw(Vport *, int16_t, int16_t, char *, uint8_t *);
-extern "C" int16_t SkipDoubleTransformDraw(Vport *, int16_t, int16_t, char *, uint8_t *);
-extern "C" int16_t FlipSkipDoubleTransformDraw(Vport *, int16_t, int16_t, char *, uint8_t *);
-extern "C" uint8_t Collision(char *, Point, Point);
+// The drawing routines ported from SKIPDRAW.ASM, FLIPSKIP.ASM, SDXF.ASM,
+// SDFXF.ASM, SDDXF.ASM, SDFDXF.ASM and COLLIDE.ASM (no shared header declares them).
+int16_t SkipDraw(Vport *, int16_t, int16_t, char *);
+int16_t FlipSkipDraw(Vport *, int16_t, int16_t, char *);
+int16_t SkipTransformDraw(Vport *, int16_t, int16_t, char *, uint8_t *);
+int16_t FlipSkipTransformDraw(Vport *, int16_t, int16_t, char *, uint8_t *);
+int16_t SkipDoubleTransformDraw(Vport *, int16_t, int16_t, char *, uint8_t *);
+int16_t FlipSkipDoubleTransformDraw(Vport *, int16_t, int16_t, char *, uint8_t *);
+uint8_t Collision(char *, Point, Point);
 
 extern uint8_t inGameMode;
 
@@ -351,7 +353,7 @@ void DL_ItemNode::delayed_pop(void)
 	int16_t left = ShadowSquareLC;
 	int16_t top = ShadowSquareTC;
 	grid = ScreenArea(left, top, left + SQUARE_COLS * SQUARE_SIZE - 1, top + SQUARE_ROWS * SQUARE_SIZE - 1);
-	uint16_t n = (uint16_t)new DL_ItemNode;
+	uint16_t n = NODE_OFF(new DL_ItemNode);
 	if (n)
 	{
 		node = (DL_ItemNode *)NODE(n);

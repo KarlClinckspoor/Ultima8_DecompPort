@@ -36,6 +36,7 @@ public:
 	virtual void load(BaseFile *);
 	virtual void save(BaseFile *);
 	int16_t constructList(uint16_t, ...);
+	int16_t constructList(uint16_t, const uint16_t *, uint16_t);
 	void clear(void);
 	int16_t addToList(uint16_t);
 	int16_t appendToList(uint16_t);

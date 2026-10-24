@@ -46,7 +46,7 @@ U8Dispatcher::U8Dispatcher(int16_t size) :
 	Dispatcher(size)
 {
 	theU8Dispatcher = this;
-	GumpColorMap = (char *)U8GumpColorMap;
+	GumpColorMap = U8GumpColorMap;
 	nameProcess(pid, "Dispatcher");
 	setProcessType((ProcessType)0x244);
 	setDaemon();

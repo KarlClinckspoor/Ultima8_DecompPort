@@ -119,7 +119,7 @@ int32_t AnimFile::optimize(void)
 	}
 	newSize = temp.size();
 	relocate(0, 0, temp.size(), &temp);
-	setSize(::tell(handle));
+	setSize(tell());
 	temp.close();
 	temp.remove();
 	close();

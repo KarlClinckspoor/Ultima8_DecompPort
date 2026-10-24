@@ -4,7 +4,7 @@
 #include "u8port.h"
 
 // #include <phapi.h>  (DOS only)
-#include "process.h"
+#include "u8process.h"
 
 class BaseFile;
 

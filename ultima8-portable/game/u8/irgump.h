@@ -13,19 +13,19 @@ class Event;
 class NewGump;
 class Rect;
 
-enum IRGumpType
+enum IRGumpType : int16_t
 {
 	IRGumpType_0
 };
 
 // What the gump follows: 0 and 1 its item, 2 the avatar, 3 the camera.
 // The name is a guess that reproduces the constructor's hashed symbol.
-enum IRGumpMove
+enum IRGumpMove : int16_t
 {
 	IRGumpMove_0
 };
 
-enum MovedState
+enum MovedState : int16_t
 {
 	MovedState_0
 };

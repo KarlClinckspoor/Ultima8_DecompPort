@@ -44,7 +44,7 @@
 #include "basecam.h"
 #include "occlude.h"
 #include "statrest.h"
-#include "stdint.h"
+#include "u8stdint.h"
 #include "hardware.h"
 #include "wait.h"
 #include "spanker.h"
@@ -57,8 +57,7 @@
 // Runs one startup step, then traces its line number.
 #define INIT_STEP(step, line)	step; trace(TRACE_STARTUP, "%s %d\r\n", __FILE__, line)
 
-extern "C" int16_t SafeOpenFile(const char *, int16_t);
-extern "C" int16_t CloseFile(int16_t);
+#include "cfile.h"
 
 int16_t sport = 0x220;
 int16_t sirq = 7;
@@ -82,56 +81,20 @@ uint8_t old0[4];
 inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
 inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 
+// The DOS build raised DOS's limit of open files to NUM_FILES (int 21h function 67h) and
+// set up Borland's table of them; the host has no such limit.
 FileHandleExtender::FileHandleExtender(void)
 {
 	int16_t i;
 
-	_openfd[0] = O_RDONLY | O_DEVICE;
-	_openfd[1] = O_WRONLY | O_DEVICE;
-	_openfd[2] = O_WRONLY | O_DEVICE;
-	_openfd[3] = O_RDWR | O_DEVICE | O_BINARY;
-	_openfd[4] = O_WRONLY | O_DEVICE | O_BINARY;
-
-	for (i = 5; i < NUM_FILES; i++)
-		_openfd[i] = 0xFFFF;
-
-	// Allocate last fit while DOS grows the handle table, then first fit again.
-	asm {
-		mov ah, 58h
-		mov al, 1
-		mov bx, 2
-		int16_t 21h
-
-		mov ah, 67h
-		mov bx, NUM_FILES
-		int16_t 21h
-
-		mov ah, 58h
-		mov al, 1
-		mov bx, 0
-		int16_t 21h
-	}
-
+	for (i = 0; i < NUM_FILES; i++)
+		_openfd[i] = i < 5 ? 0 : 0xFFFF;
 	closed = FALSE;
 }
 
 void FileHandleExtender::uninit(void)
 {
-	int16_t i;
-
-	if (closed == FALSE)
-	{
-		for (i = 5; i < NUM_FILES; i++)
-		{
-			if (_openfd[i] != 0xFF)
-			{
-				_AH = 0x3E;
-				_BX = _openfd[i];
-				geninterrupt(0x21);
-			}
-		}
-		closed = TRUE;
-	}
+	closed = TRUE;
 }
 
 FileHandleExtender::~FileHandleExtender(void)
@@ -139,39 +102,15 @@ FileHandleExtender::~FileHandleExtender(void)
 	uninit();
 }
 
-// Opens the executable until DOS runs out of handles.
+// Opened the executable until DOS ran out of handles; the host never does.
 uint8_t FileHandleExtender::check(void)
 {
-	Boolean ok;
-	int16_t i;
-	int16_t handles[NUM_FILES - 5];
-
-	ok = TRUE;
-	for (i = 0; i < NUM_FILES - 5; i++)
-	{
-		handles[i] = -1;
-		handles[i] = SafeOpenFile(ExeName, 0);
-		if (handles[i] == -1)
-		{
-			trace(TRACE_ALWAYS, "FILES=%d!\r\n", i + 5);
-			ok = FALSE;
-			break;
-		}
-	}
-
-	for (i = i - 1; i >= 0; i--)
-	{
-		if (handles[i] != -1)
-			CloseFile(handles[i]);
-	}
-
-	return ok;
+	return TRUE;
 }
 
 void UNINITFILEHANDLEEXTENDER(uint16_t)
 {
 	fileHandleExtender.uninit();
-	DosExitList(EXLST_EXIT, 0);
 }
 
 int16_t controlBreakHandler(void)
@@ -252,7 +191,7 @@ void initSystem(CommandLineOptions options)
 
 	demoing = options.demo;
 	traceLevel = 0xFE;
-	ctrlbrk(controlBreakHandler);
+	// DOS: ctrlbrk(controlBreakHandler), Ctrl-Break ended the game. Closing the window does.
 
 	// Step line numbers are the shipped __LINE__ values.
 	INIT_STEP(initKernel(), 384);

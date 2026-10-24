@@ -79,7 +79,7 @@ void TextEditGump::draw(int16_t x, int16_t y)
 		int16_t end = findLoc(selEnd);
 		DrawBox(GlobalVport::global_ptr, x + start + 1, y + 1, x + end, y + rect.height() - 2, GumpColorMap[8]);
 	}
-	GlobalFont::global_ptr->printf(x + 3, y + rect.height() - 2, rect.width() - 3, text + scroll);
+	GlobalFont::global_ptr->printf(x + 3, y + rect.height() - 2, (int16_t)(rect.width() - 3), text + scroll);
 	if (focus == this)
 	{
 		int16_t at = findLoc(cursor);

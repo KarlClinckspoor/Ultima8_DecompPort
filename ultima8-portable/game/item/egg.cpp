@@ -45,7 +45,8 @@ void SuspendAvatar::process(void)
 TeleporterProcess::TeleporterProcess(uint16_t egg)
 {
 	Kernel::setIdString(pid, "Teleporter");
-	Egg &e = (Egg &)Item(egg);
+	Item eggItem(egg);
+	Egg &e = (Egg &)eggItem;
 	destMap = e.getEggId();
 	destEgg = e.getQLo();
 	uint8_t fire = e.getQHi();

@@ -62,10 +62,12 @@ public:
 	virtual void load(BaseFile *);
 	virtual void save(BaseFile *);
 	virtual void postLoad(void);
-	static void *operator new(uint16_t);
+	static void *operator new(size_t);
 	static void operator delete(void *);
 	void setRef(uint16_t);
 	void setProcessType(ProcessType);
+	// Borland turned a number into an enum by itself; callers pass numbers.
+	void setProcessType(int type) { setProcessType((ProcessType)type); }
 	void setPriority(uint8_t);
 	void notifyDependents(void);
 	void unlinkFromKernel(void);
@@ -73,7 +75,7 @@ public:
 	void disableCriticalInterrupts(void);
 	void terminate(void);
 	void checkDependencies(uint16_t);
-	void makeDependencyList(...);
+	void makeDependencyList(uint16_t, ...);
 	void clrPassiveInt(uint16_t);
 	void clrActiveInt(uint16_t);
 	void clrPassiveDep(uint16_t);

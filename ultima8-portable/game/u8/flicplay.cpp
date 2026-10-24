@@ -42,7 +42,7 @@ inline int16_t Rect::height(void) { return f_06 - f_02 + 1; }
 inline Index::Index(void) { size = 0; offset = 0; }
 inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
 inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
-inline MemHandle::MemHandle(char *p) { f_00 = (uint32_t)p; f_04 = 1; f_05 = 0; }
+inline MemHandle::MemHandle(char *p) { f_00 = p; f_04 = 1; f_05 = 0; }
 inline MemHandle::~MemHandle(void) { free(0); }
 
 // Kills every process of a type running at the current priority.
@@ -356,7 +356,10 @@ void FlicPlayer::interruptHandler(uint32_t type, uint32_t)
 					fadePalette->init(0, 256);
 					fadePalette->init((RGB *)(paletteChunk + 4));
 					if (shown && !fading)
-						((Palette *)U8GamePalette)->init(MemHandle(paletteChunk));
+					{
+						MemHandle chunk(paletteChunk);
+						((Palette *)U8GamePalette)->init(chunk);
+					}
 					if (fading)
 						delete paletteChunk;
 					break;

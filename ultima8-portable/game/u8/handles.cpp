@@ -7,22 +7,10 @@
 // #include <fcntl.h>  (DOS only)
 #include "appdebug.h"
 
-// Counts free DOS file handles by opening one file until it fails.
+// Counts free DOS file handles by opening one file (\AUTOEXEC.BAT, from the root of the
+// current drive) until it fails. The host has neither the file nor the limit; this gives what
+// DOS gave when the file was missing.
 int16_t howManyFreeHandles(void)
 {
-	int16_t i, count = 0;
-	int16_t handles[100];
-
-	for (i = 0; i < 100; i++)
-	{
-		handles[i] = open("\\autoexec.bat", O_BINARY);
-		if (handles[i] == -1)
-		{
-			count = i;
-			break;
-		}
-	}
-	for (i--; i >= 0; i--)
-		close(handles[i]);
-	return count;
+	return 0;
 }

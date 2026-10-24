@@ -9,22 +9,22 @@ class IntList;
 class PriorityClass;
 class Process;
 
-enum Message
+enum Message : int16_t
 {
 	Message_0
 };
 
-enum MessageAddress
+enum MessageAddress : int16_t
 {
 	MessageAddress_0
 };
 
-enum MessageGroup
+enum MessageGroup : int16_t
 {
 	MessageGroup_0
 };
 
-enum ProcessType
+enum ProcessType : int16_t
 {
 	ProcessType_0,
 	PT_ANY = 6,	// matches every type in a search
@@ -79,7 +79,7 @@ public:
 	static void setPitPeriod(uint32_t);
 	static void realTimeExecutor(void);
 	static uint8_t isRealInterrupt(void);
-	static REGS_BINT *getRegsStructure(void);
+	static void *getRegsStructure(void);
 	static void addToRealTime(uint16_t, uint8_t);
 	static void removeFromRealTime(uint16_t);
 	static void seizeRealTimeVector(void);
@@ -90,7 +90,10 @@ public:
 	static void execute(uint32_t, void (*)(void));
 	static void realTimeOn(void);
 	static void realTimeOff(void);
-	static void interrupt realTimeInterruptHandler(REGS_BINT);
+	static void realTimeInterruptHandler(void);
+	static void pitTick(void);
+	static void packStatics(uint8_t *);
+	static void unpackStatics(const uint8_t *);
 	static void interruptHandlerStage2(void);
 	static void checkIntegrity(void);
 	static void setProcessRefActive(uint16_t);
@@ -166,10 +169,10 @@ public:
 	static uint8_t reentrantException;
 	static uint8_t processBlank;
 	static uint8_t *inDosPtr;
-	static PIHANDLER origProt;
+	static void *origProt;
 	static uint32_t origReal;
-	static REGS_BINT *borlandInterruptRegsPtr;
-	static REGS_BINT *borlandExceptionRegsPtr;
+	static void *borlandInterruptRegsPtr;
+	static void *borlandExceptionRegsPtr;
 	static uint8_t *quickRefProcessArray;
 	static uint8_t *quickProcessTypeArray;
 	static uint32_t *accumulatorTable;

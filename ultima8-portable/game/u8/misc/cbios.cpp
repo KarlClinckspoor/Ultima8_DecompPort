@@ -2,24 +2,25 @@
 // name: MISC\CBIOS.C
 
 #include "u8port.h"
+#include "plat.h"
 
-// #include <dos.h>  (DOS only)
 #include "cbios.h"
 
+// BIOS teletype output (int 10h function 0Eh), a newline written as LF then CR. In graphics
+// mode the BIOS drew the text on the screen; the platform's console does the same, and also
+// logs it.
 void conputs(const char *s)
 {
+	char text[2] = {0, 0};
 	char c;
-	union REGS in, out;
 
-	in.h.ah = 0x0e;
-	in.h.bl = 0x0f;
-	in.h.bh = 0;
+	plat_log(s);
 	while ((c = *s++) != 0)
 	{
 		for (;;)
 		{
-			in.h.al = c;
-			int86(0x10, &in, &out);
+			text[0] = c;
+			plat_console_write(text);
 			if (c != '\n')
 				break;
 			c = '\r';
@@ -27,90 +28,42 @@ void conputs(const char *s)
 	}
 }
 
+// int 16h function 0: ASCII, or the scan code + 100h for a key without one.
 int16_t congetkey(void)
 {
-	union REGS regs;
-	int16_t key;
+	uint16_t word = plat_key_bios();
+	int16_t key = word & 0xff;
 
-	regs.h.ah = 0;
-	int86(0x16, &regs, &regs);
-	key = regs.h.al;
 	if (key == 0)
-		key = regs.h.ah | 0x100;
+		key = (word >> 8) | 0x100;
 	return key;
 }
 
-void congetcursor(CursorPosition &pos, char page)
+// int 10h functions 3 and 2 on page 0 (the only page).
+void congetcursor(CursorPosition &pos, char)
 {
-	union REGS in, out;
-
-	in.h.ah = 3;
-	in.h.bh = page;
-	int86(0x10, &in, &out);
-	pos.row = out.h.dh;
-	pos.column = out.h.dl;
+	pos.row = (char)(plat_console_y() - 1);
+	pos.column = (char)(plat_console_x() - 1);
 }
 
-void consetcursor(CursorPosition &pos, char page)
+void consetcursor(CursorPosition &pos, char)
 {
-	union REGS in, out;
-
-	in.h.ah = 2;
-	in.h.bh = page;
-	in.h.dh = pos.row;
-	in.h.dl = pos.column;
-	int86(0x10, &in, &out);
+	plat_console_goto(pos.column + 1, pos.row + 1);
 }
 
-// Finds the text mode's height by trying to park the cursor on rows 49 and 39.
+// Found the text mode's height by trying to park the cursor on rows 49 and 39; the host's
+// console is always 25 rows.
 ScanCodes congetscans(void)
 {
-	CursorPosition saved, test;
-	ScanCodes scans = SCANS_400;
-
-	congetcursor(saved, 0);
-	test.column = 0;
-	test.row = 49;
-	consetcursor(test, 0);
-	congetcursor(test, 0);
-	if (test.row != 49)
-	{
-		scans = SCANS_350;
-		test.row = 39;
-		consetcursor(test, 0);
-		congetcursor(test, 0);
-		if (test.row != 49)
-			scans = SCANS_200;
-	}
-	consetcursor(saved, 0);
-	return scans;
+	return SCANS_400;
 }
 
-void consetscans(ScanCodes scans)
+void consetscans(ScanCodes)
 {
-	union REGS in, out;
-
-	in.h.ah = 0x12;
-	in.h.bl = 0x30;
-	in.h.al = scans;
-	int86(0x10, &in, &out);
 }
 
+// DOS character output (int 21h function 2), a newline written as LF then CR.
 void dosputs(const char *s)
 {
-	char c;
-	union REGS in, out;
-
-	in.h.ah = 2;
-	while ((c = *s++) != 0)
-	{
-		for (;;)
-		{
-			in.h.dl = c;
-			int86(0x21, &in, &out);
-			if (c != '\n')
-				break;
-			c = '\r';
-		}
-	}
+	plat_log(s);
 }

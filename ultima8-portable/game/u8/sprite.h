@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 
 // A short-lived item that plays its frames from first to last, then from last to end.
 class Sprite : public Process

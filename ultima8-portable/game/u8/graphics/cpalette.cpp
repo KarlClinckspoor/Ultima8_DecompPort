@@ -8,6 +8,12 @@
 #include "cmemhndp.h"
 #include "pal.h"
 
+// The DAC routines and the palette files treat RGB as three bytes.
+static_assert(sizeof(RGB) == 3, "RGB is red, green, blue bytes");
+
+// Inline in the shared headers when this file was built.
+inline RGB::RGB(void) {}
+
 inline int16_t min(int16_t a, int16_t b) { return a < b ? a : b; }
 
 void PaletteData::init(uint8_t first, int16_t n)
@@ -36,7 +42,7 @@ void PaletteData::init(MemHandle &h)
 {
 	if (colors)
 	{
-		delete colors;
+		delete[] colors;
 		colors = 0;
 	}
 	char *p = (char *)h.f_00;
@@ -159,7 +165,7 @@ uint8_t PaletteData::fade_step(PaletteData &target)
 PaletteData::~PaletteData(void)
 {
 	if (colors)
-		delete colors;
+		delete[] colors;
 }
 
 void Palette::init(MemHandle &h)

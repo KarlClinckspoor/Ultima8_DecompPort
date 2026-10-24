@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "cfile.h"
 #include "kernel.h"
 #include "mlist.h"
@@ -11,39 +11,35 @@
 
 // Builds the list from DEP_END-terminated words. With an owner, the list is
 // what it waits on: each pid gets linked both ways.
+// Builds the list from the words after owner, up to and including DEP_END.
 int16_t List::constructList(uint16_t owner, ...)
 {
-	uint16_t i;
-	uint16_t n;
-	PidEntry entry;
-	uint16_t *args;
-	Process *member;
-	Process *ownerProcess;
+	uint16_t words[0x400];
+	uint16_t n = 0;
+	va_list args;
 
-	asm {
-		lea bx, args
-		mov ax, bp
-		add ax, 12
-		mov ss:[bx], ax
-		mov ss:[bx+2], ss
-		push ss
-		pop es
-		mov di, ax
-		mov ax, DEP_END
-		mov dx, 0x400
-		mov cx, dx
-		cld
-		repne scasw
-		je found
-	}
-	halt(__FILE__, 89);	// __LINE__
-found:
-	asm sub dx, cx
-	asm mov n, dx
+	// The DOS build scanned its own stack for DEP_END, at most 0x400 words.
+	va_start(args, owner);
+	do {
+		if (n == 0x400)
+			halt(__FILE__, 89);	// __LINE__
+		words[n] = (uint16_t)va_arg(args, int);
+	} while (words[n++] != DEP_END);
+	va_end(args);
+	return constructList(owner, words, n);
+}
+
+int16_t List::constructList(uint16_t owner, const uint16_t *args, uint16_t n)
+{
+	uint16_t i;
+	PidEntry entry;
+	Process *member = 0;
+	Process *ownerProcess = 0;
+
 	if (owner)
 		ownerProcess = Kernel::getProcess(owner);
 	if (data)
-		delete data;
+		delete[] data;
 	data = new uint16_t[n];
 	if (data == 0)
 		halt(__FILE__, 110);	// __LINE__

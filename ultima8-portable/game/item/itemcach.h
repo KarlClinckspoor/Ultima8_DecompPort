@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "item.h"
 #include "itemdata.h"
 
@@ -66,6 +66,7 @@ public:
 	static void pop(uint16_t);
 	static void pop(void);
 	static void pop(WorldPoint &);
+	static void pop(WorldPoint &&p) { pop(p); }
 	static void popToEnd(uint16_t);
 	static void popToLunch(uint8_t);
 	static int16_t popEthereal(void);

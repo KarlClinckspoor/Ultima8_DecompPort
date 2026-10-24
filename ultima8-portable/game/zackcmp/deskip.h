@@ -9,7 +9,8 @@
 class Vport;
 
 // One frame's place in a shape record; the top bit of offset marks a
-// frame already rebuilt by decompressShape.
+// frame already rebuilt by decompressShape. These structs are read from and
+// written to the shape files as they are, so they keep their DOS sizes.
 struct FrameIndex
 {
 	int32_t offset;
@@ -46,6 +47,10 @@ struct FrameOwner
 	int32_t unknown;
 };
 
+static_assert(sizeof(FrameIndex) == 6, "FrameIndex keeps its DOS size");
+static_assert(sizeof(SkipHeader) == 10, "SkipHeader keeps its DOS size");
+static_assert(sizeof(FrameOwner) == 8, "FrameOwner keeps its DOS size");
+
 // A flex file whose writes can be gathered in a large memory buffer.
 class ZackFile : public FlexFile
 {
@@ -54,7 +59,6 @@ public:
 	int32_t bufferSize;
 	int32_t used;
 	int16_t buffering;
-	uint32_t bufferBase;	// linear address of buffer
 
 	ZackFile(void);
 	virtual int32_t read(char *, int32_t, int32_t = -1);

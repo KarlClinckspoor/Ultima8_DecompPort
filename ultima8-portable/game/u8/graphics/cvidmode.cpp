@@ -3,7 +3,6 @@
 
 #include "u8port.h"
 
-// #include <dos.h>  (DOS only)
 #include "cvidmode.h"
 
 // CRTC index/value pairs for the tweaked 256-colour modes.
@@ -14,30 +13,25 @@ uint16_t params[17] =
 	0x0000
 };
 
+// The host screen is always 320x200x8, so setting a mode only records it. biosMode is what
+// int 10h function 0Fh would report: the tweaked modes 60h-64h were mode 13h with CRTC and
+// sequencer registers reprogrammed (from params), and 7Fh was text mode 3 on page 0. The game
+// starts from DOS in text mode 3.
+static int16_t biosMode = 3;
+
 void VideoMode::grab(void)
 {
-	_AH = 0x0f;
-	geninterrupt(0x10);
-	_AH = 0;
-	mode = _AX;
+	mode = biosMode;
 }
 
 void VideoMode::activate(void)
 {
-	uint8_t crtc;
-	int16_t i;
 	int16_t wanted = mode;
 
 	grab();
 	if (mode == wanted)
 		return;
-	// mode = wanted
-	asm {
-		les bx, this
-		mov ax, wanted
-		mov es:[bx], ax
-	}
-	uint8_t biosMode = mode;
+	mode = wanted;
 
 	switch (mode)
 	{
@@ -50,106 +44,19 @@ void VideoMode::activate(void)
 	case 6:
 	case 7:
 	case 0x13:
-		asm {
-			mov ah, 0
-			mov al, biosMode
-			int16_t 10h
-		}
+		biosMode = mode;
 		break;
 
 	case 0x60:
-		asm {
-			mov ah, 0
-			mov al, 13h
-			int16_t 10h
-		}
-		outport(0x3c4, 0x0604);
-		outport(0x3c4, 0x0100);
-		outportb(0x3c2, 0xc3);
-		outport(0x3c4, 0x0300);
-		outportb(0x3d4, 0x11);
-		crtc = inportb(0x3d5);
-		outportb(0x3d4, crtc & 0x7f);
-		for (i = 7; i < 17; i++)
-			outport(0x3d4, params[i]);
-		break;
-
 	case 0x61:
-		asm {
-			mov ah, 0
-			mov al, 13h
-			int16_t 10h
-		}
-		outport(0x3c4, 0x0604);
-		outportb(0x3d4, 0x11);
-		crtc = inportb(0x3d5);
-		outportb(0x3d5, crtc & 0x7f);
-		for (i = 6; i < 9; i++)
-			outport(0x3d4, params[i]);
-		break;
-
 	case 0x62:
-		asm {
-			mov ah, 0
-			mov al, 13h
-			int16_t 10h
-		}
-		outport(0x3c4, 0x0604);
-		outport(0x3c4, 0x0100);
-		outportb(0x3c2, 0xc3);
-		outport(0x3c4, 0x0300);
-		outportb(0x3d4, 0x11);
-		crtc = inportb(0x3d5);
-		outportb(0x3d5, crtc & 0x7f);
-		for (i = 6; i < 16; i++)
-			outport(0x3d4, params[i]);
-		outport(0x3d4, 0x4009);
-		break;
-
 	case 0x63:
-		asm {
-			mov ah, 0
-			mov al, 13h
-			int16_t 10h
-		}
-		outport(0x3c4, 0x0604);
-		outport(0x3c4, 0x0100);
-		outportb(0x3c2, 0x67);
-		outport(0x3c4, 0x0300);
-		outportb(0x3d4, 0x11);
-		crtc = inportb(0x3d5);
-		outportb(0x3d5, crtc & 0x7f);
-		for (i = 0; i < 9; i++)
-			outport(0x3d5, params[i]);
-		outport(0x3d4, 0x2d13);
-		break;
-
 	case 0x64:
-		asm {
-			mov ah, 0
-			mov al, 13h
-			int16_t 10h
-		}
-		outport(0x3c4, 0x0604);
-		outport(0x3c4, 0x0100);
-		outportb(0x3c2, 0xe7);
-		outport(0x3c4, 0x0300);
-		outportb(0x3d4, 0x11);
-		crtc = inportb(0x3d5);
-		outportb(0x3d5, crtc & 0x7f);
-		for (i = 0; i < 16; i++)
-			outport(0x3d5, params[i]);
-		outport(0x3d4, 0x2d13);
+		biosMode = 0x13;
 		break;
 
 	case 0x7f:
-		asm {
-			mov al, 3
-			mov ah, 0
-			int16_t 10h
-			mov ax, 0500h
-			int16_t 10h
-		}
+		biosMode = 3;
 		break;
 	}
 }

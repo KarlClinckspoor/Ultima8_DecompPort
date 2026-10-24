@@ -28,18 +28,19 @@ uint8_t *ItemData::npcNumArray;
 uint8_t *ItemData::mapNumArray;
 uint16_t *ItemData::nextArray;
 
+// Borland's new returned 0 when out of memory; nothrow keeps the check below working.
 void ItemData::init(void)
 {
-	xArray = new uint16_t[MAX_ITEMS];
-	yArray = new uint16_t[MAX_ITEMS];
-	zArray = new uint8_t[MAX_ITEMS];
-	typeArray = new uint16_t[MAX_ITEMS];
-	frameArray = new uint8_t[MAX_ITEMS];
-	statusArray = new uint16_t[MAX_ITEMS];
-	qArray = new uint16_t[MAX_ITEMS];
-	npcNumArray = new uint8_t[MAX_ITEMS];
-	mapNumArray = new uint8_t[MAX_ITEMS];
-	nextArray = new uint16_t[MAX_ITEMS];
+	xArray = new (std::nothrow) uint16_t[MAX_ITEMS];
+	yArray = new (std::nothrow) uint16_t[MAX_ITEMS];
+	zArray = new (std::nothrow) uint8_t[MAX_ITEMS];
+	typeArray = new (std::nothrow) uint16_t[MAX_ITEMS];
+	frameArray = new (std::nothrow) uint8_t[MAX_ITEMS];
+	statusArray = new (std::nothrow) uint16_t[MAX_ITEMS];
+	qArray = new (std::nothrow) uint16_t[MAX_ITEMS];
+	npcNumArray = new (std::nothrow) uint8_t[MAX_ITEMS];
+	mapNumArray = new (std::nothrow) uint8_t[MAX_ITEMS];
+	nextArray = new (std::nothrow) uint16_t[MAX_ITEMS];
 	if (!xArray || !yArray || !zArray || !typeArray || !frameArray ||
 		!qArray || !npcNumArray || !mapNumArray || !nextArray)
 		outOfMemory(__FILE__, 80);	// __LINE__ in the original file
@@ -49,52 +50,52 @@ ItemData::~ItemData(void)
 {
 	if (xArray)
 	{
-		delete xArray;
+		delete[] xArray;
 		xArray = 0;
 	}
 	if (yArray)
 	{
-		delete yArray;
+		delete[] yArray;
 		yArray = 0;
 	}
 	if (zArray)
 	{
-		delete zArray;
+		delete[] zArray;
 		zArray = 0;
 	}
 	if (typeArray)
 	{
-		delete typeArray;
+		delete[] typeArray;
 		typeArray = 0;
 	}
 	if (frameArray)
 	{
-		delete frameArray;
+		delete[] frameArray;
 		frameArray = 0;
 	}
 	if (statusArray)
 	{
-		delete statusArray;
+		delete[] statusArray;
 		statusArray = 0;
 	}
 	if (qArray)
 	{
-		delete qArray;
+		delete[] qArray;
 		qArray = 0;
 	}
 	if (npcNumArray)
 	{
-		delete npcNumArray;
+		delete[] npcNumArray;
 		npcNumArray = 0;
 	}
 	if (mapNumArray)
 	{
-		delete mapNumArray;
+		delete[] mapNumArray;
 		mapNumArray = 0;
 	}
 	if (nextArray)
 	{
-		delete nextArray;
+		delete[] nextArray;
 		nextArray = 0;
 	}
 }

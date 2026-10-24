@@ -19,6 +19,8 @@ public:
 };
 
 void Exit(int16_t);
+// Exit(0) chose the int version on Borland; 0 now converts to either.
+inline void Exit(int code) { Exit((int16_t)code); }
 void Exit(const char *, ...);
 
 extern uint8_t simpleExitSystem[4];

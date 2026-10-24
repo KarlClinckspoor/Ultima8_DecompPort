@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "cfile.h"
 #include "cdesc.h"
 #include "cpalette.h"
@@ -25,13 +25,13 @@ inline TransformPaletteFile::TransformPaletteFile(void) :
 
 // Drops a palette merge left half done.
 #define STOP_MERGE() \
-	if (!init && iterations) \
+	if (!mergeInit && mergeIterations) \
 	{ \
-		iterations = 0; \
-		delete error; \
-		delete delta; \
-		delete vector; \
-		init = 1; \
+		mergeIterations = 0; \
+		delete[] mergeError; \
+		delete[] mergeDelta; \
+		delete[] mergeVector; \
+		mergeInit = 1; \
 	}
 
 uint16_t currentPalette = 0;

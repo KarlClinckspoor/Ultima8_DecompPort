@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "type.h"
 
 // Walks an NPC toward a point or an item one step at a time, trying the

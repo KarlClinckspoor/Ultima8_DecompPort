@@ -3,17 +3,17 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "mlist.h"
 
 // Ball frame; frames 1 and 4 explode on contact.
-enum BallType
+enum BallType : int16_t
 {
 	BallType_0
 };
 
 // Bit 1: the ball moves in z; bit 2: it trails child balls.
-enum BallVariety
+enum BallVariety : int16_t
 {
 	BallVariety_0
 };

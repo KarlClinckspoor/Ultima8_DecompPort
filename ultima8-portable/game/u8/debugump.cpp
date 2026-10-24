@@ -2,6 +2,7 @@
 // name: DEBUGUMP.C
 
 #include "u8port.h"
+#include "farptr.h"
 
 // #include <alloc.h>  (DOS only)
 // #include <conio.h>  (DOS only)
@@ -407,7 +408,7 @@ void DebugGump::dumpSymbol(char *, char *data, char *symbols, char *name, int16_
 			if (isParam == 0)
 				value = *(char *)(data + offset);
 			else
-				value = *(char *)(*(char **)(data + 6) - offset);
+				value = *(char *)((char *)u8_ptr_from_far(u8_far_load(data + 6)) - offset);
 			break;
 		case 'i':
 		case 'l':
@@ -416,20 +417,20 @@ void DebugGump::dumpSymbol(char *, char *data, char *symbols, char *name, int16_
 			if (isParam == 0)
 				value = *(int16_t *)(data + offset);
 			else
-				value = *(int16_t *)(*(char **)(data + 6) - offset);
+				value = *(int16_t *)((char *)u8_ptr_from_far(u8_far_load(data + 6)) - offset);
 			break;
 		case 'd':
 		case 'p':
 			if (isParam == 0)
 				value = *(int32_t *)(data + offset);
 			else
-				value = *(int32_t *)(*(char **)(data + 6) - offset);
+				value = *(int32_t *)((char *)u8_ptr_from_far(u8_far_load(data + 6)) - offset);
 			break;
 		case '$':
 			if (isParam == 0)
-				value = (int32_t)(data + offset);
+				value = (int32_t)u8_far_from_ptr(data + offset);
 			else
-				value = (int32_t)(*(char **)(data + 6) - offset);
+				value = (int32_t)u8_far_from_ptr((char *)u8_ptr_from_far(u8_far_load(data + 6)) - offset);
 			break;
 		}
 		if (row == -1)
@@ -628,7 +629,7 @@ void DebugGump::doMenuCommand(Event &event)
 		refresh();
 		return;
 	case CMD_BREAK:
-		asm int16_t 3;
+		// DOS: int 3, a breakpoint for a debugger running the game.
 		refresh();
 		return;
 	case CMD_INSPECT:
@@ -784,14 +785,13 @@ void ViewFile::loadFile(void)
 	if (!text)
 		outOfMemory(__FILE__, 1030);	// __LINE__
 	read(text, length);
-	Desc *desc = LocalDescriptorTable::getDesc(FP_SEG(text));
-	uint32_t base = LocalDescriptorTable::getDesc(FP_SEG(text))->getBase();
-	numLines = parse(lines, text, length, base);
+	// DOS passed the text's linear address, read back from its descriptor.
+	numLines = parse(lines, text, length, 0);
 	if (numLines >= 4000)
 		halt(__FILE__, 1062);	// __LINE__
 }
 
 char *ViewFile::getLine(uint16_t line)
 {
-	return (char *)makePtr(lines[line]);
+	return text + lines[line];
 }

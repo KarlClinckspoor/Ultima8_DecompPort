@@ -22,22 +22,16 @@ BiosTimer::BiosTimer(void)
 	setDaemon();
 }
 
-void BiosTimer::setTimerVector(uint32_t real, PIHANDLER prot)
+void BiosTimer::setTimerVector(uint32_t real, void *prot)
 {
 	realVector = real;
 	protVector = prot;
 }
 
+// DOS: called the BIOS's own timer handler, which kept the time of day and the floppy motor.
+// The host keeps its own time.
 void BiosTimer::interruptHandler(uint32_t, uint32_t)
 {
-	uint16_t flags;
-
-	asm pushf
-	asm cld
-	asm pushf
-	asm pop flags
-	DosRealFarCall(realVector, 0, 0, -1, flags);
-	asm popf
 }
 
 void BiosTimer::process(void)

@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-enum TraceLevel
+enum TraceLevel : int16_t
 {
 	TraceLevel_0,
 	TRACE_ALWAYS = 255

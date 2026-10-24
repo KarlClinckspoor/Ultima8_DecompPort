@@ -7,7 +7,7 @@
 #include "inter.h"
 #include "itemfind.h"
 
-enum SearchType
+enum SearchType : int16_t
 {
 	SearchType_0
 };

@@ -4,7 +4,7 @@
 #include "u8port.h"
 
 // DOS open modes: access in the low nibble, sharing in the high one.
-enum OpenMode
+enum OpenMode : int16_t
 {
 	ReadOnly = 0x00,
 	WriteOnly = 0x01,
@@ -23,7 +23,7 @@ enum OpenMode
 	RWShareReadWrite = 0x42
 };
 
-enum SeekMode
+enum SeekMode : int16_t
 {
 	FromStart,
 	FromCurrent,
@@ -83,16 +83,20 @@ int16_t TranslateMode(OpenMode);
 
 extern char *FileModeName[16];
 
-// DOS file routines; each sets fileerr to the DOS error, or 0.
-extern "C" {
+// DOS file routines (OPENFILE.ASM, READFILE.ASM, ...); each sets fileerr to the DOS error
+// code, or 0.
+int16_t OpenFile(const char *);
 int16_t SafeOpenFile(const char *, int16_t);
 int16_t SafeCreateFile(const char *, int16_t);
 int16_t CloseFile(int16_t);
 int32_t ReadFile(int16_t, int32_t, int32_t, void *);
 char WriteFile(int16_t, int32_t, int32_t, void *);
 int32_t SeekFile(int16_t, int32_t, int16_t);
+int16_t file_attribs(const char *);
 uint8_t file_exists(const char *);
+// The DOS error code a failed open of this path gives (2 not found, 3 no such folder, 5 denied).
+int16_t DosOpenError(const char *);
 extern int16_t fileerr;
-}
+extern uint32_t FileBytesTransferred;
 
 #endif

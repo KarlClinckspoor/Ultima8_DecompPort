@@ -6,60 +6,62 @@
 #include "cdesc.h"
 
 // Fades dest toward src one step per call, Bresenham style.
-int16_t init = 1;
-char *error;
-char *delta;
-char *vector;
-int16_t major;
-int16_t iterations;
+// The blend's state, exported by CDESC.H (PAL.C's STOP_MERGE frees it) as init, error,
+// delta, vector, major and iterations; prefixed so the short names meet nothing at link time.
+int16_t mergeInit = 1;
+char *mergeError;
+char *mergeDelta;
+char *mergeVector;
+int16_t mergeMajor;
+int16_t mergeIterations;
 
 int16_t MERGEBYTEARRAY(char *dest, char *src, int16_t count)
 {
 	int16_t i;
 	int16_t d;
 
-	if (init) {
-		error = new char[count];
-		delta = new char[count];
-		vector = new char[count];
-		if (error == 0 || delta == 0 || vector == 0) {
-			if (error)
-				delete error;
-			if (delta)
-				delete delta;
-			if (vector)
-				delete vector;
+	if (mergeInit) {
+		mergeError = new (std::nothrow) char[count];
+		mergeDelta = new (std::nothrow) char[count];
+		mergeVector = new (std::nothrow) char[count];
+		if (mergeError == 0 || mergeDelta == 0 || mergeVector == 0) {
+			if (mergeError)
+				delete[] mergeError;
+			if (mergeDelta)
+				delete[] mergeDelta;
+			if (mergeVector)
+				delete[] mergeVector;
 			return 0;
 		}
-		major = 0;
+		mergeMajor = 0;
 		for (i = 0; i < count; i++) {
 			d = dest[i] - src[i];
 			if (d < 0) {
 				d = -d;
-				vector[i] = 1;
+				mergeVector[i] = 1;
 			} else
-				vector[i] = -1;
-			delta[i] = d;
-			if (d > major)
-				major = d;
+				mergeVector[i] = -1;
+			mergeDelta[i] = d;
+			if (d > mergeMajor)
+				mergeMajor = d;
 		}
-		d = major / 2;
+		d = mergeMajor / 2;
 		for (i = 0; i < count; i++)
-			error[i] = d;
-		iterations = major;
-		init = 0;
+			mergeError[i] = d;
+		mergeIterations = mergeMajor;
+		mergeInit = 0;
 	}
-	if (iterations-- == 0) {
-		delete error;
-		delete delta;
-		delete vector;
-		init = 1;
+	if (mergeIterations-- == 0) {
+		delete[] mergeError;
+		delete[] mergeDelta;
+		delete[] mergeVector;
+		mergeInit = 1;
 		return 0;
 	}
 	for (i = 0; i < count; i++) {
-		if ((error[i] += delta[i]) > major) {
-			error[i] -= major;
-			dest[i] += vector[i];
+		if ((mergeError[i] += mergeDelta[i]) > mergeMajor) {
+			mergeError[i] -= mergeMajor;
+			dest[i] += mergeVector[i];
 		}
 	}
 	return 1;

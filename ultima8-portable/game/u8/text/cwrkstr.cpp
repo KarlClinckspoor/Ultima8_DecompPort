@@ -154,5 +154,6 @@ char *SimpleVirtualString::assemble(const char *format, ...)
 int16_t SimpleVirtualString::operator--(void)
 {
 	string[--size - 1] = 0;
-	return (int16_t)string;
+	// DOS returned the string's offset, which nobody read; nonzero, as that was.
+	return 1;
 }

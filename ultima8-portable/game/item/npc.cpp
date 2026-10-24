@@ -28,7 +28,7 @@
 #include "uprocess.h"
 #include "loiter.h"
 #include "wpncache.h"
-#include "stdint.h"
+#include "u8stdint.h"
 #include "chargen.h"
 #include "u8point.h"
 #include "fexist.h"
@@ -817,7 +817,8 @@ int16_t Npc::findEquip(Referent item)
 {
 	Referent *equip = npcData[referent].equip;
 
-	for (int16_t i = 0; i < 8; i++)
+	int16_t i;
+	for (i = 0; i < 8; i++)
 		if (equip[i] == item)
 			break;
 	return i;
@@ -1317,7 +1318,7 @@ void Avatar::accumulateStrength(int16_t points)
 		{
 			strengthPoints = 0;
 			npcData[referent].str++;
-			playSFX(0x36, 250);
+			playSFX(0x36, (int16_t)250);
 		}
 	}
 }
@@ -1331,7 +1332,7 @@ void Avatar::accumulateIntelligence(int16_t points)
 		{
 			intelligencePoints = 0;
 			npcData[referent].intelligence++;
-			playSFX(0x36, 250);
+			playSFX(0x36, (int16_t)250);
 		}
 	}
 }
@@ -1345,7 +1346,7 @@ void Avatar::accumulateDexterity(int16_t points)
 		{
 			dexterityPoints = 0;
 			npcData[referent].dex++;
-			playSFX(0x36, 250);
+			playSFX(0x36, (int16_t)250);
 		}
 	}
 }

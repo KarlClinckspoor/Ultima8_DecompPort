@@ -2,6 +2,7 @@
 // name: MAIN.C
 
 #include "u8port.h"
+#include "plat.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -210,9 +211,12 @@ void checkForPatchFiles(void)
 
 }
 
-void main(int16_t argc, char **argv)
+// The program's main(): the platform calls it on the game thread (see plat.h).
+int16_t U8Main(int16_t argc, char **argv)
 {
+	char stackTop;
 
+	u8_set_stack_top(&stackTop);
 	Spanky::init();
 
 	trace(TRACE_ALWAYS, "\r\n\r\n");
@@ -245,4 +249,5 @@ void main(int16_t argc, char **argv)
 	Kernel::expandOnDemand = TRUE;
 
 	Kernel::execute(1, mainLoopFunction);
+	return 0;
 }

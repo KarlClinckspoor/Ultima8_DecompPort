@@ -295,7 +295,10 @@ void EditorItem::stopDrag(void)
 						}
 						else
 							dragged.pop(target.getLoc());
-						((Combinable &)Item(dragged.referent)).combine(target.referent);
+						{
+							Item combined(dragged.referent);
+							((Combinable &)combined).combine(target.referent);
+						}
 					}
 					else
 						dragged.pop();

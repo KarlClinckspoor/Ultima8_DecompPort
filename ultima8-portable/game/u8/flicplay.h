@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 #include "cpalette.h"
 #include "crect.h"
 #include "flex.h"

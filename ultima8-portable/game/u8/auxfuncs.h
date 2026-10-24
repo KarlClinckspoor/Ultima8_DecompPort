@@ -3,7 +3,7 @@
 
 #include "u8port.h"
 
-#include "process.h"
+#include "u8process.h"
 
 // Now and then, while the avatar stands idle, plays a look-around animation.
 class HeadShaker : public ProcessRealTime

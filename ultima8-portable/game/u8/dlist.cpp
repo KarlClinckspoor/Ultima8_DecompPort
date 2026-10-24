@@ -1,5 +1,7 @@
 // flags: -P -3 -O -Ob -Oe -Og -Oi -Ol -Om -Ov -Z -G -k- -d
 // name: DLIST.C
+// The queue routines, DisplayList::draw(void), checkNewItems, sort(uint16_t)
+// and DL_ItemNode::compare are in dlasm.cpp.
 
 #include "u8port.h"
 
@@ -20,7 +22,7 @@
 
 // Inline in the shared headers when this file was built.
 inline GraphicYtable::GraphicYtable(void) { f_04 = 2; index = 0; }
-inline Vport::Vport(void) { seg = 0; f_0f = 2; f_10 = 0; }
+inline Vport::Vport(void) { mem = 0; f_0f = 2; f_10 = 0; }
 inline Vport::~Vport(void) { free(); }
 inline Point::Point(void) {}
 inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
@@ -38,8 +40,6 @@ inline Item itemOf(Referent r) { return AnimItem(r); }
 #define TRACE_DLIST	((TraceLevel)50)
 
 ScreenArea FullScreenArea(0, 0, 319, 199);
-uint16_t DisplayListNodeSeg = 0;
-uint16_t DisplayListEdgeSeg = 0;
 uint8_t DisplayList::animating = 0;
 int32_t DisplayList::lasttime = 0;
 uint32_t *DisplayList::animatingitem = 0;
@@ -49,6 +49,7 @@ int16_t ShadowSquareTC = 0;
 uint16_t DisplayListNode::freelist = 0;
 uint16_t DisplayListEdge::freelist = 0;
 char *DisplayListNode::buffer = 0;
+const size_t DisplayListNode::slot = (sizeof(DL_ItemNode) + sizeof(void *) - 1) & ~(sizeof(void *) - 1);
 char *DisplayListEdge::buffer = 0;
 uint16_t DisplayListNode::freecount = 0;
 uint16_t DisplayListEdge::freecount = 0;
@@ -61,7 +62,12 @@ int16_t DisplayList::clip_b;
 Vport DisplayList::vport;
 uint16_t ShadowSquare[SQUARE_ROWS][SQUARE_COLS];
 
-void ScreenArea::intersect(ScreenArea &a)
+// Names are 16 bits; the edges are as on DOS (6 words, no vtable).
+static_assert(sizeof(DisplayListEdge) == 12, "DisplayListEdge is 6 words");
+static_assert(sizeof(DisplayListQueue) == 4, "DisplayListQueue is 2 words");
+static_assert(NUM_NODES <= 0xFFFF && NUM_EDGES <= 0xFFFF, "names are 16 bits");
+
+void ScreenArea::intersect(const ScreenArea &a)
 {
 	if (left < a.left)
 		left = a.left;
@@ -73,7 +79,7 @@ void ScreenArea::intersect(ScreenArea &a)
 		bottom = a.bottom;
 }
 
-void ScreenArea::include(ScreenArea &a)
+void ScreenArea::include(const ScreenArea &a)
 {
 	if (left > a.left)
 		left = a.left;
@@ -85,7 +91,7 @@ void ScreenArea::include(ScreenArea &a)
 		bottom = a.bottom;
 }
 
-void *DisplayListNode::operator new(uint16_t)
+void *DisplayListNode::operator new(size_t) noexcept
 {
 	DisplayListNode *node = 0;
 	if (freelist)
@@ -101,31 +107,26 @@ void DisplayListNode::operator delete(void *p)
 {
 	DisplayListNode *node = (DisplayListNode *)p;
 	node->next = freelist;
-	freelist = FP_OFF(node);
+	freelist = NODE_OFF(node);
 	freecount++;
 }
 
 void DisplayListNode::init(void)
 {
 	if (!buffer)
-		buffer = new char[NUM_NODES * sizeof(DL_ItemNode)];
+		buffer = new char[NUM_NODES * slot];
 	if (!buffer)
 		halt(__FILE__, 152);	// __LINE__
-	DisplayListNodeSeg = FP_SEG(buffer);
-	uint16_t n = FP_OFF(buffer);
+	// Name 0 means no node, so the first slot is never used. (On DOS the
+	// block always started at offset 0 and lost its first node the same way.)
+	uint16_t n = 0;
 	freecount = NUM_NODES;
-	// Offset 0 means no node, so a buffer starting there loses its first node.
-	if (n == 0)
-	{
-		freelist = FP_OFF(buffer) + sizeof(DL_ItemNode);
-		freecount--;
-	}
-	else
-		freelist = n;
+	freelist = n + 1;
+	freecount--;
 	for (int16_t i = 0; i < NUM_NODES - 1; i++)
 	{
-		NODE(n)->next = n + sizeof(DL_ItemNode);
-		n += sizeof(DL_ItemNode);
+		NODE(n)->next = n + 1;
+		n++;
 	}
 	NODE(n)->next = 0;
 }
@@ -134,9 +135,8 @@ void DisplayListNode::uninit(void)
 {
 	if (buffer)
 	{
-		delete buffer;
+		delete[] buffer;
 		buffer = 0;
-		DisplayListNodeSeg = 0;
 	}
 }
 
@@ -193,7 +193,7 @@ uint8_t DisplayList::connect_nodes(uint16_t upper, uint16_t lower)
 {
 	if (upper != lower)
 	{
-		uint16_t e = (uint16_t)new DisplayListEdge(upper, lower);
+		uint16_t e = EDGE_OFF(new DisplayListEdge(upper, lower));
 		if (e)
 		{
 			DisplayListNode *up = NODE(upper);
@@ -403,7 +403,7 @@ void DisplayList::init(void)
 	{
 		for (y = 0; y < SQUARE_ROWS; y++)
 		{
-			uint16_t square = (uint16_t)new DL_ShadowSquareNode;
+			uint16_t square = NODE_OFF(new DL_ShadowSquareNode);
 			if (square)
 			{
 				NODE(square)->flags |= DLN_SHADOW;
@@ -434,12 +434,12 @@ void DisplayList::uninit(void)
 	DisplayListEdge::uninit();
 	if (animatingitem)
 	{
-		delete animatingitem;
+		delete[] (char *)animatingitem;
 		animatingitem = 0;
 	}
 	if (newitem)
 	{
-		delete newitem;
+		delete[] (char *)newitem;
 		newitem = 0;
 	}
 }
@@ -556,7 +556,7 @@ void DisplayList::mark(ScreenArea &area)
 					node->flags |= DLN_WAITING;
 				}
 				uint16_t r = node->getReferent();
-				newitem[r >> 5] |= 1L << (r & 31);
+				newitem[r >> 5] |= (uint32_t)1 << (r & 31);
 			}
 		}
 	}
@@ -751,9 +751,9 @@ void DisplayListNode::link(uint16_t p, uint16_t n)
 	prev = p;
 	next = n;
 	if (p)
-		NODE(p)->next = FP_OFF(this);
+		NODE(p)->next = NODE_OFF(this);
 	if (n)
-		NODE(n)->prev = FP_OFF(this);
+		NODE(n)->prev = NODE_OFF(this);
 }
 
 void DisplayListNode::unlink(void)
@@ -764,7 +764,7 @@ void DisplayListNode::unlink(void)
 		NODE(next)->prev = prev;
 }
 
-void *DisplayListEdge::operator new(uint16_t)
+void *DisplayListEdge::operator new(size_t) noexcept
 {
 	DisplayListEdge *edge = 0;
 	if (freelist)
@@ -780,7 +780,7 @@ void DisplayListEdge::operator delete(void *p)
 {
 	DisplayListEdge *edge = (DisplayListEdge *)p;
 	edge->nextAbove = freelist;
-	freelist = FP_OFF(edge);
+	freelist = EDGE_OFF(edge);
 	freecount++;
 }
 
@@ -790,20 +790,15 @@ void DisplayListEdge::init(void)
 		buffer = new char[NUM_EDGES * sizeof(DisplayListEdge)];
 	if (!buffer)
 		halt(__FILE__, 1380);	// __LINE__
-	DisplayListEdgeSeg = FP_SEG(buffer);
-	uint16_t e = FP_OFF(buffer);
+	// As for the nodes, the first slot is never used.
+	uint16_t e = 0;
 	freecount = NUM_EDGES;
-	if (e == 0)
-	{
-		freelist = FP_OFF(buffer) + sizeof(DisplayListEdge);
-		freecount--;
-	}
-	else
-		freelist = e;
+	freelist = e + 1;
+	freecount--;
 	for (int16_t i = 0; i < NUM_EDGES - 1; i++)
 	{
-		EDGE(e)->nextAbove = e + sizeof(DisplayListEdge);
-		e += sizeof(DisplayListEdge);
+		EDGE(e)->nextAbove = e + 1;
+		e++;
 	}
 	EDGE(e)->nextAbove = 0;
 }
@@ -812,9 +807,8 @@ void DisplayListEdge::uninit(void)
 {
 	if (buffer)
 	{
-		delete buffer;
+		delete[] buffer;
 		buffer = 0;
-		DisplayListEdgeSeg = 0;
 	}
 }
 
@@ -824,11 +818,11 @@ DisplayListEdge::DisplayListEdge(uint16_t up, uint16_t low)
 	lower = low;
 	nextAbove = NODE(low)->above;
 	if (nextAbove)
-		EDGE(nextAbove)->prevAbove = FP_OFF(this);
+		EDGE(nextAbove)->prevAbove = EDGE_OFF(this);
 	prevAbove = 0;
 	nextBelow = NODE(up)->below;
 	if (nextBelow)
-		EDGE(nextBelow)->prevBelow = FP_OFF(this);
+		EDGE(nextBelow)->prevBelow = EDGE_OFF(this);
 	prevBelow = 0;
 }
 

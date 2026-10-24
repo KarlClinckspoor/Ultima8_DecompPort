@@ -53,7 +53,7 @@ void Debugger::addBreakPoint(char *file, int16_t line)
 			int16_t order = stricmp(file, b->file);
 			if (order < 0 || b->line > line && order == 0)
 			{
-				movmem(b, b + 1, (numBreaks - i) * sizeof(BreakPoint));
+				memmove(b + 1, b, (numBreaks - i) * sizeof(BreakPoint));
 				break;
 			}
 		}
@@ -74,7 +74,7 @@ void Debugger::removeBreakPoint(char *file, int16_t line)
 	{
 		if (b->line == line && !stricmp(file, b->file))
 		{
-			movmem(b + 1, b, (numBreaks - i) * sizeof(BreakPoint));
+			memmove(b, b + 1, (numBreaks - i) * sizeof(BreakPoint));
 			numBreaks--;
 			return;
 		}

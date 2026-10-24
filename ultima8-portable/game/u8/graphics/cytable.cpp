@@ -14,7 +14,7 @@ uint8_t GraphicYtable::verify_ytable(int16_t step, int16_t count)
 	if (index == 0)
 		return 0;
 	for (i = 0; i < n; i++)
-		if (index[i] != index[0] + i * width)
+		if (index[i] != (uint16_t)(index[0] + i * width))
 			return 0;
 	return 1;
 }
@@ -27,7 +27,7 @@ uint8_t GraphicYtable::init_ytable(int16_t step, int16_t count, uint16_t start)
 
 	if (index)
 		free();
-	if ((index = new uint16_t[n]) == 0)
+	if ((index = new (std::nothrow) uint16_t[n]) == 0)
 		return 0;
 	if (index) {
 		for (i = 0; i < n; i++)

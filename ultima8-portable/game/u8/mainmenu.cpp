@@ -89,7 +89,8 @@ MainMenu::MainMenu(NewGump *parent, uint8_t showOptions) :
 	f_1d |= 0xe;
 	registerHotKeys('1', '2', '3', '4', '5', '6', '7', '8', 0x141, 0x142, 27, 0);
 	setOptions();
-	for (int16_t i = 0; i < 12; i++)
+	int16_t i;	// Borland kept a for loop's variable after the loop
+	for (i = 0; i < 12; i++)
 		for (int16_t j = 0; j < 104; j++)
 			saveNames[i][j] = 0;
 	name = fileSpec(0, SavedgamesDir, HeaderFileName, "dat");
@@ -473,7 +474,8 @@ void MainMenu::draw(int16_t x, int16_t y)
 			start = 0;
 			page = 6;
 		}
-		for (int16_t i = start; i < 6; i++)
+		int16_t i;	// Borland kept a for loop's variable after the loop
+		for (i = start; i < 6; i++)
 		{
 			font.printf(slots[i].f_00 + x, slots[i].f_02 + 24, saveNames[i + page]);
 			font.printf(slots[i].f_00 + x, slots[i].f_02 + 30, saveNames[i + page] + 26);

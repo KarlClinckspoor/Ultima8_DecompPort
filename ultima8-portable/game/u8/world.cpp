@@ -549,7 +549,8 @@ void CheatWindow::displayItemStats(void)
 		print("Type Flags:");
 		color = 0x1e;
 		int16_t value, n, j;
-		for (int16_t i = 0; i < 5; i++)
+		int16_t i;	// Borland kept a for loop's variable after the loop
+		for (i = 0; i < 5; i++)
 		{
 			for (j = 0; j < 3; j++)
 			{
@@ -723,7 +724,7 @@ void TestScreen::commandPrivate(Event &event)
 			break;
 		}
 		char autoexec = event.x == 5;
-		strcpy(path, fileSpec(drive, 0, autoexec ? "AUTOEXEC.BAT" : "CONFIG.SYS", 0));
+		strcpy(path, fileSpec(drive, 0, (char *)(autoexec ? "AUTOEXEC.BAT" : "CONFIG.SYS"), 0));
 		if (!FileExists(path))
 		{
 			print("  %s %s!", path, doesNotExist);
@@ -1705,7 +1706,10 @@ void World::postDragItem(Event &)
 				else
 					item.move(origLoc);
 				if (combineWith)
-					((Combinable &)Item(item.referent)).combine(combineWith);
+				{
+					Item combined(item.referent);
+					((Combinable &)combined).combine(combineWith);
+				}
 			}
 			if (!(item.getStatus() & OWNED))
 			{

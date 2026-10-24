@@ -16,6 +16,23 @@
 
 #define STACK_SIZE		32
 
+// The layout usecode and saved games rely on (see itemfind.h).
+static_assert(sizeof(ItemFinder) == 38, "ItemFinder is 38 bytes, as in DOS");
+static_assert(sizeof(RegionItemFinder) == 38, "RegionItemFinder is 38 bytes, as in DOS");
+static_assert(sizeof(AreaItemFinder) == 50, "AreaItemFinder is 50 bytes, as in DOS");
+static_assert(sizeof(RecursiveAreaItemFinder) == 50, "RecursiveAreaItemFinder is 50 bytes, as in DOS");
+static_assert(sizeof(ContainerItemFinder) == 38, "ContainerItemFinder is 38 bytes, as in DOS");
+static_assert(sizeof(RecursiveContainerItemFinder) == 40, "RecursiveContainerItemFinder is 40 bytes, as in DOS");
+static_assert(sizeof(SurfaceItemFinder) == 59, "SurfaceItemFinder is 59 bytes, as in DOS");
+
+// A word of a criteria program; the words are not aligned.
+static inline uint16_t criteriaWord(const uint8_t *p)
+{
+	uint16_t w;
+	memcpy(&w, p, sizeof w);
+	return w;
+}
+
 // A handle on another item met during the search.
 class FoundItem : public Item
 {
@@ -35,7 +52,8 @@ inline void worldToRegion(uint16_t x, uint16_t y, int16_t &rx, int16_t &ry)
 // A criteria string may start with its own length, flagged by len == -1.
 ItemFinder::ItemFinder(Referent start, char *s, uint16_t len)
 {
-	if (len == -1)
+	vtable = VT_ITEM_FINDER;
+	if ((int16_t)len == -1)
 		len = *s++;
 	first = start;
 	memmove(criteria, s, len);
@@ -49,8 +67,24 @@ void ItemFinder::restartSearch(void)
 		findNext();
 }
 
+// The virtual findNext: the classes that override it go to their own, the rest
+// (ItemFinder, RegionItemFinder, ContainerItemFinder) step along the list.
 void ItemFinder::findNext(void)
 {
+	switch (vtable)
+	{
+	case VT_AREA_ITEM_FINDER:
+	case VT_SURFACE_ITEM_FINDER:
+		static_cast<AreaItemFinder *>(this)->AreaItemFinder::findNext();
+		return;
+	case VT_RECURSIVE_AREA_ITEM_FINDER:
+		static_cast<RecursiveAreaItemFinder *>(this)->RecursiveAreaItemFinder::findNext();
+		return;
+	case VT_RECURSIVE_CONTAINER_ITEM_FINDER:
+		static_cast<RecursiveContainerItemFinder *>(this)->RecursiveContainerItemFinder::findNext();
+		return;
+	}
+
 	while (found())
 	{
 		referent = ItemData::nextArray[referent];
@@ -73,7 +107,7 @@ uint8_t ItemFinder::meetsSearchCriteria(void)
 	int16_t sp = 0;
 	int16_t pc = 0;
 	int16_t value;
-	uint16_t *list;
+	uint8_t *list;
 	int16_t stack[STACK_SIZE];
 
 	do
@@ -95,7 +129,7 @@ uint8_t ItemFinder::meetsSearchCriteria(void)
 		case '%':	// a literal word follows
 			if (sp < STACK_SIZE)
 			{
-				value = *(int16_t *)&criteria[pc];
+				value = (int16_t)criteriaWord(&criteria[pc]);
 				pc = pc + 2;
 				stack[sp++] = value;
 			}
@@ -216,14 +250,15 @@ uint8_t ItemFinder::meetsSearchCriteria(void)
 		if (c == '$')
 			break;
 
-		// 'A' to '_' list 1 to 31 types, 'a' up are lists of frames.
+		// 'A' to '_' list 1 to 31 types, 'a' up are lists of frames. A long list
+		// reads past the end of criteria into the next fields, as it did in DOS.
 		if (c > '@' && c < '`')
 		{
-			list = (uint16_t *)&criteria[pc];
+			list = &criteria[pc];
 			match = FALSE;
 			for (i = 0; i < c - '@'; i++)
 			{
-				if (list[i] == ItemData::typeArray[referent])
+				if (criteriaWord(list + 2 * i) == ItemData::typeArray[referent])
 				{
 					match = TRUE;
 					break;
@@ -237,11 +272,11 @@ uint8_t ItemFinder::meetsSearchCriteria(void)
 		}
 		else if (c > '`' && c < 0x80)
 		{
-			list = (uint16_t *)&criteria[pc];
+			list = &criteria[pc];
 			match = FALSE;
 			for (i = 0; i < c - '`'; i++)
 			{
-				if (getFrame() == list[i])
+				if ((uint16_t)getFrame() == criteriaWord(list + 2 * i))
 				{
 					match = TRUE;
 					break;
@@ -266,7 +301,8 @@ uint8_t ItemFinder::meetsSearchCriteria(void)
 
 RegionItemFinder::RegionItemFinder(uint16_t x, uint16_t y, char *s, uint16_t len)
 {
-	if (len == -1)
+	vtable = VT_REGION_ITEM_FINDER;
+	if ((int16_t)len == -1)
 		len = *s++;
 	gotoRegion(x, y);
 	memmove(criteria, s, len);
@@ -285,7 +321,7 @@ void RegionItemFinder::gotoRegion(uint16_t x, uint16_t y)
 void AreaItemFinder::init(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
 	char *s, uint16_t len)
 {
-	if (len == -1)
+	if ((int16_t)len == -1)
 		len = *s++;
 	if ((int16_t)x1 < 0)
 		x1 = 0;
@@ -304,8 +340,8 @@ void AreaItemFinder::init(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
 	referent = first;
 	if (!found())
 		gotoNextList();
-	if (found() && (!inArea() || !meetsSearchCriteria()))
-		findNext();
+	if (found() && (!callInArea() || !meetsSearchCriteria()))
+		ItemFinder::findNext();		// virtual: RecursiveAreaItemFinder has its own
 }
 
 // Searches one whole map region.
@@ -316,6 +352,19 @@ void AreaItemFinder::init(int16_t rx, int16_t ry, char *s, uint16_t len)
 	uint16_t x2 = x1 + REGION_SIZE - 1;
 	uint16_t y2 = y1 + REGION_SIZE - 1;
 	init(x1, y1, x2, y2, s, len);
+}
+
+// The virtual inArea.
+Boolean AreaItemFinder::callInArea(void)
+{
+	switch (vtable)
+	{
+	case VT_RECURSIVE_AREA_ITEM_FINDER:
+		return static_cast<RecursiveAreaItemFinder *>(this)->RecursiveAreaItemFinder::inArea();
+	case VT_SURFACE_ITEM_FINDER:
+		return static_cast<SurfaceItemFinder *>(this)->SurfaceItemFinder::inArea();
+	}
+	return AreaItemFinder::inArea();
 }
 
 void AreaItemFinder::gotoNextList(void)
@@ -350,7 +399,7 @@ void RecursiveAreaItemFinder::findNext(void)
 			if (!found())
 				gotoNextList();
 		}
-		if (found() && inArea() && meetsSearchCriteria())
+		if (found() && callInArea() && meetsSearchCriteria())
 			break;
 	}
 }
@@ -364,7 +413,7 @@ Boolean RecursiveAreaItemFinder::inArea(void)
 
 void ContainerItemFinder::init(Referent container, char *s, uint16_t len)
 {
-	if (len == -1)
+	if ((int16_t)len == -1)
 		len = *s++;
 	first = Item(container).getContents();
 	memmove(criteria, s, len);
@@ -373,7 +422,7 @@ void ContainerItemFinder::init(Referent container, char *s, uint16_t len)
 
 void RecursiveContainerItemFinder::init(Referent top, char *s, uint16_t len)
 {
-	if (len == -1)
+	if ((int16_t)len == -1)
 		len = *s++;
 	container = top;
 	first = Item(top).getContents();
@@ -442,16 +491,16 @@ Boolean SurfaceItemFinder::inArea(void)
 		zd = flags.zSize * 8;
 		zd == 0 && !flags.fixed ? zd = 1 : 0;
 		if ((what & SURFACE_ON) && ItemData::zArray[referent] == z &&
-			ItemData::xArray[referent] - xd + 1 <= x &&
-			ItemData::yArray[referent] - yd + 1 <= y)
+			(uint16_t)(ItemData::xArray[referent] - xd + 1) <= x &&
+			(uint16_t)(ItemData::yArray[referent] - yd + 1) <= y)
 		{
 			where = SURFACE_ON;
 			return TRUE;
 		}
 		if ((what & SURFACE_UNDER) &&
 			FoundItem(surface).getZ() == ItemData::zArray[referent] + zd &&
-			ItemData::xArray[referent] - xd + 1 <= x &&
-			ItemData::yArray[referent] - yd + 1 <= y)
+			(uint16_t)(ItemData::xArray[referent] - xd + 1) <= x &&
+			(uint16_t)(ItemData::yArray[referent] - yd + 1) <= y)
 		{
 			where = SURFACE_UNDER;
 			return TRUE;

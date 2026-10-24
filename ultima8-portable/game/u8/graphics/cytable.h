@@ -19,7 +19,7 @@ public:
 	void free(void)
 	{
 		if (index) {
-			delete index;
+			delete[] index;
 			index = 0;
 		}
 	}
