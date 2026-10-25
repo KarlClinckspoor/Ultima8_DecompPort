@@ -397,6 +397,21 @@ int32_t plat_pcm_queue(const uint8_t *samples, int32_t count)
 		pcm_count++;
 	}
 	MTY_MutexUnlock(pcm_mutex);
+	{
+		/* U8_PCM_DUMP: the game's digitised sound as it queued it, raw unsigned 8-bit. */
+		static FILE *pcm_dump;
+		static bool pcm_dump_checked;
+
+		if (!pcm_dump_checked) {
+			const char *path = getenv("U8_PCM_DUMP");
+
+			pcm_dump_checked = true;
+			if (path != NULL && path[0] != '\0')
+				pcm_dump = fopen(path, "wb");
+		}
+		if (pcm_dump != NULL)
+			fwrite(samples, 1, (size_t) taken, pcm_dump);
+	}
 	return taken;
 }
 
