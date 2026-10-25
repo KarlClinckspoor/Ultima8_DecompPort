@@ -103,9 +103,15 @@ These all built cleanly and failed at run time. Look for more of the same kind.
   made at start-up; each class's `load`/`postLoad` repoints its global (`systemTimer`,
   `theCameraProcess`). Restored objects are built with the global `operator new`, as the
   original did, not the class's.
-- **Inline functions per file.** The original defined header inlines (`Rect::Rect`,
-  `NewGumpId::NewGumpId`) in each file that used them, and a few virtual functions only
-  `inline` in a file other than the one that emits the class's vtable; those are out of line now.
+- **Inline functions per file.** The original defines header inlines (`Rect::Rect`,
+  `NewGumpId::NewGumpId`) in each file that uses them, and some files call them with no
+  definition in sight. Borland emitted an unexpanded inline as a "virtual segment" and the
+  linker kept one copy, which those files called. They are spelled `U8_INLINE` now
+  (`u8port.h`: `inline __attribute__((used))`), so every defining file emits them at any
+  optimisation level; clang also needs `-mno-constructor-aliases` to emit complete-object
+  constructors (CMakeLists.txt). Virtual functions defined only as such per-file inlines leave
+  no file sure to emit the vtable, so those are ordinary out-of-line functions. A Debug build
+  links even when a Release build would not: build both.
 - **16-bit arithmetic.** See the first section; `tools/check_int16.py` lists comparisons,
   divisions and shifts that mix signed and unsigned 16-bit operands, and 16-bit arithmetic
   that Borland would have wrapped.
