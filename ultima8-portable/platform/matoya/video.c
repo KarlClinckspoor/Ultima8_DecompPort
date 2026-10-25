@@ -12,8 +12,8 @@
 #define WIDTH PLAT_SCREEN_WIDTH
 #define HEIGHT PLAT_SCREEN_HEIGHT
 #define PIXELS (WIDTH * HEIGHT)
-/* 320x200 shown with 320x240 proportions. */
-#define ASPECT_HEIGHT 240
+/* 320x200 shown with 320x240 proportions, or square pixels (the settings screen). */
+#define ASPECT_HEIGHT (settings_aspect() ? 240 : 200)
 #define RETRACE_HZ 70.086
 /* yield shows the frame again no more often than this. */
 #define REFRESH_US 8000
@@ -138,12 +138,12 @@ static uint32_t integer_scale(MTY_Size view)
 
 float video_scale(MTY_Size view)
 {
-	return (float) integer_scale(view);
+	return settings_integer() ? (float) integer_scale(view) : 0.0f;
 }
 
 void video_view_rect(MTY_Size view, int32_t *x, int32_t *y, int32_t *w, int32_t *h)
 {
-	uint32_t s = integer_scale(view);
+	uint32_t s = settings_integer() ? integer_scale(view) : 0;
 
 	if (s > 0) {
 		*w = (int32_t) (WIDTH * s);
@@ -180,8 +180,43 @@ void video_draw(MTY_App *app, MTY_Window window)
 	}
 	MTY_MutexUnlock(frame_lock);
 
+	if (settings_open()) {
+		int32_t vx, vy, vw, vh;
+		const uint32_t *canvas;
+
+		/* Drawn at the window's own pixels, so the text is sharp at any size. */
+		video_view_rect(view, &vx, &vy, &vw, &vh);
+		canvas = settings_render((const uint8_t (*)[4]) draw_rgba, vw, vh);
+		if (canvas != NULL) {
+			desc.imageWidth = desc.cropWidth = (uint32_t) vw;
+			desc.imageHeight = desc.cropHeight = (uint32_t) vh;
+			desc.aspectRatio = (float) vw / (float) vh;
+			desc.scale = 1.0f;
+			MTY_WindowDrawQuad(app, window, canvas, &desc);
+			MTY_WindowPresent(app, window);
+			return;
+		}
+	}
 	MTY_WindowDrawQuad(app, window, draw_rgba, &desc);
 	MTY_WindowPresent(app, window);
+}
+
+/* The game's screen memory as it is now, through the palette as it is now: the same at the
+ * same point of a recording and of its replay. */
+bool video_write_game_shot(const char *path)
+{
+	FILE *f;
+
+	if (last_pixels == NULL)
+		return false;
+	f = fopen(path, "wb");
+	if (f == NULL)
+		return false;
+	fprintf(f, "P6\n%d %d\n255\n", WIDTH, HEIGHT);
+	for (int i = 0; i < PIXELS; i++)
+		fwrite(palette[last_pixels[i]], 1, 3, f);
+	fclose(f);
+	return true;
 }
 
 bool video_write_shot(const char *path)

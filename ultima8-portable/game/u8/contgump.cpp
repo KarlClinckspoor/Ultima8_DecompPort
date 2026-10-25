@@ -2,6 +2,7 @@
 // name: CONTGUMP.C
 
 #include "u8port.h"
+#include "plat.h"
 
 #include <stdlib.h>
 #include "newgump.h"
@@ -522,10 +523,7 @@ void ContainerGump::commandMouseLeft(Event &event)
 			if (event.isAlt() && event.isShift() && event.isCtrl())
 			{
 				// DOS get date: AL is the day of the week, 0 for Sunday.
-				{
-					time_t now = time(0);
-					day = (uint8_t)localtime(&now)->tm_wday;
-				}
+				day = (uint8_t)plat_day_of_week();
 				if (cheats1[day] == cheatcheck1 && cheats2[day] == cheatcheck2 && cheats3[day] == cheatcheck3)
 					cheat = 1;
 				else if (cheatcheck1 == code1 && cheatcheck2 == code2 && cheatcheck3 == code3)

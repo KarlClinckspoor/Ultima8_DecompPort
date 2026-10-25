@@ -116,6 +116,36 @@ These all built cleanly and failed at run time. Look for more of the same kind.
   divisions and shifts that mix signed and unsigned 16-bit operands, and 16-bit arithmetic
   that Borland would have wrapped.
 
+## Keeping the game deterministic
+
+Recordings (README.md, "Recording and replaying") replay because everything from outside that
+the game sees comes through the platform layer at known points, and the backend records it
+there (`platform/matoya/record.c`). Changes to the port must keep it so:
+
+- **Time moves only in `plat_pump`.** `plat_ticks`, `plat_milliseconds` and
+  `plat_microseconds` read the game's clock, which the pump moves on in whole steps of
+  `CLOCK_QUANTUM_US` and which stands still between pumps. A loop that waits on the clock
+  must pump (`plat_yield`), or it never ends. Host code that needs real time (frame pacing,
+  audio) reads `backend_elapsed_us`, and the game must never see what it reads.
+- **Input arrives only in `plat_pump`.** Keys, the mouse and focus changes are taken from the
+  app thread's queue there, and nowhere else.
+- **Anything else from outside is a recorded value.** File times, free disk space, the day of
+  the week and the time of day go through `record_value` (`plat_day_of_week`,
+  `plat_time_now`). A new call that returns something about the host must too; directory
+  listings are sorted by name.
+- **Sound gives the game nothing back from the audio thread.** The speech queue's
+  `plat_pcm_pending` drains by the game's clock, and a replay plays music on the device it
+  was recorded with (`plat_music_device`).
+- **Memory starts zeroed.** `malloc`, `farmalloc` and `new` are `calloc` (`u8port.h`), so
+  what the game reads before writing is the same on every run; the heap is shared with
+  other threads, so what a block held before is not.
+- **The state digest** (`game/port/digest.cpp`) covers the random seeds, the item arrays,
+  the global flags and the system timer, never host pointers. A replay that diverges after a
+  change shows the change altered what the game does; if that was the point (a bug fix),
+  record the session again.
+
+`tools/u8rec.py info|dump SESSION` reads a recording.
+
 ## Checking a file
 
 `tools/syntax.sh [files]` compiles files with `-fsyntax-only` and lists errors; the build

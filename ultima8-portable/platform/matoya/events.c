@@ -2,8 +2,14 @@
  *
  * The app thread queues window events; plat_pump drains them on the game thread, so the
  * key buffer, modifier flags, mouse state and mouse handler are only touched there.
+ *
+ * The game's clock moves only in plat_pump, in whole steps of CLOCK_QUANTUM_US, and the events
+ * are taken there too. So everything from outside that the game sees arrives at a pump, and a
+ * recording of each pump's clock step and events (record.c) plays the game back exactly.
  */
+#include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "backend.h"
 
@@ -14,17 +20,10 @@
 #define MOUSE_WIDTH 640
 #define MOUSE_HEIGHT 200
 
-enum { EVENT_KEY, EVENT_MOVE, EVENT_BUTTON, EVENT_FOCUS_LOST };
+/* A state digest goes into the recording once a second of game time. */
+#define CHECK_US 1000000
 
-typedef struct {
-	uint8_t kind;
-	bool pressed;
-	uint16_t key;
-	uint16_t mod;
-	uint16_t button;
-	int16_t x;
-	int16_t y;
-} queued_event;
+typedef port_event queued_event;
 
 /* Shared with the app thread, under queue_lock. */
 static MTY_Mutex *queue_lock;
@@ -50,6 +49,12 @@ static uint32_t pit_period_us;
 static int64_t pit_next_us;
 static bool pumping;
 static int64_t clock_start_us;
+/* The game's clock: microseconds of play, moved only by plat_pump. */
+static int64_t game_us;
+/* Time the settings screen held the game, which its clock leaves out. */
+static int64_t held_us;
+static int64_t next_check_us = CHECK_US;
+static int64_t next_shot_us;
 
 void events_init(void)
 {
@@ -74,7 +79,7 @@ void events_reset(void)
 	pit_period_us = 0;
 	pumping = false;
 	/* Each program's clock starts at zero. */
-	clock_start_us = backend_elapsed_us();
+	clock_start_us = game_us;
 }
 
 /* ---- Keys ---- */
@@ -513,22 +518,78 @@ void plat_pit_set(plat_timer_fn fn, uint32_t period_us)
 		pit_next_us = plat_microseconds() + period_us;
 }
 
+int64_t game_clock_us(void)
+{
+	return game_us;
+}
+
+/* The game clock's next step, in quanta, from the real clock. */
+static uint32_t live_step(void)
+{
+	int64_t target = (backend_elapsed_us() - held_us) / CLOCK_QUANTUM_US;
+	int64_t now = game_us / CLOCK_QUANTUM_US;
+
+	return target > now ? (uint32_t) (target - now) : 0;
+}
+
+/* --replay-view keeps to the recorded speed. */
+static void keep_pace(void)
+{
+	int64_t ahead = game_us - (backend_elapsed_us() - held_us);
+
+	if (ahead >= 1000)
+		MTY_Sleep((uint32_t) (ahead / 1000));
+}
+
+static void checkpoints(void)
+{
+	const port_options *o = options();
+
+	if (game_us >= next_check_us) {
+		record_checkpoint(game_us);
+		next_check_us = game_us - game_us % CHECK_US + CHECK_US;
+	}
+	if (o->shots != NULL && game_us >= next_shot_us) {
+		char name[64], path[PATH_SIZE];
+
+		/* Named by the game second, so a recording's and its replay's pair up. */
+		snprintf(name, sizeof name, "shot-%06lld.ppm", (long long) (game_us / 1000000));
+		if (path_join(path, sizeof path, o->shots, name))
+			video_write_game_shot(path);
+		next_shot_us = game_us - game_us % ((int64_t) o->shot_every * 1000000)
+			+ (int64_t) o->shot_every * 1000000;
+	}
+}
+
 void plat_pump(void)
 {
 	queued_event taken[EVENT_QUEUE_SIZE];
-	uint32_t count;
+	uint32_t count, step;
 
 	/* A timer or mouse handler that polls the keyboard must not pump again. */
 	if (pumping)
 		return;
 	pumping = true;
-	test_input_poll();
+	/* The state as the game left it, before this pump changes anything. */
+	checkpoints();
+	if (!record_replay_fast())
+		held_us += settings_hold();
 
-	MTY_MutexLock(queue_lock);
-	count = queue_count;
-	memcpy(taken, queue, count * sizeof *queue);
-	queue_count = 0;
-	MTY_MutexUnlock(queue_lock);
+	if (record_replaying()) {
+		step = record_pump_read(taken, EVENT_QUEUE_SIZE, &count);
+	} else {
+		test_input_poll();
+		MTY_MutexLock(queue_lock);
+		count = queue_count;
+		memcpy(taken, queue, count * sizeof *queue);
+		queue_count = 0;
+		MTY_MutexUnlock(queue_lock);
+		step = live_step();
+		record_pump_write(step, taken, count);
+	}
+	game_us += (int64_t) step * CLOCK_QUANTUM_US;
+	if (step != 0 && record_replaying() && !record_replay_fast())
+		keep_pace();
 
 	for (uint32_t i = 0; i < count; i++)
 		handle(&taken[i]);
@@ -539,21 +600,54 @@ void plat_pump(void)
 	pumping = false;
 }
 
+/* After the settings screen: keys and buttons held when it opened were let go meanwhile. */
+void events_release_all(void)
+{
+	queued_event up = {0};
+
+	MTY_MutexLock(queue_lock);
+	up.kind = EVENT_BUTTON;
+	for (uint16_t b = 1; b <= 2 && queue_count + 1 < EVENT_QUEUE_SIZE; b++) {
+		up.button = b;
+		queue[queue_count++] = up;
+	}
+	if (queue_count < EVENT_QUEUE_SIZE) {
+		queued_event lost = {0};
+
+		lost.kind = EVENT_FOCUS_LOST;
+		queue[queue_count++] = lost;
+	}
+	MTY_MutexUnlock(queue_lock);
+}
+
 /* ---- Time ---- */
 
 uint32_t plat_ticks(void)
 {
-	return (uint32_t) ((backend_elapsed_us() - clock_start_us) * PLAT_TICKS_PER_SECOND / 1000000);
+	return (uint32_t) ((game_us - clock_start_us) * PLAT_TICKS_PER_SECOND / 1000000);
 }
 
 uint64_t plat_microseconds(void)
 {
-	return (uint64_t) (backend_elapsed_us() - clock_start_us);
+	return (uint64_t) (game_us - clock_start_us);
 }
 
 uint32_t plat_milliseconds(void)
 {
-	return (uint32_t) ((backend_elapsed_us() - clock_start_us) / 1000);
+	return (uint32_t) ((game_us - clock_start_us) / 1000);
+}
+
+int16_t plat_day_of_week(void)
+{
+	time_t now = time(NULL);
+	struct tm *tm = localtime(&now);
+
+	return (int16_t) record_value(VALUE_DAY_OF_WEEK, tm != NULL ? (uint32_t) tm->tm_wday : 0);
+}
+
+uint32_t plat_time_now(void)
+{
+	return record_value(VALUE_TIME_NOW, (uint32_t) time(NULL));
 }
 
 void plat_sleep(uint32_t milliseconds)

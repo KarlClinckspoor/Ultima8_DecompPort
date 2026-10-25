@@ -98,6 +98,11 @@ static int16_t borland_rand(void)
 	return (int16_t) ((borland_seed >> 16) & 0x7FFF);
 }
 
+uint32_t u8_rand_state(void)
+{
+	return borland_seed;
+}
+
 int16_t u8_rand(void)
 {
 	return borland_rand();
@@ -110,7 +115,7 @@ int16_t u8_random(int16_t range)
 
 void u8_randomize(void)
 {
-	borland_seed = (uint32_t) time(NULL);
+	borland_seed = plat_time_now();
 	borland_rand();
 }
 
@@ -402,14 +407,21 @@ int u8_on_stack(const void *p)
 // Borland's new, new[], malloc and farmalloc all came from the one heap, and the game frees
 // with whichever it likes: new[] blocks with delete or farfree, farmalloc blocks with delete.
 // So all of them are malloc here, and every pairing of them stays good for the plain data
-// the game allocates. (Arrays of objects with destructors still need delete[].)
+// the game allocates. (Arrays of objects with destructors still need delete[].) Every block
+// starts zeroed, so whatever the game reads before it writes is the same on every run, which
+// recordings rely on to replay (the host's heap is shared with other threads).
 #include <new>
 
 void *operator new(size_t size)
 {
 	// Borland's new gave 0 when memory ran out, and the game checks for it (built with
 	// -fcheck-new so the compiler keeps those checks).
-	return ::malloc(size ? size : 1);
+	return ::calloc(1, size ? size : 1);
+}
+
+void *u8_malloc(size_t size)
+{
+	return ::calloc(1, size ? size : 1);
 }
 
 void *operator new[](size_t size)
@@ -419,12 +431,12 @@ void *operator new[](size_t size)
 
 void *operator new(size_t size, const std::nothrow_t &) noexcept
 {
-	return ::malloc(size ? size : 1);
+	return ::calloc(1, size ? size : 1);
 }
 
 void *operator new[](size_t size, const std::nothrow_t &) noexcept
 {
-	return ::malloc(size ? size : 1);
+	return ::calloc(1, size ? size : 1);
 }
 
 void operator delete(void *p) noexcept { ::free(p); }

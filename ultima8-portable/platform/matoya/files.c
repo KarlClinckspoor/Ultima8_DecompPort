@@ -15,6 +15,7 @@
 #include <io.h>
 #include <windows.h>
 #define strcasecmp _stricmp
+#define strncasecmp _strnicmp
 #define mkdir(path, mode) _mkdir(path)
 #define rmdir _rmdir
 #else
@@ -26,7 +27,6 @@
 
 #include "backend.h"
 
-#define PATH_SIZE 1024
 #define NAME_SIZE 256
 #define MAX_HANDLES 64
 /* The first handle given out; DOS kept 0-4 for its standard handles. */
@@ -141,6 +141,19 @@ static bool resolve(const char *dos, bool create, char *path)
 	snprintf(path, PATH_SIZE, "%s", root);
 	if (isalpha((unsigned char) p[0]) && p[1] == ':')
 		p += 2;
+	/* The game in progress and the saved games live in the save root (home.c). */
+	if (saves_root() != NULL) {
+		const char *first = p;
+		size_t n;
+
+		while (is_separator(*first))
+			first++;
+		for (n = 0; first[n] != '\0' && !is_separator(first[n]); n++)
+			;
+		if ((n == 7 && strncasecmp(first, "GAMEDAT", 7) == 0)
+			|| (n == 8 && strncasecmp(first, "SAVEGAME", 8) == 0))
+			snprintf(path, PATH_SIZE, "%s", saves_root());
+	}
 	for (;;) {
 		size_t n;
 		bool last;
@@ -347,8 +360,8 @@ uint32_t plat_file_time(const char *name)
 	struct stat st;
 
 	if (!resolve(name, false, path) || !stat_path(path, &st))
-		return 0;
-	return dos_time(st.st_mtime);
+		return record_value(VALUE_FILE_TIME, 0);
+	return record_value(VALUE_FILE_TIME, dos_time(st.st_mtime));
 }
 
 uint32_t plat_file_handle_time(int16_t file)
@@ -357,8 +370,8 @@ uint32_t plat_file_handle_time(int16_t file)
 	struct stat st;
 
 	if (f == NULL || fflush(f) != 0 || fstat(fileno(f), &st) != 0)
-		return 0;
-	return dos_time(st.st_mtime);
+		return record_value(VALUE_FILE_TIME, 0);
+	return record_value(VALUE_FILE_TIME, dos_time(st.st_mtime));
 }
 
 /* ---- Names ---- */
@@ -428,7 +441,7 @@ uint32_t plat_disk_free(void)
 		bytes = (uint64_t) fs.f_bavail * fs.f_frsize;
 #endif
 	/* Callers may hold this in a signed long. */
-	return bytes > INT32_MAX ? INT32_MAX : (uint32_t) bytes;
+	return record_value(VALUE_DISK_FREE, bytes > INT32_MAX ? INT32_MAX : (uint32_t) bytes);
 }
 
 /* ---- Listings ---- */
@@ -507,6 +520,11 @@ static time_t file_time_to_time_t(FILETIME ft)
 }
 #endif
 
+static int compare_found(const void *a, const void *b)
+{
+	return strcmp(((const found_file *) a)->name, ((const found_file *) b)->name);
+}
+
 /* Every file in the pattern's directory whose 8.3 name matches, listed up front so
  * deleting files during the listing is safe. */
 static find_list *list_matches(const char *dos_pattern, bool dirs)
@@ -563,6 +581,8 @@ static find_list *list_matches(const char *dos_pattern, bool dirs)
 	if (d != NULL)
 		closedir(d);
 #endif
+	/* In name order, so a listing is the same on every system and every run. */
+	qsort(list->files, list->count, sizeof *list->files, compare_found);
 	return list;
 }
 
@@ -591,7 +611,7 @@ int16_t plat_find_next(plat_find *find)
 	strcpy(find->name, list->files[list->next].name);
 	find->size = list->files[list->next].size;
 	find->attrib = list->files[list->next].attrib;
-	find->time = list->files[list->next].time;
+	find->time = record_value(VALUE_FILE_TIME, list->files[list->next].time);
 	list->next++;
 	return 1;
 }

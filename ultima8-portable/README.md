@@ -25,7 +25,8 @@ ultima8-portable/
   platform/matoya/        the libmatoya backend (window, input, audio, files, timing)
   third_party/            libmatoya (MIT), Munt's mt32emu (LGPL 2.1+), Nuked OPL3 (LGPL 2.1+),
                           vendored at the same commits as the Ultima VII port
-  tools/                  the source converter and checking scripts (see PORTING.md)
+  tools/                  the source converter and checking scripts (see PORTING.md), and
+                          u8rec.py, which reads recordings
   PORTING.md              how the sources were ported, and the traps that remain
 ```
 
@@ -45,7 +46,10 @@ with scripted input (see "Scripted runs") on the English GOG data: the intro, na
 Avatar, conversations, walking into Tenebrae and the scene on the docks, the paperdoll and
 backpack, combat mode, dying, saving, loading in the same session, and resuming in a new
 session; the data folder named with `--data` or `U8_DATA` from another folder, and read-only
-data files. The Windows and macOS builds have not been tried: the game
+data files; recording sessions and replaying them, on the build that made them and on the
+others (clang Debug and Release, GCC), with a save and a load inside; the settings screen's
+keys and settings file, in a window on Xvfb, and its drawing at several window sizes (Xvfb's GL
+showed only a black window, so not on screen). The Windows and macOS builds have not been tried: the game
 code compiles for a Windows target with clang and MinGW's headers, and the build follows the
 Ultima VII port's, which builds on both, but a clang-cl build has not been run. Please report
 what fails.
@@ -82,13 +86,13 @@ Options:
 
 **Game data.** A folder holding an installed copy of Ultima VIII, with its `STATIC`,
 `USECODE`, `SOUND` and `SAVEGAME` folders (the GOG release has these in its language folder,
-`ENGLISH` for the English game). File names are matched in any letter case. The game writes
-its progress and saved games into this folder (`GAMEDAT`, `SAVEGAME`), so those two must be
-writable; the data files themselves may be read-only.
+`ENGLISH` for the English game). File names are matched in any letter case. The folder is only
+read: the game's progress and saved games go in the port's home folder (below).
 
 **MT-32 ROMs** (optional). Munt needs the Roland MT-32 control and PCM ROM images (any file
 names; they are recognised by content). They are not included. The game looks in the
-`U8_MT32_ROMS` folder, else the `U8_MT32_ROM_DIR` build option, else the game data folder.
+`U8_MT32_ROMS` folder, else the `mt32-roms=` folder in the settings file, else the
+`U8_MT32_ROM_DIR` build option, else the game data folder.
 Without them, music plays on the emulated AdLib.
 
 **Sound setup.** `U8.INI` is the setup the DOS installer wrote. The port reads it if it is
@@ -103,28 +107,118 @@ music and sound effects off.
 build/Ultima8 --data /path/to/ultima8/ENGLISH
 ```
 
-- `--data` is the game data folder (or set `U8_DATA`). By default it is the current folder if
-  that has `STATIC`, else the folder the program is in, else `Documents/Ultima8`, so a
-  double-clicked `Ultima8` placed in the game folder finds its data. The program checks for
-  the core files at launch and names any that are missing.
+- `--data` is the game data folder (or set `U8_DATA`), and is remembered for later starts. By
+  default it is the one remembered, else the current folder if that has `STATIC`, else the
+  folder the program is in, else `Documents/Ultima8`, so a double-clicked `Ultima8` placed in
+  the game folder finds its data. The program checks for the core files at launch and names
+  any that are missing.
 - `--adlib` plays the music on the AdLib even when the MT-32 ROMs are found; `--roland` asks
   for the MT-32 (with no ROMs it falls back to the AdLib).
+- `--home <dir>` (or `U8_HOME`) moves the home folder; `--saves-in-data` keeps the game's
+  `GAMEDAT` and `SAVEGAME` in the game folder, as DOS did.
+- `--scale <n>`, `--no-aspect` and `--no-integer` set the window for one run (see "Settings").
 - `--help` lists the port's switches. Other arguments go to the game, as U8.EXE took them:
   `-english`, `-french`, `-german` (the language, when that language's data is installed),
   `-u <folder>` (usecode folder), `-cache <MB>` (shape cache size), `-test`, `-record`,
   `-playback`.
 - On Windows the program is a windowed one, so no console opens with it. Started from a
   terminal, it prints its messages there.
-- Alt-Enter toggles fullscreen.
+- Alt-Enter toggles fullscreen. F11 (Cmd+, on a Mac) opens the settings screen.
 
 In the game, the mouse and keys are the DOS game's: the left button selects and uses (double
 click), holding the right button walks towards the pointer, Esc brings up the main menu (read
 or write the diary to load or save), C toggles combat, Z opens the paperdoll and I the
 backpack.
 
+## The home folder
+
+The port keeps its own files in `~/.u8port` (on Windows `%APPDATA%\u8port`; `--home` or
+`U8_HOME` puts it elsewhere):
+
+| | |
+| --- | --- |
+| `u8port.cfg` | the settings, as `key=value` lines |
+| `GAMEDAT/`, `SAVEGAME/` | the game in progress and the saved games. The first start copies both from the game folder (the shipped `U8SAVE.000` is the start of a new game); after that the game folder is not written to. To start afresh, rename the folder rather than delete it. |
+| `recordings/` | the last five sessions (see "Recording and replaying") |
+
+## Settings
+
+The settings screen opens over the game with F11 (Cmd+, on macOS, which takes F11 for itself)
+and closes with F11 or Esc. It also opens before the game on every start until its "Show this
+at start" row is turned off; the game waits for it. While it is open the game's clock stands
+still. Up and Down move between the rows and the tab bar, Left and Right or Enter change a
+value, Tab goes to the next tab; the mouse can click tabs and rows and drag the volume.
+
+Every change is written to `u8port.cfg` at once. Rows marked "next start" are used from the
+next start; the others at once.
+
+| Tab | Row | Settings-file key | When | Command line (this run only) |
+| --- | --- | --- | --- | --- |
+| Sound | Music: Automatic (the MT-32 when its ROMs are found), Roland MT-32, AdLib | `music` (`auto`, `roland`, `adlib`) | next start | `--roland`, `--adlib` |
+| Sound | MT-32 ROMs: found or not, and the folder (shown only) | `mt32-roms` | next start | `U8_MT32_ROMS` |
+| Sound | Volume, 0 to 100 | `volume` | at once | |
+| Display | Fullscreen (Alt-Enter too) | `fullscreen` | at once | |
+| Display | Window scale, 1x to 8x the 320x200 screen, as far as fits the display | `scale` | at once | `--scale n` |
+| Display | 4:3 aspect: the 200 lines shown as 240, as on a CRT; off for square pixels | `aspect` | at once | `--no-aspect` |
+| Display | Whole-number scaling; off fills the window | `integer` | at once | `--no-integer` |
+| Game | Game folder (shown only) | `data` | next start | `--data` (remembered) |
+| Game | Home folder (shown only) | | | `--home` |
+| Game | Record sessions | `recording` | next start | `--no-recording` |
+| Game | Show this at start | `settings-at-start` | next start | |
+
+A value the file holds that the screen cannot show is read as that row's default.
+
+## Recording and replaying
+
+Every session's input is recorded, so a session can be played again exactly: the same game
+in the same state at every moment. That makes a crash something that can be replayed, and a
+long session a test: record a playthrough once, and after changing the code replay it to see
+that the game still does exactly what it did (and so is still winnable).
+
+**The black box.** Each session goes to `recordings/<date>-<time>/` in the home folder; the
+newest five are kept. Turn it off on the settings screen ("Record sessions") or for one run
+with `--no-recording`. Scripted runs (`U8_TEST_INPUT`) and replays are not recorded unless
+asked with `--record`. A session folder holds `SESSION.U8R`, the recording, and `stage/`, the
+`GAMEDAT` and `SAVEGAME` folders as they were when it began (so the black box takes the size of
+your saved games, five times over). An hour of play records to about 10 MB.
+
+**Replaying.**
+
+```sh
+build/Ultima8 --replay ~/.u8port/recordings/20261025-142233
+```
+
+replays with no window and no sound, as fast as the game runs (10 to 20 times faster than
+it was played here), on a copy of the session's `stage/`, so your own saves are untouched. It prints
+how it ended, and the exit code says it:
+
+| Exit code | |
+| --- | --- |
+| 0 | every checkpoint matched to the end of the recording (or to where the recorded session crashed or was killed, which the replay reaches too) |
+| 2 | the game diverged: the message says at what game time, and how |
+| 1 | the replay could not run, or was stopped |
+
+Once a second of game time the recording holds a checkpoint: a digest of the game's state
+(the random seeds, every item's place and state, the global flags, the timer). The replay
+checks each one, and the first that differs stops it with exit code 2, as does any point
+where the game asks for input or a value where the recording has something else.
+
+`--replay-view` replays in a window, at the speed it was played, with sound. `--record <dir>`
+records a session to a folder of your choosing (for a scripted run, too). `--shots <dir>`
+saves the game's screen every `--shot-every <n>` game seconds (default 60), named by the
+game second, in recordings and replays alike, so the two can be compared picture by picture.
+
+A replay needs the same game data (the recording notes a fingerprint of `STATIC` and
+`USECODE`, and warns when it differs) and plays its music on the device it was recorded with.
+It does not depend on the machine, the build type or the compiler: a session recorded with a
+Debug build replays on a Release or GCC build. `tools/u8rec.py info <session>` summarises a
+recording and `tools/u8rec.py dump <session>` lists it. How it works, and what the port has to
+keep doing for it to work, is in PORTING.md ("Keeping the game deterministic").
+
 ## Scripted runs
 
-For testing, `U8_TEST_INPUT` drives the game from a script and opens no window:
+For testing, `U8_TEST_INPUT` drives the game from a script and opens no window. Scripted runs
+keep the game's files in the game folder, so use a copy of it:
 
 ```sh
 U8_DATA=/path/to/copy U8_TEST_INPUT="12000 key esc; 16000 key k; 17000 key enter; \
@@ -148,7 +242,8 @@ Other variables for checking the port:
 
 - The kernel's real-time processes ran from the PC's timer interrupt; here they run on the
   game thread whenever it waits or finishes a pass of the process list, at the rate the
-  kernel programmed (`platform/matoya/events.c`).
+  kernel programmed (`platform/matoya/events.c`). The game's clock moves in 1 ms steps, and
+  only then.
 - The XMIDI music driver is new code following the Miles AIL 2.0 drivers' behaviour (timbre
   library, percussion bank, velocity scaling, pitch bend range) rather than a translation of
   them; the MT-32 path has not been heard on real ROMs.

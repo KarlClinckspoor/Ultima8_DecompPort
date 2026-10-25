@@ -3,6 +3,7 @@
  * The process main thread runs the window (libmatoya wants it there). The game, U8Main, runs
  * on a game thread of its own, and sound renders on another.
  */
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,9 +24,6 @@ static MTY_Atomic32 exit_code;
 static MTY_Atomic32 fatal_claimed;
 static MTY_Atomic32 fatal_pending;
 static char fatal_text[1024];
-
-static int game_argc;
-static char **game_argv;
 
 /* The window's client size, for mapping scripted mouse positions on the game thread. */
 static MTY_Mutex *view_lock;
@@ -69,17 +67,29 @@ static void wait_for_exit(void)
  * may still be running. */
 static void end_process(int code)
 {
+	code = record_finish(code);
 	fflush(NULL);
 	_Exit(code);
+}
+
+void backend_stop(int code)
+{
+	if (!on_game_thread)
+		end_process(code);
+	audio_drop_lock();
+	backend_request_exit(code);
+	wait_for_exit();
 }
 
 void plat_exit(int16_t code)
 {
 	if (on_app_thread)
 		end_process(code);
-	if (on_game_thread)
+	if (on_game_thread) {
+		record_game_exit();
 		/* As a DOS exit: the program's stack is left as it is, never unwound. */
 		audio_drop_lock();
+	}
 	backend_request_exit(code);
 	wait_for_exit();
 }
@@ -94,6 +104,9 @@ void plat_fatal(const char *message)
 			MTY_ShowMessageBox(WINDOW_TITLE, "%s", message);
 		end_process(1);
 	}
+	/* A recording ends here as if the game had exited; its replay stops here too. */
+	if (on_game_thread)
+		record_game_exit();
 	/* Message boxes must be shown from the app thread. */
 	if (MTY_Atomic32CAS(&fatal_claimed, 0, 1)) {
 		snprintf(fatal_text, sizeof fatal_text, "%s", message);
@@ -128,6 +141,19 @@ static const uint8_t blank_cursor[] = {
 };
 static bool pointer_over_image;
 
+static bool cursor_hidden;
+
+/* The game draws its own pointer over the image; the settings screen uses the system's. */
+static void update_cursor(void)
+{
+	bool hide = pointer_over_image && !settings_open();
+
+	if (hide != cursor_hidden) {
+		cursor_hidden = hide;
+		MTY_AppSetCursor(app, hide ? MTY_CURSOR_NONE : MTY_CURSOR_ARROW);
+	}
+}
+
 static void on_event(const MTY_Event *event, void *opaque)
 {
 	(void) opaque;
@@ -142,26 +168,30 @@ static void on_event(const MTY_Event *event, void *opaque)
 		/* Alt-Enter toggles fullscreen and never reaches the game. */
 		if ((event->key.key == MTY_KEY_ENTER || event->key.key == MTY_KEY_NP_ENTER)
 			&& (event->key.mod & MTY_MOD_ALT)) {
-			if (event->key.pressed)
-				MTY_WindowSetFullscreen(app, window, !MTY_WindowIsFullscreen(app, window));
+			if (event->key.pressed) {
+				bool full = !MTY_WindowIsFullscreen(app, window);
+
+				MTY_WindowSetFullscreen(app, window, full);
+				setting_set_bool("fullscreen", full);
+			}
 			return;
 		}
 		break;
 	case MTY_EVENT_MOTION:
-		/* The game draws its own pointer over the image. */
-		if (!event->motion.relative) {
-			bool over = point_over_image(event->motion.x, event->motion.y);
-
-			if (over != pointer_over_image) {
-				pointer_over_image = over;
-				MTY_AppSetCursor(app, over ? MTY_CURSOR_NONE : MTY_CURSOR_ARROW);
-			}
-		}
+		if (!event->motion.relative)
+			pointer_over_image = point_over_image(event->motion.x, event->motion.y);
 		break;
 	default:
 		break;
 	}
-	events_push(event, MTY_WindowGetSize(app, window));
+	if (settings_event(event, app, window)) {
+		update_cursor();
+		return;
+	}
+	update_cursor();
+	/* A replay's input comes from the recording. */
+	if (!record_replaying())
+		events_push(event, MTY_WindowGetSize(app, window));
 }
 
 /* Scripted runs open no window, so nothing takes focus or switches Spaces and no display is
@@ -194,7 +224,9 @@ static bool on_frame(void *opaque)
 	MTY_MutexLock(view_lock);
 	view_size = MTY_WindowGetSize(app, window);
 	MTY_MutexUnlock(view_lock);
-	if (events_take_warp(MTY_WindowGetSize(app, window), &x, &y))
+	update_cursor();
+	if (events_take_warp(MTY_WindowGetSize(app, window), &x, &y) && !settings_open()
+		&& !record_replaying())
 		MTY_WindowWarpCursor(app, window, x, y);
 	video_draw(app, window);
 	/* Presenting does not wait for a display refresh while the window is hidden. */
@@ -205,46 +237,15 @@ static bool on_frame(void *opaque)
 
 static void *game_thread(void *opaque)
 {
+	int argc = options()->game_argc;
+	char **argv = record_game_args(&argc);
+
 	(void) opaque;
 	on_game_thread = true;
-	plat_exit(U8Main((int16_t) game_argc, game_argv));
+	if (argv == NULL)
+		argv = options()->game_argv;
+	plat_exit(U8Main((int16_t) argc, argv));
 	return NULL;
-}
-
-/* Takes the port's own switches out of the arguments the game sees. */
-static void show_help(void)
-{
-	printf("Usage: Ultima8 [--data <dir>] [switches]\n"
-		"\n"
-		"  --data <dir>   the game folder, with STATIC, USECODE and U8.INI (default: U8_DATA,\n"
-		"                 else the current folder if it has STATIC, else the folder Ultima8 is\n"
-		"                 in, else Documents/Ultima8)\n"
-		"  --adlib        AdLib music, even when MT-32 ROMs are found\n"
-		"  --roland       MT-32 music (the default when its ROMs are found)\n"
-		"  --help         this list\n"
-		"\n"
-		"Other switches go to the game, as U8.EXE's did.\n");
-	exit(0);
-}
-
-static const char *take_data_dir(int argc, char **argv)
-{
-	const char *dir = getenv("U8_DATA");
-
-	game_argv = calloc((size_t) argc + 1, sizeof *game_argv);
-	for (int i = 0; i < argc; i++) {
-		if (i > 0 && strcmp(argv[i], "--data") == 0 && i + 1 < argc)
-			dir = argv[++i];
-		else if (i > 0 && strcmp(argv[i], "--help") == 0)
-			show_help();
-		else if (i > 0 && strcmp(argv[i], "--adlib") == 0)
-			audio_choose_music('a');
-		else if (i > 0 && strcmp(argv[i], "--roland") == 0)
-			audio_choose_music('r');
-		else
-			game_argv[game_argc++] = argv[i];
-	}
-	return dir != NULL && dir[0] != '\0' ? dir : NULL;
 }
 
 #ifdef _WIN32
@@ -331,22 +332,44 @@ static void use_parent_console(void)
 }
 #endif
 
-/* The data folder: the one named (--data, else U8_DATA), else the current folder if it has
- * STATIC, else the program's own (a double-click does not always start in the game's folder),
- * else Documents/Ultima8. Documents comes last because macOS asks the player before letting an
+/* The data folder: the one named (--data, else U8_DATA, else the settings file's), else the
+ * current folder if it has STATIC, else the program's own (a double-click does not always
+ * start in the game's folder), else Documents/Ultima8. Documents comes last because macOS asks the player before letting an
  * app look there. Chosen once, by the first file access: the game reads files from its static
  * constructors, before main runs. */
 static bool root_chosen;
 static char own_dir[1024];
 
+/* --data is remembered, as if chosen on the settings screen. */
+static void remember_data_dir(const char *dir)
+{
+	char full[PATH_SIZE];
+
+#ifdef _WIN32
+	if (_fullpath(full, dir, sizeof full) == NULL)
+		return;
+#else
+	if (realpath(dir, full) == NULL)
+		return;
+#endif
+	if (setting_get("data") == NULL || strcmp(setting_get("data"), full) != 0)
+		setting_set("data", full);
+}
+
 static void find_root(const char *data_dir)
 {
 	char docs_dir[1024];
 	const char *fallback;
+	const char *remembered = setting_get("data");
 
 	if (data_dir != NULL) {
 		files_set_root(data_dir);
 		return;
+	}
+	if (remembered != NULL && remembered[0] != '\0') {
+		files_set_root(remembered);
+		if (plat_dir_exists("STATIC"))
+			return;
 	}
 	files_set_root(".");
 	if (plat_dir_exists("STATIC"))
@@ -372,6 +395,11 @@ static void choose_root(const char *data_dir)
 	if (root_chosen)
 		return;
 	root_chosen = true;
+	/* The game's static constructors get here first, before main has looked at the switches. */
+	if (options()->help) {
+		options_show_help();
+		exit(0);
+	}
 	find_root(data_dir);
 	if (!files_check_data(problem, sizeof problem)) {
 		/* macOS runs a downloaded app from a hidden copy until it is moved in Finder. */
@@ -381,71 +409,58 @@ static void choose_root(const char *data_dir)
 				"folder and back in, then open it again.");
 		plat_fatal(problem);
 	}
-}
+	if (options()->data_switch && options()->replay == NULL && !test_input_active())
+		remember_data_dir(data_dir);
 
-#if defined(__APPLE__)
-#include <crt_externs.h>
-#endif
-
-/* --data or U8_DATA, read before main has its arguments. */
-static const char *early_data_dir(void)
-{
-	static char buffer[8192];
-	int argc = 0;
-	char *argv[256];
-	const char *dir = getenv("U8_DATA");
-
-#ifdef _WIN32
-	argc = __argc < 256 ? __argc : 256;
-	for (int i = 0; i < argc; i++)
-		argv[i] = __argv[i];
-#elif defined(__APPLE__)
-	argc = *_NSGetArgc() < 256 ? *_NSGetArgc() : 256;
-	for (int i = 0; i < argc; i++)
-		argv[i] = (*_NSGetArgv())[i];
-#else
-	FILE *f = fopen("/proc/self/cmdline", "rb");
-	size_t n = 0;
-
-	if (f != NULL) {
-		n = fread(buffer, 1, sizeof buffer - 1, f);
-		fclose(f);
+	/* The game in progress and the saved games go in the home folder, so the game folder can
+	 * stay as it was installed; scripted tests keep them in the game folder, as DOS did. */
+	if (!options()->saves_in_data && !test_input_active()) {
+		saves_set_root(home_dir());
+		saves_prepare(files_root());
 	}
-	buffer[n] = '\0';
-	for (size_t at = 0; at < n && argc < 256; at += strlen(buffer + at) + 1)
-		argv[argc++] = buffer + at;
-#endif
-	for (int i = 1; i + 1 < argc; i++) {
-		if (argv[i] != NULL && strcmp(argv[i], "--data") == 0)
-			dir = argv[i + 1];
-	}
-	return dir != NULL && dir[0] != '\0' ? dir : NULL;
+	record_start();
 }
 
 void backend_ensure_root(void)
 {
 	if (!root_chosen)
-		choose_root(early_data_dir());
+		choose_root(options()->data);
+}
+
+/* Ctrl-C or a polite kill ends the program as closing the window does, so a recording gets
+ * its end. Only an atomic flag is set here; the app thread does the rest. */
+static void on_signal(int number)
+{
+	backend_request_exit(128 + number);
 }
 
 int main(int argc, char **argv)
 {
 	MTY_Frame frame;
-	const char *data_dir;
+	int scale;
 
+	(void) argc;
+	(void) argv;
 	use_parent_console();
+	if (options()->help) {
+		options_show_help();
+		exit(0);
+	}
 	on_app_thread = true;
 	/* 1 ms sleeps on Windows (its default is 15.6 ms), so the game's timers and waits keep
 	 * their rates; the process ends without reverting it, which ends it too. */
 	MTY_SetTimerResolution(1);
+	signal(SIGINT, on_signal);
+	signal(SIGTERM, on_signal);
 	start_time = MTY_GetTime();
-	data_dir = take_data_dir(argc, argv);
-	choose_root(data_dir);
+	audio_choose_music(options()->music);
+	choose_root(options()->data);
+	settings_init();
 	events_init();
 	video_init();
 	view_lock = MTY_MutexCreate();
 
-	if (test_input_active()) {
+	if (test_input_active() || record_replay_fast()) {
 		audio_start();
 		MTY_ThreadDetach(game_thread, NULL);
 		run_without_window();
@@ -453,13 +468,26 @@ int main(int argc, char **argv)
 	app = MTY_AppCreate(0, on_frame, on_event, NULL);
 	if (app == NULL)
 		plat_fatal("Could not start the window system.");
-	frame = MTY_MakeDefaultFrame(0, 0, 3 * 320, 3 * 240, 0.9f);
-	window = MTY_WindowCreate(app, WINDOW_TITLE, &frame, 0);
+	scale = settings_scale();
+	frame = MTY_MakeDefaultFrame(0, 0, (uint32_t) scale * 320,
+		(uint32_t) scale * (settings_aspect() ? 240 : 200), 0.9f);
+	window = MTY_WindowCreate(app, record_replaying() ? WINDOW_TITLE " (replay)" : WINDOW_TITLE,
+		&frame, 0);
 	MTY_AppSetPNGCursor(app, blank_cursor, sizeof blank_cursor, 0, 0);
 	MTY_AppSetCursor(app, MTY_CURSOR_ARROW);
-	if (window < 0 || !MTY_WindowSetGFX(app, window, MTY_GetDefaultGFX(), true))
+	/* Linux's default is Vulkan; a system without a Vulkan driver may still have OpenGL. */
+	if (window < 0 || (!MTY_WindowSetGFX(app, window, MTY_GetDefaultGFX(), true)
+#if !defined(_WIN32) && !defined(__APPLE__)
+		&& !MTY_WindowSetGFX(app, window, MTY_GFX_GL, true)
+#endif
+		))
 		plat_fatal("Could not open the game window.");
-	MTY_WindowSetMinSize(app, window, 320, 240);
+	MTY_WindowSetMinSize(app, window, 320, 200);
+	if (setting_bool("fullscreen", false))
+		MTY_WindowSetFullscreen(app, window, true);
+	/* The settings screen opens first, unless turned off; the game waits for it. */
+	if (!record_replaying() && setting_bool("settings-at-start", true))
+		settings_show(true);
 
 	audio_start();
 	MTY_ThreadDetach(game_thread, NULL);

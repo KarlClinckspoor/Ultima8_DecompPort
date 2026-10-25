@@ -87,8 +87,12 @@ void u8_set_stack_top(void *top);
 int u8_on_stack(const void *p);
 
 /* ---- Memory ----
- * farmalloc and friends are malloc now; coreleft reports plenty. */
+ * farmalloc and malloc are calloc now (zeroed, so a run never depends on what a block held
+ * before); coreleft reports plenty. */
+void *u8_malloc(size_t size);
 uint32_t u8_coreleft(void);
+/* The state of Borland's rand(), for the recordings' state digest. */
+uint32_t u8_rand_state(void);
 
 #ifdef __cplusplus
 }
@@ -126,7 +130,8 @@ uint32_t u8_coreleft(void);
 #define gets u8_gets
 #define delay u8_delay
 
-#define farmalloc(n) ::malloc(n)
+#define malloc(n) u8_malloc(n)
+#define farmalloc(n) u8_malloc(n)
 #define farcalloc(n, s) ::calloc((n), (s))
 #define farrealloc(p, n) ::realloc((p), (n))
 #define farfree(p) ::free(p)

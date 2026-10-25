@@ -46,6 +46,9 @@ static MTY_Atomic32 running;
 static _Thread_local bool on_audio_thread;
 /* 'a' for --adlib, 'r' for --roland, 0 to use the MT-32 when its ROMs are found. */
 static char music_choice;
+/* A replay with no window renders nothing: no synth, no output, no audio thread. */
+static bool silent;
+static char rom_dir[PATH_SIZE];
 
 /* MIDI bytes waiting for the audio thread. */
 static MTY_Mutex *midi_mutex;
@@ -92,14 +95,27 @@ void plat_sound_tick_set(plat_timer_fn fn)
 
 /* ---- MIDI ---- */
 
+/* A replay plays on the device it was recorded with, whatever this machine has. */
 char plat_music_device(void)
 {
+	if (record_music_device() != 0)
+		return record_music_device();
 	return synth != NULL ? 'r' : 'a';
 }
 
 int16_t plat_midi_available(void)
 {
+	return plat_music_device() == 'r';
+}
+
+bool audio_mt32_found(void)
+{
 	return synth != NULL;
+}
+
+const char *audio_rom_dir(void)
+{
+	return rom_dir;
 }
 
 void plat_midi_send(const uint8_t *message, int16_t length)
@@ -209,7 +225,10 @@ static mt32emu_context open_synth(void)
 	mt32emu_context context;
 
 	if (dir == NULL || dir[0] == '\0')
+		dir = setting_get("mt32-roms");
+	if (dir == NULL || dir[0] == '\0')
 		dir = U8_DEFAULT_ROM_DIR;
+	snprintf(rom_dir, sizeof rom_dir, "%s", dir);
 	if (!find_roms(dir, control, pcm, sizeof control)) {
 		fprintf(stderr, "u8: no MT-32 ROMs in %s\n", dir);
 		return NULL;
@@ -325,6 +344,8 @@ void plat_opl_write(uint16_t port, uint8_t value)
 {
 	int64_t now;
 
+	if (silent)
+		return;
 	MTY_MutexLock(opl_mutex);
 	opl_io_us++;
 	now = opl_clock_us();
@@ -377,8 +398,41 @@ uint8_t plat_opl_read(uint16_t port)
 
 /* ---- Speech ---- */
 
+/* The queue as the game sees it: drained at the rate by the game's clock, not by the audio
+ * thread, so how much the game queues, and when, is the same in a replay. Game thread. */
+static uint32_t game_pcm_rate;
+static uint32_t game_pcm_count;
+static int64_t game_pcm_last_us;
+static uint64_t game_pcm_part;
+
+static void game_pcm_drain(void)
+{
+	int64_t now = game_clock_us();
+
+	if (game_pcm_rate > 0 && game_pcm_count > 0 && now > game_pcm_last_us) {
+		uint64_t units = (uint64_t) (now - game_pcm_last_us) * game_pcm_rate + game_pcm_part;
+		uint64_t played = units / 1000000;
+
+		game_pcm_part = units % 1000000;
+		game_pcm_count = played >= game_pcm_count ? 0 : game_pcm_count - (uint32_t) played;
+		if (game_pcm_count == 0)
+			game_pcm_part = 0;
+	}
+	game_pcm_last_us = now;
+}
+
+/* The audio thread's queue keeps no more than this, dropping the oldest, so a sound card whose
+ * clock runs a little slow cannot make speech lag further and further behind. */
+#define PCM_PLAYING_MAX (PCM_BUFFER_SIZE / 8)
+
 void plat_pcm_start(uint32_t rate)
 {
+	game_pcm_rate = rate;
+	game_pcm_count = 0;
+	game_pcm_part = 0;
+	game_pcm_last_us = game_clock_us();
+	if (pcm_mutex == NULL)
+		return;
 	MTY_MutexLock(pcm_mutex);
 	pcm_rate = rate;
 	pcm_head = 0;
@@ -389,14 +443,26 @@ void plat_pcm_start(uint32_t rate)
 
 int32_t plat_pcm_queue(const uint8_t *samples, int32_t count)
 {
-	int32_t taken = 0;
+	int32_t taken;
 
-	MTY_MutexLock(pcm_mutex);
-	while (taken < count && pcm_count < PCM_BUFFER_SIZE) {
-		pcm_buffer[(pcm_head + pcm_count) % PCM_BUFFER_SIZE] = samples[taken++];
-		pcm_count++;
+	game_pcm_drain();
+	taken = count < 0 ? 0 : count;
+	if ((uint32_t) taken > PCM_BUFFER_SIZE - game_pcm_count)
+		taken = (int32_t) (PCM_BUFFER_SIZE - game_pcm_count);
+	game_pcm_count += (uint32_t) taken;
+
+	if (!silent && pcm_mutex != NULL) {
+		MTY_MutexLock(pcm_mutex);
+		for (int32_t i = 0; i < taken; i++) {
+			if (pcm_count >= PCM_PLAYING_MAX) {
+				pcm_head = (pcm_head + 1) % PCM_BUFFER_SIZE;
+				pcm_count--;
+			}
+			pcm_buffer[(pcm_head + pcm_count) % PCM_BUFFER_SIZE] = samples[i];
+			pcm_count++;
+		}
+		MTY_MutexUnlock(pcm_mutex);
 	}
-	MTY_MutexUnlock(pcm_mutex);
 	{
 		/* U8_PCM_DUMP: the game's digitised sound as it queued it, raw unsigned 8-bit. */
 		static FILE *pcm_dump;
@@ -417,12 +483,8 @@ int32_t plat_pcm_queue(const uint8_t *samples, int32_t count)
 
 int32_t plat_pcm_pending(void)
 {
-	int32_t pending;
-
-	MTY_MutexLock(pcm_mutex);
-	pending = (int32_t) pcm_count;
-	MTY_MutexUnlock(pcm_mutex);
-	return pending;
+	game_pcm_drain();
+	return (int32_t) game_pcm_count;
 }
 
 void plat_pcm_stop(void)
@@ -703,6 +765,14 @@ static void render_block(int16_t *block)
 	}
 	mix_opl(block);
 	mix_speech(block);
+	{
+		int volume = settings_volume();
+
+		if (volume < 100) {
+			for (int i = 0; i < BLOCK_FRAMES * 2; i++)
+				block[i] = (int16_t) (block[i] * volume / 100);
+		}
+	}
 	if (dump != NULL)
 		fwrite(block, sizeof *block, BLOCK_FRAMES * 2, dump);
 }
@@ -752,9 +822,19 @@ void audio_start(void)
 	sb_filter_init();
 	opl_filter_init();
 	OPL3_Reset(&opl, OPL_RATE);
+	if (record_replay_fast()) {
+		silent = true;
+		return;
+	}
+	if (record_music_device() != 0)
+		music_choice = record_music_device();
+	else if (music_choice == 0 && setting_get("music") != NULL)
+		music_choice = setting_get("music")[0] == 'r' ? 'r' : setting_get("music")[0] == 'a' ? 'a' : 0;
 	if (music_choice != 'a')
 		synth = open_synth();
-	if (synth == NULL)
+	if (record_music_device() == 'r' && synth == NULL)
+		fprintf(stderr, "u8: the recording plays MT-32 music, and there are no MT-32 ROMs; music is off\n");
+	else if (synth == NULL)
 		fprintf(stderr, music_choice == 'r' ? "u8: --roland needs the MT-32 ROMs; playing AdLib\n"
 			: "u8: playing AdLib music\n");
 	/* Playback starts once two blocks are queued. Scripted test runs stay silent. */

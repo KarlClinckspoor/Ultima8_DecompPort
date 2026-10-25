@@ -47,6 +47,11 @@ void plat_console_write(const char *text);
 int16_t plat_console_x(void);
 int16_t plat_console_y(void);
 
+/* A digest of the game's state, which recordings check as they replay (the backend's
+ * record.c). The game registers it; it must not change anything. */
+typedef uint64_t (*plat_digest_fn)(void);
+void plat_set_state_digest(plat_digest_fn fn);
+
 /* ---- Time ---- */
 
 #define PLAT_TICKS_PER_SECOND 60
@@ -57,6 +62,10 @@ uint32_t plat_milliseconds(void);
 /* Microseconds since start. */
 uint64_t plat_microseconds(void);
 void plat_sleep(uint32_t milliseconds);
+/* The day of the week, 0 for Sunday, as localtime gave it. */
+int16_t plat_day_of_week(void);
+/* Seconds since 1970, as time(NULL) gave them. */
+uint32_t plat_time_now(void);
 /* Handles window and input events and runs due timers and the PIT handler. */
 void plat_pump(void);
 /* For busy-waits: pump, show the screen again (the game may have drawn into it), sleep

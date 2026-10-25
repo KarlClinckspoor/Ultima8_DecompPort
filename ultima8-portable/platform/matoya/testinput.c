@@ -61,7 +61,7 @@ static int test_clock_kind(void)
 
 		if (script != NULL && sscanf(script, " %7[a-z]", word) == 1)
 			chosen = word;
-		clock_kind = script == NULL || chosen == NULL ? CLOCK_WALL
+		clock_kind = script == NULL || chosen == NULL || options()->replay != NULL ? CLOCK_WALL
 			: strcmp(chosen, "frames") == 0 ? CLOCK_FRAMES
 			: strcmp(chosen, "fixed") == 0 ? CLOCK_FIXED : CLOCK_WALL;
 	}
@@ -80,6 +80,9 @@ int64_t test_clock_us(void)
 
 void backend_sleep(uint32_t milliseconds)
 {
+	/* A replay with no window runs as fast as it can. */
+	if (record_replay_fast())
+		return;
 	if (test_clock_fixed())
 		MTY_Atomic64Add(&fixed_us, (int64_t) milliseconds * 1000);
 	MTY_Sleep(milliseconds);
@@ -176,7 +179,8 @@ static void parse(void)
 
 bool test_input_active(void)
 {
-	return getenv("U8_TEST_INPUT") != NULL;
+	/* A replay takes its input from the recording. */
+	return getenv("U8_TEST_INPUT") != NULL && options()->replay == NULL;
 }
 
 /* Runs the steps that are due, or only those up to the first that is not a shot. */
