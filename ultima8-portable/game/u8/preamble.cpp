@@ -98,7 +98,7 @@ PreambleProcess::PreambleProcess(void) : f_2a(0)
 }
 
 // Kills the type 6 processes of a priority class, then drops to priority 1.
-inline void killType6(PriorityClass priority)
+U8_INLINE void killType6(PriorityClass priority)
 {
 	Kernel::killProcess(0, (ProcessType)6, priority);
 	Kernel::setCurrentPriority(1);

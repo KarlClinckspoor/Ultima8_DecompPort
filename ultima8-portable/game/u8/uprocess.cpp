@@ -26,9 +26,9 @@
 #include "farptr.h"
 
 // Inline in the shared headers when this file was built.
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
-inline Index::Index(void) { size = 0; offset = 0; }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE Index::Index(void) { size = 0; offset = 0; }
 
 
 Overload *RoutineIndex::overloadTable = 0;

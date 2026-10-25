@@ -16,15 +16,15 @@
 #include "glob.h"
 
 // Inline in the shared headers when this file was built.
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
-inline Index::Index(void) { size = 0; offset = 0; }
-inline Point::Point(void) {}
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline Rect::Rect(void) {}
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
-inline uint8_t Rect::intersects(Rect &r)
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE Index::Index(void) { size = 0; offset = 0; }
+U8_INLINE Point::Point(void) {}
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE Rect::Rect(void) {}
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE uint8_t Rect::intersects(Rect &r)
 {
 	return f_00 <= r.f_04 && f_02 <= r.f_06 && f_04 >= r.f_00 && f_06 >= r.f_02;
 }
@@ -49,14 +49,14 @@ public:
 };
 
 // The map region holding (x, y).
-inline void worldToRegion(uint16_t x, uint16_t y, int16_t &rx, int16_t &ry)
+U8_INLINE void worldToRegion(uint16_t x, uint16_t y, int16_t &rx, int16_t &ry)
 {
 	rx = x >> REGION_SHIFT;
 	ry = y >> REGION_SHIFT;
 }
 
 // The world corner of region (rx, ry).
-inline void regionOrigin(int16_t rx, int16_t ry, uint16_t &x, uint16_t &y)
+U8_INLINE void regionOrigin(int16_t rx, int16_t ry, uint16_t &x, uint16_t &y)
 {
 	x = rx << REGION_SHIFT;
 	y = ry << REGION_SHIFT;

@@ -17,20 +17,20 @@
 #include "cmemhndp.h"
 
 // Inline in the shared headers when this file was built.
-inline Rect::Rect(void) {}
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline int16_t Rect::width(void) { return f_04 - f_00 + 1; }
-inline int16_t Rect::height(void) { return f_06 - f_02 + 1; }
-inline void NewGump::popVisibility(void) { visibilityStack >>= 2; }
-inline GraphicYtable::GraphicYtable(void) { f_04 = 2; index = 0; }
-inline Vport::Vport(void) { mem = 0; f_0f = 2; f_10 = 0; }
-inline Vport::~Vport(void) { free(); }
-inline Rect *Vport::getRect(void) { return &rect; }
-inline void MemHandle::init(char *p, uint8_t owned) { f_00 = p; f_04 = owned; f_05 = 0; }
-inline MemHandle::MemHandle(void) { init(0, 0); }
-inline MemHandle::~MemHandle(void) { free(0); }
-inline char *MemHandle::get_ptr(void) { return (char *)f_00; }
-inline void BaseCamera::setNeedSlam(void) { needSlam = 1; }
+U8_INLINE Rect::Rect(void) {}
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE int16_t Rect::width(void) { return f_04 - f_00 + 1; }
+U8_INLINE int16_t Rect::height(void) { return f_06 - f_02 + 1; }
+U8_INLINE void NewGump::popVisibility(void) { visibilityStack >>= 2; }
+U8_INLINE GraphicYtable::GraphicYtable(void) { f_04 = 2; index = 0; }
+U8_INLINE Vport::Vport(void) { mem = 0; f_0f = 2; f_10 = 0; }
+U8_INLINE Vport::~Vport(void) { free(); }
+U8_INLINE Rect *Vport::getRect(void) { return &rect; }
+U8_INLINE void MemHandle::init(char *p, uint8_t owned) { f_00 = p; f_04 = owned; f_05 = 0; }
+U8_INLINE MemHandle::MemHandle(void) { init(0, 0); }
+U8_INLINE MemHandle::~MemHandle(void) { free(0); }
+U8_INLINE char *MemHandle::get_ptr(void) { return (char *)f_00; }
+U8_INLINE void BaseCamera::setNeedSlam(void) { needSlam = 1; }
 
 // A one-frame shape built in memory: the header, then the frame table.
 struct DragShapeHeader

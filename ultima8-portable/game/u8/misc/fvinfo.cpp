@@ -7,9 +7,9 @@
 #include "cvport.h"
 #include "fvinfo.h"
 
-inline Point::Point(void) {}
-inline Point::Point(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline Vport::~Vport(void) { free(); }
+U8_INLINE Point::Point(void) {}
+U8_INLINE Point::Point(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE Vport::~Vport(void) { free(); }
 
 // A shape starts with its largest frame width and depth and its frame count,
 // then six bytes per frame of which the first word is the frame's offset.

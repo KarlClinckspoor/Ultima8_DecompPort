@@ -24,7 +24,7 @@
 #define ITEM_FLIPPED	0x0020
 
 // A shape's size in world units, as CollisionBuffer measures it.
-inline void footprint(TypeFlag &type, int16_t &xd, int16_t &yd, int16_t &zd)
+U8_INLINE void footprint(TypeFlag &type, int16_t &xd, int16_t &yd, int16_t &zd)
 {
 	xd = type.xSize * 32;
 	yd = type.ySize * 32;

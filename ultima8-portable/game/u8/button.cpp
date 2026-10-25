@@ -129,14 +129,14 @@ void ActivatorButton::commandNoEvents(Event &)
 	}
 }
 
-inline RawButton::RawButton(uint8_t id, NewGump *parent, uint8_t enabled) :
+U8_INLINE RawButton::RawButton(uint8_t id, NewGump *parent, uint8_t enabled) :
 	NewGump(NewGumpId(2, id), parent, 2)
 {
 	selecting = 0;
 	this->enabled = enabled;
 }
 
-inline NewGumpId::NewGumpId(uint8_t type, uint8_t id)
+U8_INLINE NewGumpId::NewGumpId(uint8_t type, uint8_t id)
 {
 	instance = (type << 8) | id;
 	f_02 = ~instance;

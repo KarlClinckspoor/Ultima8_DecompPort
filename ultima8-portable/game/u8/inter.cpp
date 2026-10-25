@@ -81,9 +81,9 @@ void Routine::jumpFar(int32_t target)
 	ip = RoutineIndex::getCode(target, target >> 16, 1, -1);
 }
 
-inline YammList::YammList(uint16_t l, uint16_t s, int16_t str) { list = l; size = s; isString = str; }
-inline void Yamm::setPid(uint16_t pos, uint16_t pid) { ((YammBlock *)(buffer + pos) - 1)->pid = pid; }
-inline ProcessSel::ProcessSel(void) {}
+U8_INLINE YammList::YammList(uint16_t l, uint16_t s, int16_t str) { list = l; size = s; isString = str; }
+U8_INLINE void Yamm::setPid(uint16_t pos, uint16_t pid) { ((YammBlock *)(buffer + pos) - 1)->pid = pid; }
+U8_INLINE ProcessSel::ProcessSel(void) {}
 
 // Runs the routine until it returns (1), suspends (2) or its process is killed (4).
 int16_t Routine::interpret(int32_t &result)

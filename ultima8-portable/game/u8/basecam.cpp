@@ -20,14 +20,14 @@
 #include "system.h"
 
 // Inline in the shared headers when this file was built.
-inline Point::Point(void) {}
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline Rect::Rect(void) {}
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
-inline GraphicYtable *Vport::getYTable(void) { return &graphicYtable; }
-inline int16_t GraphicYtable::getindex(int16_t y) { return index[y]; }
-inline void Vport::slam(Vport *from) { SlamScreen(getMem(), from->getMem() + from->getYTable()->getindex(0)); }
+U8_INLINE Point::Point(void) {}
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE Rect::Rect(void) {}
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE GraphicYtable *Vport::getYTable(void) { return &graphicYtable; }
+U8_INLINE int16_t GraphicYtable::getindex(int16_t y) { return index[y]; }
+U8_INLINE void Vport::slam(Vport *from) { SlamScreen(getMem(), from->getMem() + from->getYTable()->getindex(0)); }
 
 BaseCamera *theBaseCamera = 0;
 uint8_t BaseCamera::needSlam = 0;

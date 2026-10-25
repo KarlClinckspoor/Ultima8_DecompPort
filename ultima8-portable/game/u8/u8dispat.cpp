@@ -19,25 +19,25 @@
 #include "u8dispat.h"
 
 // Inline in the shared headers when this file was built.
-inline void nameProcess(uint16_t pid, char *name) { ((char **)Kernel::idStringList)[pid] = name; }
-inline Point::Point(void) {}
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
-inline BaseCamera::BaseCamera(Rect graphicsRect, Rect textRect)
+U8_INLINE void nameProcess(uint16_t pid, char *name) { ((char **)Kernel::idStringList)[pid] = name; }
+U8_INLINE Point::Point(void) {}
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE BaseCamera::BaseCamera(Rect graphicsRect, Rect textRect)
 {
 	theBaseCamera = this;
 	graphics = graphicsRect;
 	text = textRect;
 	screen = graphicsRect;
 }
-inline Camera::Camera(void) :
+U8_INLINE Camera::Camera(void) :
 	BaseCamera(Rect(0, 0, 319, 199), Rect(0, 0, 79, 49))
 {
 	theCamera = this;
 }
-inline TMMousePointer::~TMMousePointer(void) { if (pointer) delete pointer; }
-inline U8GumpShapeDrawer::~U8GumpShapeDrawer(void) { if (rects) delete rects; }
+U8_INLINE TMMousePointer::~TMMousePointer(void) { if (pointer) delete pointer; }
+U8_INLINE U8GumpShapeDrawer::~U8GumpShapeDrawer(void) { if (rects) delete rects; }
 
 uint8_t U8GumpColorMap[32] = {0, 149, 24, 22, 115, 20, 38, 255, 15, 51, 88, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 U8Dispatcher *theU8Dispatcher = 0;

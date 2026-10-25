@@ -10,15 +10,16 @@
 #include "u8gmpshp.h"
 
 // Inline in the shared headers when this file was built.
-inline GumpShape::GumpShape(int16_t shape) { _frame = 0; this->shape = shape; }
-inline Rect GumpShape::get_rect(void) { return drawer->get_rect(shape, _frame); }
-inline void GumpShape::draw(int16_t x, int16_t y) { drawer->draw(x, y, shape, _frame); }
-inline void *GumpShape::get(void) { return drawer->get(shape); }
-inline void GumpShape::set_frame(int16_t frame) { _frame = frame; }
-inline int16_t ShapePushButton::set_frame(int16_t frame) { GumpShape::set_frame(frame); refresh(); return 0; }
-inline int16_t ShapeCycleButton::set_frame(int16_t frame) { GumpShape::set_frame(frame); refresh(); CycleButton::_frame = frame; return 0; }
-inline int16_t ShapeActivatorButton::set_frame(int16_t frame) { GumpShape::set_frame(frame); refresh(); return 0; }
-inline void ShapeCycleButton::unselect(void) { set_frame(CycleButton::_frame); }
+U8_INLINE GumpShape::GumpShape(int16_t shape) { _frame = 0; this->shape = shape; }
+U8_INLINE Rect GumpShape::get_rect(void) { return drawer->get_rect(shape, _frame); }
+U8_INLINE void GumpShape::draw(int16_t x, int16_t y) { drawer->draw(x, y, shape, _frame); }
+U8_INLINE void *GumpShape::get(void) { return drawer->get(shape); }
+U8_INLINE void GumpShape::set_frame(int16_t frame) { _frame = frame; }
+U8_INLINE int16_t ShapePushButton::set_frame(int16_t frame) { GumpShape::set_frame(frame); refresh(); return 0; }
+U8_INLINE int16_t ShapeCycleButton::set_frame(int16_t frame) { GumpShape::set_frame(frame); refresh(); CycleButton::_frame = frame; return 0; }
+U8_INLINE int16_t ShapeActivatorButton::set_frame(int16_t frame) { GumpShape::set_frame(frame); refresh(); return 0; }
+// Out of line: a virtual function, which the class's vtable needs in every build.
+void ShapeCycleButton::unselect(void) { set_frame(CycleButton::_frame); }
 
 ShapePushButton::ShapePushButton(uint8_t id, NewGump *parent, int16_t shape) :
 	PushButton(id, parent), GumpShape(shape)

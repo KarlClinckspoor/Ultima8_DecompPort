@@ -80,11 +80,11 @@
 #define DMG_FALLING		0x0100
 
 // Inline in the shared headers when this file was built.
-inline Point::Point(void) {}
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
-inline NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
+U8_INLINE Point::Point(void) {}
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
 
 // One monster type's 13-byte record in DataTable::data.
 struct MonsterRecord
@@ -115,7 +115,7 @@ struct AnimNodeFields
 	uint8_t flags[2];
 };
 
-inline Item itemOf(Referent r) { return Item(r); }
+U8_INLINE Item itemOf(Referent r) { return Item(r); }
 
 uint16_t dirToXOffset[8] = {0xfff0, 0, 16, 16, 16, 0, 0xfff0, 0xfff0};
 uint16_t dirToYOffset[8] = {0xfff0, 0xfff0, 0xfff0, 0, 16, 16, 16, 0};
@@ -1602,7 +1602,7 @@ int16_t Item::getDamageType(void)
 	return type;
 }
 
-inline Boolean musicPlaying(void) { return TheMusicProcess != 0; }
+U8_INLINE Boolean musicPlaying(void) { return TheMusicProcess != 0; }
 
 // Plays the victory fanfare when the Avatar's last enemy falls, then
 // goes back to the area music.

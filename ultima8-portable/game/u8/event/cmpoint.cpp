@@ -9,8 +9,8 @@
 #include "dispatch.h"
 
 // Inline in the shared headers when this file was built.
-inline MouseButtonStatus::MouseButtonStatus(void) {}
-inline MouseEvent::MouseEvent(void) { _action = 0; }
+U8_INLINE MouseButtonStatus::MouseButtonStatus(void) {}
+U8_INLINE MouseEvent::MouseEvent(void) { _action = 0; }
 
 uint16_t MousePointer::old_x = 0;
 uint16_t MousePointer::old_y = 0;

@@ -13,9 +13,9 @@
 #include "animfile.h"
 
 // Inline in the shared headers when this file was built.
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
-inline FileSpec::FileSpec(char *path, int16_t attrib) { become(path, attrib); }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE FileSpec::FileSpec(char *path, int16_t attrib) { become(path, attrib); }
 
 char animationFile[] = "anim.dat";
 

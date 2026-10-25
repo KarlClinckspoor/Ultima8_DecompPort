@@ -9,10 +9,10 @@
 #include "system.h"
 #include "format.h"
 
-inline SimpleVirtualString::SimpleVirtualString(int16_t length) { string = 0; alloc(length); }
-inline SimpleVirtualString::~SimpleVirtualString(void) { free(); }
-inline int16_t Rect::width(void) { return f_04 - f_00 + 1; }
-inline CacheFont::~CacheFont(void) {}
+U8_INLINE SimpleVirtualString::SimpleVirtualString(int16_t length) { string = 0; alloc(length); }
+U8_INLINE SimpleVirtualString::~SimpleVirtualString(void) { free(); }
+U8_INLINE int16_t Rect::width(void) { return f_04 - f_00 + 1; }
+U8_INLINE CacheFont::~CacheFont(void) {}
 
 // Text markup: '~' breaks the line, '*' breaks the page, '%' indents.
 // Lines end in '\n', pages in '\xff'.

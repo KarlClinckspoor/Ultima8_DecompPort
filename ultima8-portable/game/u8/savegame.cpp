@@ -12,8 +12,8 @@
 #include "fexist.h"
 #include "savegame.h"
 
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 
 static char gameFileListId_text[] = "Ultima 8 SaveGame File.";
 char *gameFileListId = gameFileListId_text;

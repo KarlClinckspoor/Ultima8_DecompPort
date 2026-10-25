@@ -17,20 +17,20 @@ public:
 	ZItem(Referent r) { referent = r; }
 };
 
-inline Item itemOf(Referent r) { return ZItem(r); }
+U8_INLINE Item itemOf(Referent r) { return ZItem(r); }
 
 // The world corner of region (rx, ry).
-inline void regionOrigin(int16_t rx, int16_t ry, int16_t &x, int16_t &y)
+U8_INLINE void regionOrigin(int16_t rx, int16_t ry, int16_t &x, int16_t &y)
 {
 	x = rx << 9;
 	y = ry << 9;
 }
 
 // How far a height shifts an item along x and y on screen.
-inline int16_t zToXY(uint8_t z) { return z * 4; }
+U8_INLINE int16_t zToXY(uint8_t z) { return z * 4; }
 
 // A shape's size in world units.
-inline void footprint(TypeFlag &type, int16_t &xd, int16_t &yd, int16_t &zd)
+U8_INLINE void footprint(TypeFlag &type, int16_t &xd, int16_t &yd, int16_t &zd)
 {
 	xd = type.xSize * 32;
 	yd = type.ySize * 32;
@@ -39,7 +39,7 @@ inline void footprint(TypeFlag &type, int16_t &xd, int16_t &yd, int16_t &zd)
 		zd = 1;
 }
 
-inline Zbuffer::Zbuffer(void) { buffer = 0; }
+U8_INLINE Zbuffer::Zbuffer(void) { buffer = 0; }
 
 Zbuffer theZbuffer;
 

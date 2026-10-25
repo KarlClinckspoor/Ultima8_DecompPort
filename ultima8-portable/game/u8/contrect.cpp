@@ -6,7 +6,7 @@
 #include "systimer.h"
 #include "crect.h"
 
-inline Point::Point(void) {}
+U8_INLINE Point::Point(void) {}
 
 #include "contrect.h"
 

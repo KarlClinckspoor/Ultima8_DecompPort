@@ -13,24 +13,25 @@
 #include "sbutton.h"
 
 // The shared headers declare these; each file that uses them defines them.
-inline NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
-inline NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
-inline Point::Point(void) {}
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
+U8_INLINE NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
+U8_INLINE Point::Point(void) {}
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
 
 // Inline in the shared headers when this file was built.
-inline int16_t NewGumpId::get(void) { return instance; }
-inline char MenuGump::getColor(void) { return color; }
-inline char *PureMenuItemGump::getText(void) { return text; }
-inline void PureMenuItemGump::setText(char *newText) { text = newText; }
-inline MenuGump::MenuGump(NewGump *parent, uint8_t c) :
+U8_INLINE int16_t NewGumpId::get(void) { return instance; }
+U8_INLINE char MenuGump::getColor(void) { return color; }
+U8_INLINE char *PureMenuItemGump::getText(void) { return text; }
+U8_INLINE void PureMenuItemGump::setText(char *newText) { text = newText; }
+U8_INLINE MenuGump::MenuGump(NewGump *parent, uint8_t c) :
 	NewGump(NewGumpId(0), parent, 0x10)
 {
 	color = c;
 }
-inline void MenuGump::restore(void) { NewGump::restore(); }
+// Out of line: a virtual function, which the class's vtable needs in every build.
+void MenuGump::restore(void) { NewGump::restore(); }
 
 MenuItemGump &operator+(MenuItemGump &item, PullDownGump &pullDown)
 {

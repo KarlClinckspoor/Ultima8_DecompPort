@@ -17,8 +17,8 @@ ShapeFlex *ShapeHandler::shapeFile;
 ShapeHandler *shapeHandler;
 FrameHandler *frameHandler;
 
-inline Index::Index(void) { size = 0; offset = 0; }
-inline int16_t isEmpty(Index &index) { return index.size == 0; }
+U8_INLINE Index::Index(void) { size = 0; offset = 0; }
+U8_INLINE int16_t isEmpty(Index &index) { return index.size == 0; }
 
 ShapeFlex::ShapeFlex(void) :
 	FastFlex(fileSpec(0, StaticDir, shapeFileName, 0), 0, (OpenMode)0, -1)

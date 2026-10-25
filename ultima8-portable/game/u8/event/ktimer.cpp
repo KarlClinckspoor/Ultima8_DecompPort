@@ -6,7 +6,7 @@
 #include "ktimer.h"
 
 // Inline in the shared headers when this file was built.
-inline void nameProcess(uint16_t pid, char *name) { ((char **)Kernel::idStringList)[pid] = name; }
+U8_INLINE void nameProcess(uint16_t pid, char *name) { ((char **)Kernel::idStringList)[pid] = name; }
 
 AilTimer *ailTimer = 0;
 

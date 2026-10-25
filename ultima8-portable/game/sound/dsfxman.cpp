@@ -25,9 +25,9 @@
 #include "sonarc.h"
 #include "dsfxman.h"
 
-inline Index::Index(void) { size = 0; offset = 0; }
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE Index::Index(void) { size = 0; offset = 0; }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 
 extern uint8_t soundOn;
 extern uint8_t musicOn;
@@ -959,6 +959,7 @@ void changePitchSFX(int16_t sample, int16_t delta)
 // sndSETPASSTOPROTVEC and sndSETREALPROTVEC hooked the Sound Blaster's interrupt for SB.ASM;
 // the platform's sound output has no interrupt to hook.
 
-inline void SoundTimerIITheSequel::process(void)
+// Out of line: a virtual function, which the class's vtable needs in every build.
+void SoundTimerIITheSequel::process(void)
 {
 }

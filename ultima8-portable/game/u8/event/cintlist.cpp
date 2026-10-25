@@ -18,11 +18,11 @@ static void disable(void) {}
 static void enable(void) {}
 
 // Inline in the shared headers when this file was built.
-inline DoubleLink::DoubleLink(DoubleLink *n, DoubleLink *p) { next = n; prev = p; }
-inline DoubleLinkedList::DoubleLinkedList(void) { head = 0; tail = 0; }
-inline DoubleLinkedList::~DoubleLinkedList(void) { kill(); }
-inline void IntrLink::attach(InterruptList *l) { list = l; }
-inline InterruptList::~InterruptList(void) { remove_all_interrupts(); }
+U8_INLINE DoubleLink::DoubleLink(DoubleLink *n, DoubleLink *p) { next = n; prev = p; }
+U8_INLINE DoubleLinkedList::DoubleLinkedList(void) { head = 0; tail = 0; }
+U8_INLINE DoubleLinkedList::~DoubleLinkedList(void) { kill(); }
+U8_INLINE void IntrLink::attach(InterruptList *l) { list = l; }
+U8_INLINE InterruptList::~InterruptList(void) { remove_all_interrupts(); }
 
 InterruptList TheInterruptList;
 

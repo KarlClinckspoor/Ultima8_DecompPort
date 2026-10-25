@@ -6,7 +6,7 @@
 #include "cexit.h"
 #include "flexhand.h"
 
-inline Index::Index(void) { size = 0; offset = 0; }
+U8_INLINE Index::Index(void) { size = 0; offset = 0; }
 
 FlexShapeHandler::FlexShapeHandler(int16_t numHandles, CacheNodeType type, const char *name) :
 	CacheHandler(type)

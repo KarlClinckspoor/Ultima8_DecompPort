@@ -11,23 +11,23 @@
 #include "fvinfo.h"
 #include "cmemhndp.h"
 
-inline Point::Point(void) {}
-inline Rect::Rect(void) {}
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline MemHandle::MemHandle(void) { f_00 = 0; f_04 = 0; f_05 = 0; }
-inline MemHandle::~MemHandle(void) { free(0); }
-inline char *MemHandle::get_ptr(void) { return (char *)f_00; }
-inline void MemHandle::init(char *p, uint8_t owned) { f_00 = p; f_04 = owned; f_05 = 0; }
-inline void MemHandle::init(MemHandle &from) { init(from.get_ptr(), 0); }
-inline void MemHandle::take_ownership(MemHandle &from) { from.f_04 = 0; f_04 = 1; }
-inline int16_t MemHandle::is_valid(void) { return f_00 != 0; }
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
-inline void GraphicPoint::set_position(int16_t x, int16_t y) { f_02 = x; f_04 = y; }
-inline void GraphicPoint::move_position(int16_t dx, int16_t dy) { f_02 += dx; f_04 += dy; }
-inline void Shape::set_frame(int16_t frame) { f_18 = frame; }
+U8_INLINE Point::Point(void) {}
+U8_INLINE Rect::Rect(void) {}
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE MemHandle::MemHandle(void) { f_00 = 0; f_04 = 0; f_05 = 0; }
+U8_INLINE MemHandle::~MemHandle(void) { free(0); }
+U8_INLINE char *MemHandle::get_ptr(void) { return (char *)f_00; }
+U8_INLINE void MemHandle::init(char *p, uint8_t owned) { f_00 = p; f_04 = owned; f_05 = 0; }
+U8_INLINE void MemHandle::init(MemHandle &from) { init(from.get_ptr(), 0); }
+U8_INLINE void MemHandle::take_ownership(MemHandle &from) { from.f_04 = 0; f_04 = 1; }
+U8_INLINE int16_t MemHandle::is_valid(void) { return f_00 != 0; }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE void GraphicPoint::set_position(int16_t x, int16_t y) { f_02 = x; f_04 = y; }
+U8_INLINE void GraphicPoint::move_position(int16_t dx, int16_t dy) { f_02 += dx; f_04 += dy; }
+U8_INLINE void Shape::set_frame(int16_t frame) { f_18 = frame; }
 
 Shape::Shape(void)
 {

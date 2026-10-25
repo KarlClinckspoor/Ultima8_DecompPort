@@ -16,11 +16,11 @@
 #include "textedit.h"
 
 // Inline in the shared headers when this file was built.
-inline NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
-inline int16_t Rect::width(void) { return f_04 - f_00 + 1; }
-inline int16_t Rect::height(void) { return f_06 - f_02 + 1; }
-inline char Event::isShift(void) { return (data >> 16) & 3; }
+U8_INLINE NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE int16_t Rect::width(void) { return f_04 - f_00 + 1; }
+U8_INLINE int16_t Rect::height(void) { return f_06 - f_02 + 1; }
+U8_INLINE char Event::isShift(void) { return (data >> 16) & 3; }
 
 TextEditGump *TextEditGump::focus = 0;
 

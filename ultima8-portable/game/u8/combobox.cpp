@@ -13,15 +13,15 @@
 #include "textedit.h"
 
 // The shared headers declare these; each file that uses them defines them.
-inline NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
 
-inline int16_t Rect::height(void) { return f_06 - f_02 + 1; }
-inline void NewGump::moveto(int16_t x, int16_t y) { rect.moveto(x, y); }
-inline uint8_t NewGumpId::getType(void) { return instance >> 8; }
-inline int16_t ListBoxGump::getSelected(void) { return selected; }
+U8_INLINE int16_t Rect::height(void) { return f_06 - f_02 + 1; }
+U8_INLINE void NewGump::moveto(int16_t x, int16_t y) { rect.moveto(x, y); }
+U8_INLINE uint8_t NewGumpId::getType(void) { return instance >> 8; }
+U8_INLINE int16_t ListBoxGump::getSelected(void) { return selected; }
 
 ComboBox::ComboBox(uint8_t id, NewGump *parent, Rect r, int16_t len) :
 	NewGump(NewGumpId(8, id), parent, EVENT_PRIVATE)

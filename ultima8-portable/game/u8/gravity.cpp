@@ -21,7 +21,7 @@
 #include "gravity.h"
 
 // Inline in the shared headers when this file was built.
-inline void killAnimProcesses(uint16_t ref)
+U8_INLINE void killAnimProcesses(uint16_t ref)
 {
 	PriorityClass all(0x21);
 	Kernel::killProcess(ref, PT_FIRST, all);

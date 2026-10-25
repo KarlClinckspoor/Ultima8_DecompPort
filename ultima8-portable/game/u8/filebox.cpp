@@ -21,16 +21,16 @@
 #include "textedit.h"
 
 // Inline in the shared headers when this file was built.
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
-inline void NewGump::moveto(int16_t x, int16_t y) { rect.moveto(x, y); }
-inline uint8_t NewGumpId::getType(void) { return instance >> 8; }
-inline uint8_t NewGumpId::getInstance(void) { return instance & 0xff; }
-inline int16_t ListBoxGump::getSelected(void) { return selected; }
-inline char *TextEditGump::getData(void) { return text; }
-inline FileSpec::FileSpec(char *path, int16_t attrib) { become(path, attrib); }
-inline char *FileSpec::get(int16_t full) { if (full) return fileSpec(drive, dir, name, ext); return fileSpec(0, 0, name, ext); }
-inline char *FileBox::getDesc(void) { return fileSpec; }
-inline NewGump *NewGumpList::hasType(uint8_t type) { NewGump *gump = 0; return hasType(type, gump); }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE void NewGump::moveto(int16_t x, int16_t y) { rect.moveto(x, y); }
+U8_INLINE uint8_t NewGumpId::getType(void) { return instance >> 8; }
+U8_INLINE uint8_t NewGumpId::getInstance(void) { return instance & 0xff; }
+U8_INLINE int16_t ListBoxGump::getSelected(void) { return selected; }
+U8_INLINE char *TextEditGump::getData(void) { return text; }
+U8_INLINE FileSpec::FileSpec(char *path, int16_t attrib) { become(path, attrib); }
+U8_INLINE char *FileSpec::get(int16_t full) { if (full) return fileSpec(drive, dir, name, ext); return fileSpec(0, 0, name, ext); }
+U8_INLINE char *FileBox::getDesc(void) { return fileSpec; }
+U8_INLINE NewGump *NewGumpList::hasType(uint8_t type) { NewGump *gump = 0; return hasType(type, gump); }
 
 // The file list and its text field.
 FileBox::FileBox(NewGump *parent, char *spec) :

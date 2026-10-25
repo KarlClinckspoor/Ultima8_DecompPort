@@ -9,9 +9,9 @@
 #include "tbutton.h"
 
 // The shared headers declare these; each file that uses them defines them.
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
 
 TextPushButton::TextPushButton(uint8_t id, NewGump *parent, char *text, uint8_t color) :
 	PushButton(id, parent)
@@ -81,14 +81,14 @@ void TextActivatorButton::unselect(void)
 	set_frame(0);
 }
 
-inline int16_t TextPushButton::set_frame(int16_t frame)
+U8_INLINE int16_t TextPushButton::set_frame(int16_t frame)
 {
 	_frame = frame;
 	refresh();
 	return 0;
 }
 
-inline int16_t TextActivatorButton::set_frame(int16_t frame)
+U8_INLINE int16_t TextActivatorButton::set_frame(int16_t frame)
 {
 	_frame = frame;
 	refresh();

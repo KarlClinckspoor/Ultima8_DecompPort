@@ -23,14 +23,14 @@
 #include "irgump.h"
 
 // Inline in the shared headers when this file was built.
-inline NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
-inline NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
-inline uint8_t NewGumpId::getType(void) { return instance >> 8; }
-inline uint8_t NewGumpId::getInstance(void) { return instance & 0xff; }
-inline void NewGump::moveto(int16_t x, int16_t y) { rect.moveto(x, y); }
-inline void NewGump::popVisibility(void) { visibilityStack >>= 2; }
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
+U8_INLINE NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
+U8_INLINE uint8_t NewGumpId::getType(void) { return instance >> 8; }
+U8_INLINE uint8_t NewGumpId::getInstance(void) { return instance & 0xff; }
+U8_INLINE void NewGump::moveto(int16_t x, int16_t y) { rect.moveto(x, y); }
+U8_INLINE void NewGump::popVisibility(void) { visibilityStack >>= 2; }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 
 GumpNotifier::GumpNotifier(uint16_t seconds, NewGump *gump, uint16_t ref, ProcessType type, uint8_t flag) :
 	Wait(seconds * 30, 0)

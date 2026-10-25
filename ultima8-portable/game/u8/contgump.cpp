@@ -32,28 +32,27 @@
 #include "contgump.h"
 
 // Inline in the shared headers when this file was built.
-inline Point::Point(void) {}
-inline Point::Point(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline Rect::Rect(void) {}
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
-inline int16_t Rect::width(void) { return f_04 - f_00 + 1; }
-inline int16_t Rect::height(void) { return f_06 - f_02 + 1; }
-inline NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
-inline NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
-inline uint8_t NewGumpId::getType(void) { return instance >> 8; }
-inline void NewGump::moveto(int16_t x, int16_t y) { rect.moveto(x, y); }
-inline char Event::isShift(void) { return (data >> 16) & 3; }
-inline char Event::isCtrl(void) { return (data >> 16) & 4; }
-inline char Event::isAlt(void) { return (data >> 16) & 8; }
-inline GumpShape::GumpShape(int16_t shape) { _frame = 0; this->shape = shape; }
-inline Rect GumpShape::get_rect(void) { return drawer->get_rect(shape, _frame); }
-inline void GumpShape::draw(int16_t x, int16_t y) { drawer->draw(x, y, shape, _frame); }
-inline void GumpShape::set_frame(int16_t frame) { _frame = frame; }
-inline uint8_t GumpShape::collide(int16_t x, int16_t y) { return drawer->collide(x, y, shape, _frame); }
-inline int16_t CacheFont::width(char *text) { return Font::width(text); }
-inline CacheFont::~CacheFont(void) {}
+U8_INLINE Point::Point(void) {}
+U8_INLINE Point::Point(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE Rect::Rect(void) {}
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE int16_t Rect::width(void) { return f_04 - f_00 + 1; }
+U8_INLINE int16_t Rect::height(void) { return f_06 - f_02 + 1; }
+U8_INLINE NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
+U8_INLINE NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
+U8_INLINE uint8_t NewGumpId::getType(void) { return instance >> 8; }
+U8_INLINE void NewGump::moveto(int16_t x, int16_t y) { rect.moveto(x, y); }
+U8_INLINE char Event::isShift(void) { return (data >> 16) & 3; }
+U8_INLINE char Event::isCtrl(void) { return (data >> 16) & 4; }
+U8_INLINE char Event::isAlt(void) { return (data >> 16) & 8; }
+U8_INLINE GumpShape::GumpShape(int16_t shape) { _frame = 0; this->shape = shape; }
+U8_INLINE Rect GumpShape::get_rect(void) { return drawer->get_rect(shape, _frame); }
+U8_INLINE void GumpShape::draw(int16_t x, int16_t y) { drawer->draw(x, y, shape, _frame); }
+U8_INLINE void GumpShape::set_frame(int16_t frame) { _frame = frame; }
+U8_INLINE uint8_t GumpShape::collide(int16_t x, int16_t y) { return drawer->collide(x, y, shape, _frame); }
+U8_INLINE CacheFont::~CacheFont(void) {}
 
 #include "skipdraw.h"
 

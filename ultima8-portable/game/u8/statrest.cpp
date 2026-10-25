@@ -9,7 +9,7 @@
 #include "main.h"
 #include "statrest.h"
 
-inline void Avatar::setEffectiveStr(int16_t s) { effectiveStr = s; }
+U8_INLINE void Avatar::setEffectiveStr(int16_t s) { effectiveStr = s; }
 
 StatRestorer::StatRestorer(void)
 {
@@ -94,15 +94,18 @@ char Avatar::getEffectiveStr(void)
 	return getStr();
 }
 
-inline void Process::receiveMessage(Message, uint16_t, int32_t)
+// Out of line: a virtual function, which the class's vtable needs in every build.
+void Process::receiveMessage(Message, uint16_t, int32_t)
 {
 }
 
-inline void Process::postLoad(void)
+// Out of line: a virtual function, which the class's vtable needs in every build.
+void Process::postLoad(void)
 {
 }
 
-inline uint8_t ProcessInterrupt::checkInterrupt(uint32_t, uint32_t &)
+// Out of line: a virtual function, which the class's vtable needs in every build.
+uint8_t ProcessInterrupt::checkInterrupt(uint32_t, uint32_t &)
 {
 	return 0;
 }

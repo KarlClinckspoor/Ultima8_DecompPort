@@ -14,17 +14,17 @@
 #include "error.h"
 
 // The shared headers declare these; each file that uses them defines them.
-inline NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
-inline Rect::Rect(void) {}
+U8_INLINE NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
+U8_INLINE Rect::Rect(void) {}
 
 #define TRACE_MEMORY	((TraceLevel)50)
 
-inline DoubleLinkedList::DoubleLinkedList(void) { head = 0; tail = 0; }
-inline DoubleLink::DoubleLink(DoubleLink *next, DoubleLink *prev) { this->next = next; this->prev = prev; }
-inline int16_t NewGump::visibility(void) { return visibilityStack & 3; }
-inline void NewGump::detach(NewGump *kid) { newGumpList.detach(kid); }
+U8_INLINE DoubleLinkedList::DoubleLinkedList(void) { head = 0; tail = 0; }
+U8_INLINE DoubleLink::DoubleLink(DoubleLink *next, DoubleLink *prev) { this->next = next; this->prev = prev; }
+U8_INLINE int16_t NewGump::visibility(void) { return visibilityStack & 3; }
+U8_INLINE void NewGump::detach(NewGump *kid) { newGumpList.detach(kid); }
 // Borland did this in 16 bits; the complement is cut back to 16 bits as it was.
-inline uint8_t NewGumpId::check(void) { return !(uint16_t)(instance ^ (uint16_t)~f_02); }
+U8_INLINE uint8_t NewGumpId::check(void) { return !(uint16_t)(instance ^ (uint16_t)~f_02); }
 
 NewGump nullGump(0, 0, 0);
 NewGump *NewGump::prevMouseMoveGump = 0;

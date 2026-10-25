@@ -14,9 +14,11 @@
 GameTime *theGameTime = 0;
 Animation *theAnimation = 0;
 
-inline void GameTime::postLoad(void) { theGameTime = this; }
-inline void startSchedules(uint16_t hour) { new Scheduler(hour); }
-inline void Animation::postLoad(void) { theAnimation = this; }
+// Out of line: a virtual function, which the class's vtable needs in every build.
+void GameTime::postLoad(void) { theGameTime = this; }
+U8_INLINE void startSchedules(uint16_t hour) { new Scheduler(hour); }
+// Out of line: a virtual function, which the class's vtable needs in every build.
+void Animation::postLoad(void) { theAnimation = this; }
 
 GameTime::GameTime(void)
 {

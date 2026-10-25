@@ -10,9 +10,9 @@
 #include "system.h"
 
 // Inline in the shared header when this file was built.
-inline SimpleVirtualString::SimpleVirtualString(int16_t n) { string = 0; alloc(n); }
-inline SimpleVirtualString::~SimpleVirtualString(void) { free(); }
-inline SimpleVirtualString::operator char *(void) { return string; }
+U8_INLINE SimpleVirtualString::SimpleVirtualString(int16_t n) { string = 0; alloc(n); }
+U8_INLINE SimpleVirtualString::~SimpleVirtualString(void) { free(); }
+U8_INLINE SimpleVirtualString::operator char *(void) { return string; }
 
 SimpleVirtualString WorkString(1024);
 

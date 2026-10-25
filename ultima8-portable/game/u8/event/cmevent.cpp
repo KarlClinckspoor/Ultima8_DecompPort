@@ -9,9 +9,9 @@
 #include "dispatch.h"
 
 // Inline in the shared headers when this file was built.
-inline MouseButtonStatus::MouseButtonStatus(void) {}
-inline MouseButtonStatus::MouseButtonStatus(int16_t s) { status = s; }
-inline MouseEvent::MouseEvent(void) { _action = MOUSE_MOVED; }
+U8_INLINE MouseButtonStatus::MouseButtonStatus(void) {}
+U8_INLINE MouseButtonStatus::MouseButtonStatus(int16_t s) { status = s; }
+U8_INLINE MouseEvent::MouseEvent(void) { _action = MOUSE_MOVED; }
 
 // Driver event bits: movement, left down/up, right down/up, middle down/up.
 #define ALL_MOUSE_EVENTS	0x7E

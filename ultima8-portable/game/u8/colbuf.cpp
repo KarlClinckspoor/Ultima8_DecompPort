@@ -11,7 +11,7 @@
 
 // A shape's size in world units: 32 per x/y cell, 8 per z step.
 // Flat shapes that are not fixed still count as one unit tall.
-inline void footprint(TypeFlag &type, int16_t &xd, int16_t &yd, int16_t &zd)
+U8_INLINE void footprint(TypeFlag &type, int16_t &xd, int16_t &yd, int16_t &zd)
 {
 	xd = type.xSize * 32;
 	yd = type.ySize * 32;

@@ -22,12 +22,12 @@
 #include "dlitem.h"
 
 // Inline in the shared headers when this file was built.
-inline Point::Point(void) {}
-inline Point::Point(int16_t x, int16_t y) { set(x, y); }
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline Rect::Rect(void) {}
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE Point::Point(void) {}
+U8_INLINE Point::Point(int16_t x, int16_t y) { set(x, y); }
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE Rect::Rect(void) {}
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
 
 #include "skipdraw.h"
 
@@ -40,7 +40,7 @@ public:
 	NodeItem(Referent r) { referent = r; }
 };
 
-inline Item itemOf(Referent r) { return NodeItem(r); }
+U8_INLINE Item itemOf(Referent r) { return NodeItem(r); }
 
 
 uint8_t DL_ItemNode::showFootpads = 0;

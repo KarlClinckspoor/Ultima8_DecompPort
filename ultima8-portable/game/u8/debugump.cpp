@@ -28,11 +28,11 @@
 #include "debugump.h"
 
 // The shared headers declare these; each file that uses them defines them.
-inline FileSpec::FileSpec(char *path, int16_t attrib) { become(path, attrib); }
-inline NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE FileSpec::FileSpec(char *path, int16_t attrib) { become(path, attrib); }
+U8_INLINE NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
 
 // Menu and hot key commands.
 #define CMD_LOAD_UNIT		0
@@ -54,9 +54,9 @@ inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, 
 
 #define NUM_WATCHES		10
 
-inline void WindowGump::setColor(char c) { color = c; }
-inline void *Yamm::resolve(uint16_t offset) { return (char *)buffer + offset; }
-inline YammList::YammList(uint16_t id, uint16_t elementSize, int16_t strings)
+U8_INLINE void WindowGump::setColor(char c) { color = c; }
+U8_INLINE void *Yamm::resolve(uint16_t offset) { return (char *)buffer + offset; }
+U8_INLINE YammList::YammList(uint16_t id, uint16_t elementSize, int16_t strings)
 {
 	list = id;
 	size = elementSize;

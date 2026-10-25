@@ -80,8 +80,8 @@ uint16_t _openfd[NUM_FILES];
 FileHandleExtender fileHandleExtender;
 uint8_t old0[4];
 
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 
 // The DOS build raised DOS's limit of open files to NUM_FILES (int 21h function 67h) and
 // set up Borland's table of them; the host has no such limit.

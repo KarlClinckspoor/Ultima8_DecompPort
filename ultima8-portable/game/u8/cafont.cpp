@@ -84,21 +84,24 @@ void CacheFont::setFont(FontType type)
 	ySpacing = ySpacingArray[type];
 }
 
-inline CacheFont::~CacheFont(void)
+U8_INLINE CacheFont::~CacheFont(void)
 {
 }
 
-inline int16_t CacheFont::height(char *text)
+// Out of line: a virtual function, which the class's vtable needs in every build.
+int16_t CacheFont::height(char *text)
 {
 	return Font::height(text);
 }
 
-inline int16_t CacheFont::width(char *text)
+// Out of line: a virtual function, which the class's vtable needs in every build.
+int16_t CacheFont::width(char *text)
 {
 	return Font::width(text);
 }
 
-inline void CacheFont::dim(char *text, int16_t &width, int16_t &height)
+// Out of line: a virtual function, which the class's vtable needs in every build.
+void CacheFont::dim(char *text, int16_t &width, int16_t &height)
 {
 	Font::dim(text, width, height);
 }

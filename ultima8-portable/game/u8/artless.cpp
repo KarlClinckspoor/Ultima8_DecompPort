@@ -16,9 +16,10 @@
 #include "system.h"
 
 // Inline in the shared headers when this file was built.
-inline SimpleVirtualString::operator char *(void) { return string; }
-inline int16_t Rect::width(void) { return f_04 - f_00 + 1; }
-inline void NewGump::commandKeyboard(Event &) {}
+U8_INLINE SimpleVirtualString::operator char *(void) { return string; }
+U8_INLINE int16_t Rect::width(void) { return f_04 - f_00 + 1; }
+// Out of line: a virtual function, which the class's vtable needs in every build.
+void NewGump::commandKeyboard(Event &) {}
 
 // A raised bevelled box: light on the top and left, dark on the bottom and right.
 void Panel::drawup(Rect r, uint8_t color)

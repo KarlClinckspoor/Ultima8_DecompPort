@@ -13,7 +13,7 @@
 #include "system.h"
 
 // Inline in the shared header when this file was built.
-inline SimpleVirtualString::operator char *(void) { return string; }
+U8_INLINE SimpleVirtualString::operator char *(void) { return string; }
 
 int16_t traceLevel;
 

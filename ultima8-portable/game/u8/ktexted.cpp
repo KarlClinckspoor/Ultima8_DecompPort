@@ -16,9 +16,9 @@
 #include "ktexted.h"
 
 // Inline in the shared headers when this file was built.
-inline Point::Point(void) {}
-inline Rect::Rect(void) {}
-inline NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
+U8_INLINE Point::Point(void) {}
+U8_INLINE Rect::Rect(void) {}
+U8_INLINE NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
 
 // Set while a save description is being edited and nothing has been typed.
 uint8_t IDidNotTypeInAnything;

@@ -89,7 +89,7 @@ char ShapePreloader::contains(uint16_t shape, uint16_t frame)
 	return FALSE;
 }
 
-inline Item itemOf(Referent r) { return MapItem(r); }
+U8_INLINE Item itemOf(Referent r) { return MapItem(r); }
 
 char ShapePreloader::make(void)
 {

@@ -13,12 +13,13 @@
 #include "scratchm.h"
 
 // Inline in the shared headers when this file was built.
-inline RGB::RGB(void) {}
-inline Index::Index(void) { size = 0; offset = 0; }
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
-inline void ProcessInterrupt::interruptHandler(uint32_t, uint32_t) {}
-inline TransformPaletteFile::TransformPaletteFile(void) :
+U8_INLINE RGB::RGB(void) {}
+U8_INLINE Index::Index(void) { size = 0; offset = 0; }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+// Out of line: a virtual function, which the class's vtable needs in every build.
+void ProcessInterrupt::interruptHandler(uint32_t, uint32_t) {}
+U8_INLINE TransformPaletteFile::TransformPaletteFile(void) :
 	FlexFile(fileSpec(0, StaticDir, transformPaletteFileName, 0), (OpenMode)2, 1)
 {
 }

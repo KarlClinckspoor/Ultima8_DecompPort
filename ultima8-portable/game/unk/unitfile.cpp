@@ -13,7 +13,7 @@
 // Every unit record starts with a 12-byte header that load() skips.
 #define UNIT_HEADER	12
 
-inline Index::Index(void) { size = 0; offset = 0; }
+U8_INLINE Index::Index(void) { size = 0; offset = 0; }
 
 char *UnitFile::load(char *name)
 {

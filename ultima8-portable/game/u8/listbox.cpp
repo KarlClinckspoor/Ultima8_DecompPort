@@ -15,12 +15,12 @@
 #include "scrolbar.h"
 
 // The shared headers declare these; each file that uses them defines them.
-inline NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
 
-inline NewGump *NewGumpList::getHead(void) { return (NewGump *)head; }
+U8_INLINE NewGump *NewGumpList::getHead(void) { return (NewGump *)head; }
 
 ListBoxGump::ListBoxGump(uint8_t id, NewGump *parent, Rect r, char **list, uint8_t sorted, int16_t count, int16_t stride) :
 	NewGump(NewGumpId(5, id), parent, 0x12)

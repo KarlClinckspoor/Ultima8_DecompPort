@@ -13,9 +13,9 @@
 #include "cmemhndp.h"
 
 // Inline in the shared headers when this file was built.
-inline void GraphicPoint::set_position(int16_t x, int16_t y) { f_02 = x; f_04 = y; }
-inline void Shape::set_frame(int16_t frame) { f_18 = frame; }
-inline Point::Point(void) {}
+U8_INLINE void GraphicPoint::set_position(int16_t x, int16_t y) { f_02 = x; f_04 = y; }
+U8_INLINE void Shape::set_frame(int16_t frame) { f_18 = frame; }
+U8_INLINE Point::Point(void) {}
 
 Vport *TMMousePointer::mapped_vport = 0;
 TMMousePointer *theMouse = 0;
@@ -155,7 +155,8 @@ void TMMousePointer::after_slam(Vport *v)
 	popCat();
 }
 
-inline int16_t TMMousePointer::getFrame(int16_t, int16_t)
+// Out of line: a virtual function, which the class's vtable needs in every build.
+int16_t TMMousePointer::getFrame(int16_t, int16_t)
 {
 	return 0;
 }

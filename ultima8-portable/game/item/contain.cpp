@@ -11,8 +11,8 @@
 #include "shaphand.h"
 #include "contain.h"
 
-inline Point::Point(void) {}
-inline Point::Point(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE Point::Point(void) {}
+U8_INLINE Point::Point(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
 
 #include "skipdraw.h"
 

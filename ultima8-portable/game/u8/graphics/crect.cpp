@@ -5,10 +5,10 @@
 
 #include "crect.h"
 
-inline Rect::Rect(void) {}
-inline Point::Point(void) {}
-inline int16_t Rect::width(void) { return f_04 - f_00 + 1; }
-inline int16_t Rect::height(void) { return f_06 - f_02 + 1; }
+U8_INLINE Rect::Rect(void) {}
+U8_INLINE Point::Point(void) {}
+U8_INLINE int16_t Rect::width(void) { return f_04 - f_00 + 1; }
+U8_INLINE int16_t Rect::height(void) { return f_06 - f_02 + 1; }
 
 void Rect::moveto(int16_t x, int16_t y)
 {

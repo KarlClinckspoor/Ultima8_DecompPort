@@ -14,11 +14,11 @@
 #include "u8gmpshp.h"
 
 // Inline in the shared headers when this file was built.
-inline Point::Point(void) {}
-inline Point::Point(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline Rect::Rect(void) {}
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE Point::Point(void) {}
+U8_INLINE Point::Point(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE Rect::Rect(void) {}
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 
 #include "skipdraw.h"
 

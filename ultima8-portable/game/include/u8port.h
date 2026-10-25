@@ -146,6 +146,16 @@ template <class T> inline T max(T a, T b) { return a > b ? a : b; }
 #include "u8dos.h"
 
 /* The game's structs are byte-packed, as Borland C++ laid them out without -a. */
+// The decompiled files define the inline functions they use themselves. Borland emitted each
+// one a file did not expand as a "virtual segment", of which the linker kept one copy, and
+// files without a definition called that copy. U8_INLINE has every file that defines one
+// emit it, so those calls link at any optimisation level.
+#if defined(__GNUC__) || defined(__clang__)
+#define U8_INLINE inline __attribute__((used))
+#else
+#define U8_INLINE inline
+#endif
+
 #pragma pack(1)
 
 #endif

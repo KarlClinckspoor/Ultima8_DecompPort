@@ -63,8 +63,8 @@ endforeach()
 target_include_directories(u8_game PUBLIC ${U8_INCLUDE_DIRS} "${U8_PLATFORM_DIR}")
 
 # The code expects signed char, keeps null tests after a dereference and after new (Borland's
-# new gave 0 when out of memory), and was written for a compiler that accepted much that clang
-# warns of.
+# new gave 0 when out of memory), reads buffers through pointers of other types, expects signed
+# arithmetic to wrap, and was written for a compiler that accepted much that clang warns of.
 set(U8_GAME_WARNINGS
     -Wno-parentheses -Wno-dangling-else -Wno-pragma-pack -Wno-writable-strings
     -Wno-address-of-temporary -Wno-switch -Wno-unused-value -Wno-unused-variable
@@ -77,13 +77,16 @@ set(U8_GAME_WARNINGS
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
     # clang-cl: char is already signed on Windows.
     target_compile_options(u8_game PRIVATE -fno-delete-null-pointer-checks /clang:-fcheck-new
-        ${U8_GAME_WARNINGS})
+        /clang:-fwrapv /clang:-fno-strict-aliasing ${U8_GAME_WARNINGS})
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # U8_INLINE (u8port.h) has each file emit the inline functions it defines, for files that
+    # call them without a definition; clang would emit only the base-object variant of a
+    # constructor or destructor, so it is told to emit the complete-object one too.
     target_compile_options(u8_game PRIVATE -fsigned-char -fno-delete-null-pointer-checks -fcheck-new
-        ${U8_GAME_WARNINGS})
+        -fwrapv -fno-strict-aliasing "SHELL:-Xclang -mno-constructor-aliases" ${U8_GAME_WARNINGS})
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(u8_game PRIVATE -fsigned-char -fno-delete-null-pointer-checks -fcheck-new
-        -fpermissive -w)
+        -fwrapv -fno-strict-aliasing -fkeep-inline-functions -fpermissive -w)
 endif()
 
 if(U8_BACKEND_MATOYA)

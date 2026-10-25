@@ -19,34 +19,34 @@
 #include "wait.h"
 
 // The shared headers declare these; each file that uses them defines them.
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
 
 // Inline in the shared headers when this file was built.
-inline MouseButtonStatus::MouseButtonStatus(void) {}
-inline MouseEvent::MouseEvent(void) { _action = MOUSE_MOVED; }
-inline int16_t MouseEvent::get_y(void) { return _y; }
-inline MouseButtonStatus MouseEvent::get_button_status(void) { return mouseButtonStatus; }
-inline uint16_t MouseEvent::getExtraStatus(void) { return extraStatus; }
-inline int16_t MouseEvent::get_button(void) { return _button; }
-inline MouseSelectEvent::MouseSelectEvent(void) { _type = NO_SELECT; }
-inline uint8_t MouseSelectEvent::is_valid(void) { return _type != NO_SELECT; }
-inline int16_t MouseSelectEvent::get_type(void) { return _type; }
-inline VGAMouseSelectEvent::VGAMouseSelectEvent(void) {}
-inline int16_t VGAMouseSelectEvent::get_x(void) { return _x >> 1; }
-inline MouseSelectInspector::MouseSelectInspector(int16_t t) { threshold = t; }
-inline VGAMouseSelectEvent *VGAMouseSelectInspector::get_last_event(void) { return (VGAMouseSelectEvent *)&MouseSelectInspector::last_event; }
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
-inline uint8_t AccurateTimer::isTiming(void) { return timing; }
-inline uint16_t AccurateTimer::getTicks(void) { return ticks; }
-inline NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
-inline int16_t NewGumpId::operator==(NewGumpId id) { return instance == id.instance; }
-inline uint8_t NewGumpId::getInstance(void) { return instance & 0xff; }
-inline void NewGump::attach(NewGump *gump) { newGumpList.attach(gump); }
-inline NewGump *Dispatcher::getBase(void) { return base[baseSP]; }
-inline UncleErnie::UncleErnie(int32_t *r) : NewGump(NewGumpId(0), 0, EVENT_PRIVATE)
+U8_INLINE MouseButtonStatus::MouseButtonStatus(void) {}
+U8_INLINE MouseEvent::MouseEvent(void) { _action = MOUSE_MOVED; }
+U8_INLINE int16_t MouseEvent::get_y(void) { return _y; }
+U8_INLINE MouseButtonStatus MouseEvent::get_button_status(void) { return mouseButtonStatus; }
+U8_INLINE uint16_t MouseEvent::getExtraStatus(void) { return extraStatus; }
+U8_INLINE int16_t MouseEvent::get_button(void) { return _button; }
+U8_INLINE MouseSelectEvent::MouseSelectEvent(void) { _type = NO_SELECT; }
+U8_INLINE uint8_t MouseSelectEvent::is_valid(void) { return _type != NO_SELECT; }
+U8_INLINE int16_t MouseSelectEvent::get_type(void) { return _type; }
+U8_INLINE VGAMouseSelectEvent::VGAMouseSelectEvent(void) {}
+U8_INLINE int16_t VGAMouseSelectEvent::get_x(void) { return _x >> 1; }
+U8_INLINE MouseSelectInspector::MouseSelectInspector(int16_t t) { threshold = t; }
+U8_INLINE VGAMouseSelectEvent *VGAMouseSelectInspector::get_last_event(void) { return (VGAMouseSelectEvent *)&MouseSelectInspector::last_event; }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE uint8_t AccurateTimer::isTiming(void) { return timing; }
+U8_INLINE uint16_t AccurateTimer::getTicks(void) { return ticks; }
+U8_INLINE NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
+U8_INLINE int16_t NewGumpId::operator==(NewGumpId id) { return instance == id.instance; }
+U8_INLINE uint8_t NewGumpId::getInstance(void) { return instance & 0xff; }
+U8_INLINE void NewGump::attach(NewGump *gump) { newGumpList.attach(gump); }
+U8_INLINE NewGump *Dispatcher::getBase(void) { return base[baseSP]; }
+U8_INLINE UncleErnie::UncleErnie(int32_t *r) : NewGump(NewGumpId(0), 0, EVENT_PRIVATE)
 {
 	result = r;
 	rect.set(0, 0, 319, 199);

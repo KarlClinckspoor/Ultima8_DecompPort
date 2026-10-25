@@ -10,10 +10,10 @@
 #include "dispatch.h"
 
 // Inline in the shared headers when this file was built.
-inline MouseButtonStatus::MouseButtonStatus(void) {}
-inline MouseButtonStatus::MouseButtonStatus(int16_t s) { status = s; }
-inline MouseEvent::MouseEvent(void) { _action = MOUSE_MOVED; }
-inline MouseSelectEvent::MouseSelectEvent(void) { _type = NO_SELECT; }
+U8_INLINE MouseButtonStatus::MouseButtonStatus(void) {}
+U8_INLINE MouseButtonStatus::MouseButtonStatus(int16_t s) { status = s; }
+U8_INLINE MouseEvent::MouseEvent(void) { _action = MOUSE_MOVED; }
+U8_INLINE MouseSelectEvent::MouseSelectEvent(void) { _type = NO_SELECT; }
 
 uint8_t MouseSelectChronicler::handedness = 0;
 int16_t MouseSelectInspector::threshold;

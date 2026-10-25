@@ -11,13 +11,13 @@
 #include "lsystem.h"
 
 // Inline in the shared headers when this file was built.
-inline GraphicYtable::GraphicYtable(void) { f_04 = 2; index = 0; }
-inline Vport::Vport(void) { mem = 0; f_0f = 2; f_10 = 0; }
-inline Vport::~Vport(void) { free(); }
-inline Point::Point(void) {}
-inline Rect::Rect(void) {}
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE GraphicYtable::GraphicYtable(void) { f_04 = 2; index = 0; }
+U8_INLINE Vport::Vport(void) { mem = 0; f_0f = 2; f_10 = 0; }
+U8_INLINE Vport::~Vport(void) { free(); }
+U8_INLINE Point::Point(void) {}
+U8_INLINE Rect::Rect(void) {}
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
 
 // A blank message for the sound drivers to show on shutdown.
 static char signoff[2] = "";

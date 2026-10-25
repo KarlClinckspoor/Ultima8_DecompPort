@@ -26,11 +26,11 @@
 #include <string.h>
 
 // Inline in the shared headers when this file was built.
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
-inline SharedFile::SharedFile(void) {}
-inline FlexFile::FlexFile(void) {}
-inline Index::Index(void) { size = 0; offset = 0; }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE SharedFile::SharedFile(void) {}
+U8_INLINE FlexFile::FlexFile(void) {}
+U8_INLINE Index::Index(void) { size = 0; offset = 0; }
 
 void PutPixel(Vport *, int16_t, int16_t, int16_t);
 extern CharacterGenerator charGen;

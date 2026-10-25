@@ -43,7 +43,7 @@ public:
 };
 
 // The map region holding (x, y).
-inline void worldToRegion(uint16_t x, uint16_t y, int16_t &rx, int16_t &ry)
+U8_INLINE void worldToRegion(uint16_t x, uint16_t y, int16_t &rx, int16_t &ry)
 {
 	rx = x >> REGION_SHIFT;
 	ry = y >> REGION_SHIFT;

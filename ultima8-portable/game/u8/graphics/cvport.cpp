@@ -9,12 +9,12 @@
 #include "cvport.h"
 #include "segmem.h"
 
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline int16_t Rect::width(void) { return f_04 - f_00 + 1; }
-inline int16_t Rect::height(void) { return f_06 - f_02 + 1; }
-inline Rect *Vport::getRect(void) { return &rect; }
-inline void GraphicYtable::setType(uint8_t type) { f_04 = type; }
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE int16_t Rect::width(void) { return f_04 - f_00 + 1; }
+U8_INLINE int16_t Rect::height(void) { return f_06 - f_02 + 1; }
+U8_INLINE Rect *Vport::getRect(void) { return &rect; }
+U8_INLINE void GraphicYtable::setType(uint8_t type) { f_04 = type; }
 
 uint8_t SegmentInterval[2];
 

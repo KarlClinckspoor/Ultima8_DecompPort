@@ -66,18 +66,18 @@
 #include "world.h"
 
 // Inline in the shared headers when this file was built.
-inline Point::Point(void) {}
-inline Point::Point(int16_t x, int16_t y) { set(x, y); }
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline Rect::Rect(void) {}
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
-inline NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
-inline uint8_t NewGumpId::getType(void) { return instance >> 8; }
-inline void NewGump::popVisibility(void) { visibilityStack >>= 2; }
-inline FileSpec::FileSpec(char *path, int16_t attrib) { become(path, attrib); }
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE Point::Point(void) {}
+U8_INLINE Point::Point(int16_t x, int16_t y) { set(x, y); }
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE Rect::Rect(void) {}
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
+U8_INLINE uint8_t NewGumpId::getType(void) { return instance >> 8; }
+U8_INLINE void NewGump::popVisibility(void) { visibilityStack >>= 2; }
+U8_INLINE FileSpec::FileSpec(char *path, int16_t attrib) { become(path, attrib); }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 
 extern uint8_t inGameMode;
 
@@ -90,10 +90,10 @@ public:
 };
 
 // The mouse pointer's direction as a world direction, and its distance from the centre.
-inline int16_t mouseDir(void) { return (U8MousePointer::getDir() - 1) & 7; }
-inline int16_t mouseErection(void) { return U8MousePointer::erection; }
-inline Item itemOf(Referent r) { return Item(r); }
-inline void Item::pop(WorldPoint &p) { pop(p.x, p.y, p.z); }
+U8_INLINE int16_t mouseDir(void) { return (U8MousePointer::getDir() - 1) & 7; }
+U8_INLINE int16_t mouseErection(void) { return U8MousePointer::erection; }
+U8_INLINE Item itemOf(Referent r) { return Item(r); }
+U8_INLINE void Item::pop(WorldPoint &p) { pop(p.x, p.y, p.z); }
 
 char *mouseBark[6] = {"Right handed mouse", "Souris droiti\212re", "Maus f\201r Rechtsh\204nder", "Left handed mouse", "Souris gauch\212re", "Maus f\201r Linksh\204nder"};
 char *quit[3] = {"Quit      ", "Quitter   ", "Abbrechen "};

@@ -14,10 +14,10 @@
 #include "system.h"
 
 // Inline in the shared headers when this file was built.
-inline SimpleVirtualString::SimpleVirtualString(void) { string = 0; size = 0; }
-inline SimpleVirtualString::~SimpleVirtualString(void) { free(); }
-inline SimpleVirtualString::operator char *(void) { return string; }
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE SimpleVirtualString::SimpleVirtualString(void) { string = 0; size = 0; }
+U8_INLINE SimpleVirtualString::~SimpleVirtualString(void) { free(); }
+U8_INLINE SimpleVirtualString::operator char *(void) { return string; }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
 
 char *FileModeName[16] = {"ReadOnly", "WriteOnly", "ReadWrite", "NoShareReadOnly", "NoShareWriteOnly", "NoShareReadWrite", "ReadShareReadOnly", "ReadShareWriteOnly", "ReadShareReadWrite", "WriteShareReadOnly", "WriteShareWriteOnly", "WriteShareReadWrite", "RWShareReadOnly", "RWShareWriteOnly", "RWShareReadWrite", "Bad Mode"};
 

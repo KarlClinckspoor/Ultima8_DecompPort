@@ -20,20 +20,19 @@
 #include "deskip.h"
 
 // Inline in the shared headers when this file was built.
-inline Index::Index(void) { size = 0; offset = 0; }
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
-inline SharedFile::SharedFile(void) {}
-inline FlexFile::FlexFile(void) {}
-inline int16_t GraphicYtable::getindex(int16_t y) { return index[y]; }
-inline GraphicYtable *Vport::getYTable(void) { return &graphicYtable; }
-inline Point::Point(void) {}
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { f_00 = x1; f_02 = y1; f_04 = x2; f_06 = y2; }
-inline Rect::Rect(void) { set(0, 0, 319, 199); }
-inline GraphicYtable::GraphicYtable(void) { f_04 = 2; index = 0; }
-inline Vport::Vport(void) { f_0f = 2; }
-inline Vport::~Vport(void) { free(); }
-inline void Vport::slam(Vport *v)
+U8_INLINE Index::Index(void) { size = 0; offset = 0; }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE SharedFile::SharedFile(void) {}
+U8_INLINE FlexFile::FlexFile(void) {}
+U8_INLINE int16_t GraphicYtable::getindex(int16_t y) { return index[y]; }
+U8_INLINE GraphicYtable *Vport::getYTable(void) { return &graphicYtable; }
+U8_INLINE Point::Point(void) {}
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { f_00 = x1; f_02 = y1; f_04 = x2; f_06 = y2; }
+U8_INLINE GraphicYtable::GraphicYtable(void) { f_04 = 2; index = 0; }
+U8_INLINE Vport::Vport(void) { f_0f = 2; }
+U8_INLINE Vport::~Vport(void) { free(); }
+U8_INLINE void Vport::slam(Vport *v)
 {
 	SlamScreen(mem, v->mem + v->getYTable()->index[0]);
 }
@@ -42,7 +41,7 @@ inline void Vport::slam(Vport *v)
 // (16-bit int), so the callers below cast the signed one for it.
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
 
 uint16_t invisible = 0;
 int32_t totalBytes = 0;
@@ -451,9 +450,11 @@ void deskip(char *source, char *dest, char *)
 	shape = (char *)farmalloc(indexes[1].size);
 	if (shape == 0)
 		outOfMemory(__FILE__, 692);	// __LINE__
-	Vport front; front.alloc(0);
-	Vport back; back.alloc(0);
-	Vport work; work.alloc(0);
+	// This file's own Rect() was the full screen, which these viewports took; the other
+	// files' Rect() leaves the rectangle unset, so it is set here.
+	Vport front; front.rect.set(0, 0, 319, 199); front.alloc(0);
+	Vport back; back.rect.set(0, 0, 319, 199); back.alloc(0);
+	Vport work; work.rect.set(0, 0, 319, 199); work.alloc(0);
 	ZackFile out;
 	out.create(dest, 2048);
 	for (i = 0; i < 2048; i++)

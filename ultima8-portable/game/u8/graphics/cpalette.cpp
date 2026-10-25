@@ -12,9 +12,9 @@
 static_assert(sizeof(RGB) == 3, "RGB is red, green, blue bytes");
 
 // Inline in the shared headers when this file was built.
-inline RGB::RGB(void) {}
+U8_INLINE RGB::RGB(void) {}
 
-inline int16_t min(int16_t a, int16_t b) { return a < b ? a : b; }
+U8_INLINE int16_t min(int16_t a, int16_t b) { return a < b ? a : b; }
 
 void PaletteData::init(uint8_t first, int16_t n)
 {

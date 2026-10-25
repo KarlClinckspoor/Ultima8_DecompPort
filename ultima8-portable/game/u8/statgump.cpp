@@ -17,14 +17,14 @@
 #include "statgump.h"
 
 // Inline in the shared headers when this file was built.
-inline Point::Point(void) {}
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
-inline void NewGump::moveto(int16_t x, int16_t y) { rect.moveto(x, y); }
-inline GumpShape::GumpShape(int16_t shape) { _frame = 0; this->shape = shape; }
-inline Rect GumpShape::get_rect(void) { return drawer->get_rect(shape, _frame); }
-inline void GumpShape::draw(int16_t x, int16_t y) { drawer->draw(x, y, shape, _frame); }
+U8_INLINE Point::Point(void) {}
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+U8_INLINE void NewGump::moveto(int16_t x, int16_t y) { rect.moveto(x, y); }
+U8_INLINE GumpShape::GumpShape(int16_t shape) { _frame = 0; this->shape = shape; }
+U8_INLINE Rect GumpShape::get_rect(void) { return drawer->get_rect(shape, _frame); }
+U8_INLINE void GumpShape::draw(int16_t x, int16_t y) { drawer->draw(x, y, shape, _frame); }
 
 void closeStatusGump(void)
 {

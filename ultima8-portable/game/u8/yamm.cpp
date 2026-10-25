@@ -12,15 +12,15 @@
 #include "farptr.h"
 
 // Inline in YAMM.H when this file was built.
-inline void *Yamm::resolve(uint16_t pos) { return buffer + pos; }
-inline void Yamm::setPid(uint16_t pos, uint16_t pid) { ((YammBlock *)resolve(pos) - 1)->pid = pid; }
-inline YammList::YammList(uint16_t l, uint16_t s, int16_t str) { list = l; size = s; isString = str; }
-inline uint8_t YammBlock::isFree(void) { return (size & 0x8000) ? 1 : 0; }
-inline uint16_t YammBlock::getSize(void) { return size & 0x7fff; }
-inline void YammBlock::setFree(void) { size |= 0x8000; pid = 0; }
-inline void YammBlock::setUsed(void) { size &= 0x7fff; }
-inline void YammBlock::grow(uint16_t n) { size += n; }
-inline void YammBlock::setSize(uint16_t n) { size = n; }
+U8_INLINE void *Yamm::resolve(uint16_t pos) { return buffer + pos; }
+U8_INLINE void Yamm::setPid(uint16_t pos, uint16_t pid) { ((YammBlock *)resolve(pos) - 1)->pid = pid; }
+U8_INLINE YammList::YammList(uint16_t l, uint16_t s, int16_t str) { list = l; size = s; isString = str; }
+U8_INLINE uint8_t YammBlock::isFree(void) { return (size & 0x8000) ? 1 : 0; }
+U8_INLINE uint16_t YammBlock::getSize(void) { return size & 0x7fff; }
+U8_INLINE void YammBlock::setFree(void) { size |= 0x8000; pid = 0; }
+U8_INLINE void YammBlock::setUsed(void) { size &= 0x7fff; }
+U8_INLINE void YammBlock::grow(uint16_t n) { size += n; }
+U8_INLINE void YammBlock::setSize(uint16_t n) { size = n; }
 
 uint16_t Yamm::numBlocks;
 char *Yamm::buffer;

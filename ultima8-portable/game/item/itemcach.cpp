@@ -47,21 +47,21 @@
 #define HAS_GUMP		0x8000	// an ItemRelativeGump follows it
 
 // Inline in the shared headers when this file was built.
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
-inline Index::Index(void) { size = 0; offset = 0; }
-inline NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE Index::Index(void) { size = 0; offset = 0; }
+U8_INLINE NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
 
 // One bit per item in the display list's tables.
-inline void setNew(Referent r) { DisplayList::newitem[r >> 5] |= 1L << (r & 31); }
-inline void clearNew(Referent r) { DisplayList::newitem[r >> 5] &= ~(1L << (r & 31)); }
-inline void clearAnimating(Referent r) { DisplayList::animatingitem[r >> 5] &= ~(1L << (r & 31)); }
+U8_INLINE void setNew(Referent r) { DisplayList::newitem[r >> 5] |= 1L << (r & 31); }
+U8_INLINE void clearNew(Referent r) { DisplayList::newitem[r >> 5] &= ~(1L << (r & 31)); }
+U8_INLINE void clearAnimating(Referent r) { DisplayList::animatingitem[r >> 5] &= ~(1L << (r & 31)); }
 
 // The game time in hours.
-inline int32_t gameHours(void) { return theAnimation->f_44; }
+U8_INLINE int32_t gameHours(void) { return theAnimation->f_44; }
 
 // The map region holding (x, y).
-inline void worldToRegion(uint16_t x, uint16_t y, int16_t &rx, int16_t &ry)
+U8_INLINE void worldToRegion(uint16_t x, uint16_t y, int16_t &rx, int16_t &ry)
 {
 	rx = x >> REGION_SHIFT;
 	ry = y >> REGION_SHIFT;
@@ -1143,7 +1143,7 @@ void ItemCache::pop(uint16_t x, uint16_t y, uint8_t z)
 }
 
 // Passes the low byte of x as z.
-inline void ItemCache::pop(WorldPoint &p)
+U8_INLINE void ItemCache::pop(WorldPoint &p)
 {
 	pop(p.x, p.y, p.x);
 }

@@ -32,21 +32,21 @@
 #include "flicplay.h"
 
 // Inline in the shared headers when this file was built.
-inline void nameProcess(uint16_t pid, char *name) { ((char **)Kernel::idStringList)[pid] = name; }
-inline Point::Point(void) {}
-inline Rect::Rect(void) {}
-inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
-inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
-inline int16_t Rect::width(void) { return f_04 - f_00 + 1; }
-inline int16_t Rect::height(void) { return f_06 - f_02 + 1; }
-inline Index::Index(void) { size = 0; offset = 0; }
-inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
-inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
-inline MemHandle::MemHandle(char *p) { f_00 = p; f_04 = 1; f_05 = 0; }
-inline MemHandle::~MemHandle(void) { free(0); }
+U8_INLINE void nameProcess(uint16_t pid, char *name) { ((char **)Kernel::idStringList)[pid] = name; }
+U8_INLINE Point::Point(void) {}
+U8_INLINE Rect::Rect(void) {}
+U8_INLINE void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+U8_INLINE void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+U8_INLINE int16_t Rect::width(void) { return f_04 - f_00 + 1; }
+U8_INLINE int16_t Rect::height(void) { return f_06 - f_02 + 1; }
+U8_INLINE Index::Index(void) { size = 0; offset = 0; }
+U8_INLINE uint8_t BaseFile::is_valid(void) { return handle != -1; }
+U8_INLINE BaseFile::~BaseFile(void) { if (is_valid()) close(); }
+U8_INLINE MemHandle::MemHandle(char *p) { f_00 = p; f_04 = 1; f_05 = 0; }
+U8_INLINE MemHandle::~MemHandle(void) { free(0); }
 
 // Kills every process of a type running at the current priority.
-inline void killAtPriority(ProcessType type)
+U8_INLINE void killAtPriority(ProcessType type)
 {
 	PriorityClass samePriority(Kernel::currentPriority | 0x20);
 	Kernel::killProcess(0, type, samePriority);
