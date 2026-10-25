@@ -2,6 +2,7 @@
 // name: INTER.C
 
 #include "u8port.h"
+#include "plat.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -119,8 +120,19 @@ int16_t Routine::interpret(int32_t &result)
 	if (!suspended)
 		pushLong(0);
 	done = 0;
+	static int8_t trace = -1;	// U8_UC_TRACE set: every instruction to the log
+	if (trace < 0)
+		trace = getenv("U8_UC_TRACE") != 0;
 	while (!done)
 	{
+		if (trace)
+		{
+			char line[96];
+			snprintf(line, sizeof line, "uc %04X:%04X op %02X sp %3d bp %3d pid %d\n", process->unit,
+				(unsigned)(ip - RoutineIndex::codeBase(process->unit)), (uint8_t)*ip,
+				(int)(sp - (char *)this), (int)bp, process->pid);
+			plat_log(line);
+		}
 		opcode = *ip++;
 		switch (opcode)
 		{

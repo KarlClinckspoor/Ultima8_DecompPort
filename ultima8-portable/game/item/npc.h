@@ -139,7 +139,8 @@ public:
 	void teleport(uint16_t, uint16_t, uint8_t, uint8_t);
 	int16_t getMap(void);
 	int16_t setActivity(uint32_t);
-	void cSetActivity(Activity);
+	// Declared void; usecode takes what the activity's call left in AX as a pid.
+	uint16_t cSetActivity(Activity);
 	int16_t schedule(uint32_t);
 	uint8_t getDamageAmount(void);
 	uint8_t getArmorClass(void);

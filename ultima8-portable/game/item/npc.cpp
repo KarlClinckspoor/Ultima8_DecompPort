@@ -882,7 +882,7 @@ int16_t Npc::setActivity(uint32_t activity)
 	return 0;
 }
 
-void Npc::cSetActivity(Activity activity)
+uint16_t Npc::cSetActivity(Activity activity)
 {
 	Kernel::resetRef(referent, (ProcessType)0xf0);
 	if (isInCombat())
@@ -891,17 +891,17 @@ void Npc::cSetActivity(Activity activity)
 	switch (activity)
 	{
 	case 0:
+		// The new process's offset, always 0 under the DOS extender.
 		new Loiter(referent, -1);
-		break;
+		return 0;
 	case 1:
-		setInCombat();
-		break;
+		return setInCombat();
 	case 2:
-		doAnim(ANIM_STAND, 8, 0, 0);
-		break;
+		return doAnim(ANIM_STAND, 8, 0, 0);
 	default:
 		halt(__FILE__, 1346);	// __LINE__
 	}
+	return 0;
 }
 
 int16_t Npc::schedule(uint32_t time)

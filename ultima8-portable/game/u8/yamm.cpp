@@ -2,12 +2,14 @@
 // name: YAMM.C
 
 #include "u8port.h"
+#include "plat.h"
 
 // #include <conio.h>  (DOS only)
 #include <string.h>
 #include "cfile.h"
 #include "error.h"
 #include "yamm.h"
+#include "farptr.h"
 
 // Inline in YAMM.H when this file was built.
 inline void *Yamm::resolve(uint16_t pos) { return buffer + pos; }
@@ -32,6 +34,9 @@ int16_t initYamm(void)
 	if (Yamm::buffer == 0)
 		outOfMemory(__FILE__, 41);	// __LINE__
 	memset(Yamm::buffer, 0, YAMM_SIZE);
+	// The heap was a segment of its own: usecode turns a handle into a far pointer whose
+	// offset is the handle, and frees the string through that offset later.
+	u8_far_register(FAR_YAMM, Yamm::buffer, YAMM_SIZE);
 	uint16_t tail = 9;
 	YammBlock *last = (YammBlock *)Yamm::resolve(tail);
 	Yamm::head = (YammBlock *)Yamm::resolve(1);
@@ -50,6 +55,7 @@ int16_t initYamm(void)
 void uninitYamm(void)
 {
 	if (Yamm::buffer) {
+		u8_far_unregister(FAR_YAMM);
 		delete Yamm::buffer;
 		Yamm::buffer = 0;
 	}
@@ -115,6 +121,21 @@ void Yamm::scram(uint16_t pos)
 {
 	if (pos == 0)
 		return;
+	static int8_t check = -1;	// U8_UC_TRACE set: report frees of things that are not handles
+	if (check < 0)
+		check = getenv("U8_UC_TRACE") != 0;
+	if (check)
+	{
+		uint16_t at;
+		for (at = head->next; at != 1 && at + 8 != pos; at = ((YammBlock *)resolve(at))->next)
+			;
+		if (at == 1)
+		{
+			char line[64];
+			snprintf(line, sizeof line, "yamm: freeing %u, not a handle\n", pos);
+			plat_log(line);
+		}
+	}
 	pos -= 8;
 	YammBlock *block = (YammBlock *)resolve(pos);
 	YammBlock *prev = (YammBlock *)resolve(block->prev);

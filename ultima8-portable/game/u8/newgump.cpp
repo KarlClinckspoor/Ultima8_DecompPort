@@ -23,7 +23,8 @@ inline DoubleLinkedList::DoubleLinkedList(void) { head = 0; tail = 0; }
 inline DoubleLink::DoubleLink(DoubleLink *next, DoubleLink *prev) { this->next = next; this->prev = prev; }
 inline int16_t NewGump::visibility(void) { return visibilityStack & 3; }
 inline void NewGump::detach(NewGump *kid) { newGumpList.detach(kid); }
-inline uint8_t NewGumpId::check(void) { return !(instance ^ ~f_02); }
+// Borland did this in 16 bits; the complement is cut back to 16 bits as it was.
+inline uint8_t NewGumpId::check(void) { return !(uint16_t)(instance ^ (uint16_t)~f_02); }
 
 NewGump nullGump(0, 0, 0);
 NewGump *NewGump::prevMouseMoveGump = 0;

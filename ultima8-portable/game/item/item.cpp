@@ -1367,14 +1367,14 @@ Boolean Item::findTarget(int16_t x, int16_t y)
 	return FALSE;
 }
 
-void Item::getSliderInput(int16_t min, int16_t max, int16_t step)
+int32_t Item::getSliderInput(int16_t min, int16_t max, int16_t step)
 {
-	::getSliderInput(referent, min, max, step);
+	return ::getSliderInput(referent, min, max, step);
 }
 
-void Item::ask(uint16_t answers)
+uint16_t Item::ask(uint16_t answers)
 {
-	::ask(referent, answers);
+	return ::ask(referent, answers);
 }
 
 void Item::openGump(int16_t shape)

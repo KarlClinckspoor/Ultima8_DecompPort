@@ -162,8 +162,10 @@ public:
 	int16_t guardianBark(int16_t);
 	int16_t AvatarStoleSomething(Referent);
 	Boolean findTarget(int16_t, int16_t);
-	void getSliderInput(int16_t, int16_t, int16_t);
-	void ask(uint16_t);
+	// Declared void, but each returned what it called left in DX:AX, which usecode uses: the
+	// slider's value, and the pid of the answer menu's process.
+	int32_t getSliderInput(int16_t, int16_t, int16_t);
+	uint16_t ask(uint16_t);
 	void openGump(int16_t);
 	void closeGump(void);
 	Boolean isGumpOpen(void);
