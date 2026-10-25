@@ -33,17 +33,19 @@ ultima8-portable/
 
 | | Linux x64 | Windows x64 | macOS |
 | --- | --- | --- | --- |
-| Compiler | clang 14+ (GCC 11+ should work) | clang-cl, from Visual Studio 2022 with "C++ Clang tools for Windows" | Xcode command line tools (clang) |
+| Compiler | clang 14+ or GCC 11+ | clang-cl, from Visual Studio 2022 with "C++ Clang tools for Windows" | Xcode command line tools (clang) |
 | Build tools | CMake 3.20+, make | CMake 3.20+, Ninja and nmake (both come with Visual Studio) | CMake 3.20+, make |
 | Extra | `glslangValidator` (Ubuntu/Debian: `glslang-tools`), for libmatoya's shaders | | |
 
 On Linux, libmatoya opens X11, OpenGL/Vulkan and ALSA at run time, so a desktop session with
 those libraries is needed to play.
 
-What has been tested: the Linux build, running headless with scripted input (see "Scripted
-runs") on the English GOG data: the intro, naming the Avatar, conversations, walking into
-Tenebrae, the paperdoll and backpack, combat mode, dying, saving, loading in the same session,
-and resuming in a new session. The Windows and macOS builds have not been tried: the game
+What has been tested: the Linux build (clang Debug and Release, GCC Release), running headless
+with scripted input (see "Scripted runs") on the English GOG data: the intro, naming the
+Avatar, conversations, walking into Tenebrae and the scene on the docks, the paperdoll and
+backpack, combat mode, dying, saving, loading in the same session, and resuming in a new
+session; the data folder named with `--data` or `U8_DATA` from another folder, and read-only
+data files. The Windows and macOS builds have not been tried: the game
 code compiles for a Windows target with clang and MinGW's headers, and the build follows the
 Ultima VII port's, which builds on both, but a clang-cl build has not been run. Please report
 what fails.
@@ -81,7 +83,8 @@ Options:
 **Game data.** A folder holding an installed copy of Ultima VIII, with its `STATIC`,
 `USECODE`, `SOUND` and `SAVEGAME` folders (the GOG release has these in its language folder,
 `ENGLISH` for the English game). File names are matched in any letter case. The game writes
-to this folder (`GAMEDAT`, `SAVEGAME`), so use a copy.
+its progress and saved games into this folder (`GAMEDAT`, `SAVEGAME`), so those two must be
+writable; the data files themselves may be read-only.
 
 **MT-32 ROMs** (optional). Munt needs the Roland MT-32 control and PCM ROM images (any file
 names; they are recognised by content). They are not included. The game looks in the
