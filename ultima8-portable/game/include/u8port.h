@@ -41,7 +41,9 @@ char *u8_ltoa(int32_t value, char *out, int16_t radix);
 char *u8_ultoa(uint32_t value, char *out, int16_t radix);
 char *u8_strupr(char *s);
 char *u8_strlwr(char *s);
-/* Borland's random(n) and randomize(): 0 .. n - 1 from its own generator. */
+/* Borland's rand() (0 .. 7FFFh), random(n) and randomize(): 0 .. n - 1 from its own generator.
+ * The host's rand() differs by platform and reaches 2^31 - 1 on some. */
+int16_t u8_rand(void);
 int16_t u8_random(int16_t range);
 void u8_randomize(void);
 
@@ -101,6 +103,7 @@ uint32_t u8_coreleft(void);
 #define ultoa(v, s, r) u8_ultoa((v), (s), (r))
 #define strupr u8_strupr
 #define strlwr u8_strlwr
+#define rand() u8_rand()
 #define random(n) u8_random(n)
 #define randomize u8_randomize
 

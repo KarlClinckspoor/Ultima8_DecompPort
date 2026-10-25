@@ -98,6 +98,11 @@ static int16_t borland_rand(void)
 	return (int16_t) ((borland_seed >> 16) & 0x7FFF);
 }
 
+int16_t u8_rand(void)
+{
+	return borland_rand();
+}
+
 int16_t u8_random(int16_t range)
 {
 	return (int16_t) (((int32_t) borland_rand() * range) / 0x8000);
