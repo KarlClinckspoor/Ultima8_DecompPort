@@ -250,7 +250,7 @@ void BarkGump::nextPage(void)
 {
 	if (!text)
 		return;
-	if (offset == -1)
+	if (offset == 0xFFFF)	// -1, as Borland compared it
 		offset = 0;
 	else
 	{

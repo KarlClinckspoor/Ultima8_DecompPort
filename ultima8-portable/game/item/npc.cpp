@@ -174,7 +174,7 @@ int16_t Npc::doAnim(AnimSet animSet, int16_t dir, int16_t maxAnims, uint8_t stop
 		count = isBusy();
 	else
 		count = Kernel::getNumLinearProcesses(npc, (ProcessType)0xf0);
-	if (count > maxAnims)
+	if (count > (uint16_t)maxAnims)	// unsigned, as Borland compared it
 		return 0;
 
 	if (animSet != ANIM_STAND && animSet != ANIM_STEP && animSet != ANIM_EDGE_BALANCE)

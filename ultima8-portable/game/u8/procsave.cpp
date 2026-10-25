@@ -54,8 +54,9 @@ Process *RestoreProcess(const char *saved, uint32_t size)
 	c = findByName(saved);
 	if (c == 0 || size != nameLength + 1 + c->size)
 		return 0;
-	// Process::operator new also tells the kernel the size, as when the class was first made.
-	memory = Process::operator new(c->size);
+	// The global operator new, as Kernel::load used: Process::operator new would leave the size
+	// for a constructor to collect, and the copy constructor that rebuilds it does not.
+	memory = ::operator new(c->size);
 	c->rebuild(memory, saved + nameLength + 1);
 	return (Process *)memory;
 }

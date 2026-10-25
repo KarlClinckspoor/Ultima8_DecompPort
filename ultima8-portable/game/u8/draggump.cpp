@@ -93,12 +93,12 @@ void DrgNewGump::commandMouseLeft(Event &event)
 			refresh(0, 0, *vport.getRect());
 			pushVisibility(3);
 			uint16_t size = EstimateFastWriteSkip(vport, rect.f_00, rect.f_02, rect.f_04, rect.f_06, GumpColorMap[7]);
-			if (size == -1)
+			if (size == 0xFFFF)	// -1, as Borland compared it
 				halt(__FILE__, 128);	// __LINE__ in the original file
 			int16_t headerSize = 20;
 			mem.alloc(size + headerSize, 2);
 			int16_t written = FastWriteSkip(vport, rect.f_00, rect.f_02, rect.f_04, rect.f_06, 0, 0, (uint8_t *)mem.get_ptr() + headerSize, GumpColorMap[7]);
-			if (size < written)
+			if (size < (uint16_t)written)
 				halt(__FILE__, 141);	// __LINE__ in the original file
 			DragShapeHeader *header = (DragShapeHeader *)mem.get_ptr();
 			header->width = rect.width();

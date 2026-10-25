@@ -93,7 +93,7 @@ Boolean BookGump::nextPage(void)
 {
 	if (text == 0)
 		return FALSE;
-	if (offset == -1)
+	if (offset == 0xFFFF)	// -1, as Borland compared it
 		offset = 0;
 	else
 	{

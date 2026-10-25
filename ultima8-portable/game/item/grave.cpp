@@ -72,7 +72,7 @@ Boolean GraveGump::moreToCome(void)
 {
 	if (text == 0)
 		return FALSE;
-	if (offset == -1)
+	if (offset == 0xFFFF)	// -1, as Borland compared it
 		return TRUE;
 	if (offset + strlen(text + offset) + 1 >= textLength)
 		return FALSE;
@@ -84,7 +84,7 @@ Boolean GraveGump::nextLine(void)
 {
 	if (text == 0)
 		return FALSE;
-	if (offset == -1)
+	if (offset == 0xFFFF)	// -1, as Borland compared it
 		offset = 0;
 	else
 	{

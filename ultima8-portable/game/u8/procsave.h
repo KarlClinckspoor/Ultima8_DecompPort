@@ -16,7 +16,7 @@ class Process;
 
 // The process's class name and object bytes in one block for a flex record; delete[] it.
 char *SaveProcess(Process *p, uint16_t &size);
-// Rebuilds a process from such a block, in memory from Process::operator new, without
+// Rebuilds a process from such a block, in memory from the global operator new, without
 // running its constructor (the kernel places it). 0 when the class or size is unknown.
 Process *RestoreProcess(const char *saved, uint32_t size);
 // sizeof the process's class.
