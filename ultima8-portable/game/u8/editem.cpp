@@ -114,7 +114,7 @@ char EditorItem::move(int16_t x, int16_t y)
 			Rect r(p.x, p.y, p.x, p.y);
 			while (!moved && tries)
 			{
-				for (p.x = r.f_00; p.x <= r.f_04; p.x += 4)
+				for (p.x = r.f_00; p.x <= (uint16_t)r.f_04; p.x += 4)
 				{
 					p.y = r.f_02;
 					if (tracker.can_create(dragged.getType(), p, 0))

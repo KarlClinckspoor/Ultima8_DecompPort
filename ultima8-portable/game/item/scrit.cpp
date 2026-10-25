@@ -18,7 +18,7 @@ SearchCriteria::SearchCriteria(int16_t command, ...)
 	va_list ap;
 
 	va_start(ap, command);
-	for (c = command; c != '$'; c = va_arg(ap, int16_t))
+	for (c = command; c != '$'; c = (int16_t)va_arg(ap, int))
 	{
 		len = cmdlen(c);
 		if (len + pos < 31)
@@ -26,7 +26,7 @@ SearchCriteria::SearchCriteria(int16_t command, ...)
 			data[pos++] = c;
 			for (i = 1; i < len; i += 2)
 			{
-				value = va_arg(ap, int16_t);
+				value = (int16_t)va_arg(ap, int);
 				data[pos++] = value & 0xff;
 				data[pos++] = value >> 8;
 			}

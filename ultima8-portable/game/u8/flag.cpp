@@ -103,7 +103,7 @@ char GlobalFlag::findFlag(char *name, int16_t &index, int16_t &size)
 	if (flagSym)
 	{
 		char *p = flagSym;
-		for (uint16_t pos = 0; pos < flagSymSize; )
+		for (uint16_t pos = 0; pos < (uint16_t)flagSymSize; )
 		{
 			int16_t len = strlen(p) + 1;
 			char *sym = p;

@@ -441,7 +441,7 @@ void Kernel::killProcessSpecifiedPTypes(uint16_t ref, PriorityClass priorities, 
 		halt(__FILE__, 1045);	// __LINE__
 	va_start(ap, priorities);
 	for (count = 0; count < 10; count++) {
-		arg = va_arg(ap, uint16_t);
+		arg = (uint16_t)va_arg(ap, int);
 		types[count] = arg;
 		if (arg == PT_END)
 			break;
@@ -479,7 +479,7 @@ void Kernel::killProcessNonSpecifiedPTypes(uint16_t ref, PriorityClass prioritie
 		halt(__FILE__, 1112);	// __LINE__
 	va_start(ap, priorities);
 	for (count = 0; count < 10; count++) {
-		arg = va_arg(ap, uint16_t);
+		arg = (uint16_t)va_arg(ap, int);
 		types[count] = arg;
 		if (arg == PT_END)
 			break;

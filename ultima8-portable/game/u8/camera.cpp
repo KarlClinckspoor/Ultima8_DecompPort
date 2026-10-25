@@ -1192,7 +1192,7 @@ void Camera::find_new_roof(Item item)
 
 uint8_t Camera::roof_item_moved(void)
 {
-	return Item(centeredOn).getX() != roof_item_x || Item(centeredOn).getY() != roof_item_y ||
+	return (uint16_t)Item(centeredOn).getX() != roof_item_x || (uint16_t)Item(centeredOn).getY() != roof_item_y ||
 		Item(centeredOn).getZ() != roof_item_z;
 }
 

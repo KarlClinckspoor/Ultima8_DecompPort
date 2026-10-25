@@ -15,12 +15,12 @@ void IntList::removeFromList(uint16_t pid)
 
 	if (isAllocated())
 	{
-		if (current == index)
+		if (current == (uint16_t)index)
 		{
 			current--;
 			changed = 1;
 		}
-		else if (current > index)
+		else if (current > (uint16_t)index)	// unsigned, as Borland compared it
 			current--;
 		last--;
 		return;

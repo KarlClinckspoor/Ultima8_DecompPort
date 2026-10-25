@@ -762,6 +762,9 @@ void Item::getFootpad(int16_t &x, int16_t &y, int16_t &z)
 // Footpads are anchored at the item's far corner: x, y and z are the
 // maximum edges, and the footpad extends back from them.
 
+// The box tests below take coordinate minus footpad in 16 unsigned bits, as Borland did:
+// near the map edge the difference wraps instead of going negative.
+
 // TRUE when the two boxes meet face to face without overlapping.
 Boolean Item::touches(Referent other)
 {
@@ -779,17 +782,17 @@ Boolean Item::touches(Referent other)
 		x2 = ItemData::xArray[other];
 		fx <<= 5;
 		ox <<= 5;
-		if (x2 - ox <= x1 && x1 - fx <= x2)
+		if ((uint16_t)(x2 - ox) <= x1 && (uint16_t)(x1 - fx) <= x2)
 		{
-			if (x2 - ox == x1 || x1 - fx == x2)
+			if ((uint16_t)(x2 - ox) == x1 || (uint16_t)(x1 - fx) == x2)
 				touching = TRUE;
 			y1 = ItemData::yArray[referent];
 			y2 = ItemData::yArray[other];
 			fy <<= 5;
 			oy <<= 5;
-			if (y2 - oy <= y1 && y1 - fy <= y2)
+			if ((uint16_t)(y2 - oy) <= y1 && (uint16_t)(y1 - fy) <= y2)
 			{
-				if (y2 - oy == y1 || y1 - fy == y2)
+				if ((uint16_t)(y2 - oy) == y1 || (uint16_t)(y1 - fy) == y2)
 					touching = TRUE;
 				z1 = ItemData::zArray[referent];
 				z2 = ItemData::zArray[other];
@@ -822,13 +825,13 @@ Boolean Item::overlaps(Referent other)
 		x2 = ItemData::xArray[other];
 		fx <<= 5;
 		ox <<= 5;
-		if (x2 - ox < x1 && x1 - fx < x2)
+		if ((uint16_t)(x2 - ox) < x1 && (uint16_t)(x1 - fx) < x2)
 		{
 			y1 = ItemData::yArray[referent];
 			y2 = ItemData::yArray[other];
 			fy <<= 5;
 			oy <<= 5;
-			if (y2 - oy < y1 && y1 - fy < y2)
+			if ((uint16_t)(y2 - oy) < y1 && (uint16_t)(y1 - fy) < y2)
 			{
 				z1 = ItemData::zArray[referent];
 				z2 = ItemData::zArray[other];
@@ -856,13 +859,13 @@ Boolean Item::overlapsXY(Referent other)
 		x2 = ItemData::xArray[other];
 		fx <<= 5;
 		ox <<= 5;
-		if (x2 - ox < x1 && x1 - fx < x2)
+		if ((uint16_t)(x2 - ox) < x1 && (uint16_t)(x1 - fx) < x2)
 		{
 			y1 = ItemData::yArray[referent];
 			y2 = ItemData::yArray[other];
 			fy <<= 5;
 			oy <<= 5;
-			if (y2 - oy < y1 && y1 - fy < y2)
+			if ((uint16_t)(y2 - oy) < y1 && (uint16_t)(y1 - fy) < y2)
 				return TRUE;
 		}
 	}
@@ -898,13 +901,13 @@ Boolean Item::isCompletelyOn(Referent other)
 		x2 = ItemData::xArray[other];
 		fx <<= 5;
 		ox <<= 5;
-		if (x1 <= x2 && x1 - fx >= x2 - ox)
+		if (x1 <= x2 && (uint16_t)(x1 - fx) >= (uint16_t)(x2 - ox))
 		{
 			y1 = ItemData::yArray[referent];
 			y2 = ItemData::yArray[other];
 			fy <<= 5;
 			oy <<= 5;
-			if (y1 <= y2 && y1 - fy >= y2 - oy)
+			if (y1 <= y2 && (uint16_t)(y1 - fy) >= (uint16_t)(y2 - oy))
 			{
 				oz <<= 3;
 				if (ItemData::zArray[referent] == ItemData::zArray[other] + oz)

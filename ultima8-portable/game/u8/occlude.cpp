@@ -78,8 +78,9 @@ void Zbuffer::make(void)
 	TypeFlag type;
 	uint16_t h = ItemCache::regionsIn.minSum + 7;
 	uint16_t v = ItemCache::regionsIn.minDiff + 3;
-	int16_t rx0 = ((h + v) >> 1) - 4;
-	int16_t ry0 = ((h - v) >> 1) - 4;
+	// Unsigned 16-bit sums and differences, shifted logically, as Borland computed them.
+	int16_t rx0 = ((uint16_t)(h + v) >> 1) - 4;
+	int16_t ry0 = ((uint16_t)(h - v) >> 1) - 4;
 	init();
 	roof = Camera::roof();
 	regionOrigin(rx0, ry0, originX, originY);
@@ -137,8 +138,9 @@ uint8_t Zbuffer::isHidden(Referent r)
 	uint8_t z, hidden;
 	uint16_t h = ItemCache::regionsIn.minSum + 7;
 	uint16_t v = ItemCache::regionsIn.minDiff + 3;
-	int16_t rx0 = ((h + v) >> 1) - 4;
-	int16_t ry0 = ((h - v) >> 1) - 4;
+	// Unsigned 16-bit sums and differences, shifted logically, as Borland computed them.
+	int16_t rx0 = ((uint16_t)(h + v) >> 1) - 4;
+	int16_t ry0 = ((uint16_t)(h - v) >> 1) - 4;
 	ZItem item(r);
 	regionOrigin(rx0, ry0, originX, originY);
 	type = GlobalTypes.typeFlags[ItemData::typeArray[item.referent]];
