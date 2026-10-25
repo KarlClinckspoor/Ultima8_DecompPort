@@ -340,9 +340,13 @@ static void control(uint8_t channel, uint8_t controller, uint8_t value)
 	}
 }
 
+// A patch with no timbre installed leaves the channel's timbre as it was, as in Miles.
 static void programChange(uint8_t channel, uint8_t patch)
 {
-	channels[channel].timbre = findTimbre(channels[channel].bank, patch);
+	const Timbre *t = findTimbre(channels[channel].bank, patch);
+
+	if (t)
+		channels[channel].timbre = t;
 }
 
 static void pitchBend(uint8_t channel, uint16_t value)

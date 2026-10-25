@@ -75,7 +75,7 @@ public:
 	void disableCriticalInterrupts(void);
 	void terminate(void);
 	void checkDependencies(uint16_t);
-	void makeDependencyList(uint16_t, ...);
+	void makeDependencyList(int, ...);	// int: va_start needs a promoted type
 	void clrPassiveInt(uint16_t);
 	void clrActiveInt(uint16_t);
 	void clrPassiveDep(uint16_t);

@@ -66,8 +66,9 @@ struct XmiSequence
 	XmiLoop loops[MAX_LOOPS];
 	int16_t loopDepth;
 	// relative volume and tempo, in percent, with their ramps (per interval)
-	int32_t volume, volumeTarget, volumeStep;
-	int32_t tempo, tempoTarget, tempoStep;
+	// Percentages; a ramp moves the fixed-point (16.16) copy by its step each interval.
+	int32_t volume, volumeTarget, volumeStep, volumeFixed;
+	int32_t tempo, tempoTarget, tempoStep, tempoFixed;
 	int32_t tempoAccum;
 	uint8_t channelVolume[16];
 	uint8_t channelUsed[16];
@@ -422,6 +423,15 @@ static uint8_t playEvents(XmiSequence *s)
 }
 
 // One interval of the sequence.
+// One interval of a volume or tempo ramp, ending exactly on the target.
+static void rampStep(int32_t &value, int32_t &fixed, int32_t target, int32_t step)
+{
+	fixed += step;
+	value = fixed / 65536;
+	if (step == 0 || (step > 0 && value >= target) || (step < 0 && value <= target))
+		value = target;
+}
+
 static void runInterval(XmiSequence *s)
 {
 	int16_t i;
@@ -456,21 +466,13 @@ static void runInterval(XmiSequence *s)
 	// ramps
 	if (s->volume != s->volumeTarget)
 	{
-		s->volume += s->volumeStep;
-		if ((s->volumeStep > 0 && s->volume > s->volumeTarget) || (s->volumeStep < 0 && s->volume < s->volumeTarget)
-			|| s->volumeStep == 0)
-			s->volume = s->volumeTarget;
+		rampStep(s->volume, s->volumeFixed, s->volumeTarget, s->volumeStep);
 		for (uint8_t c = 0; c < 16; c++)
 			if (s->channelUsed[c])
 				sendVolume(s, c);
 	}
 	if (s->tempo != s->tempoTarget)
-	{
-		s->tempo += s->tempoStep;
-		if ((s->tempoStep > 0 && s->tempo > s->tempoTarget) || (s->tempoStep < 0 && s->tempo < s->tempoTarget)
-			|| s->tempoStep == 0)
-			s->tempo = s->tempoTarget;
-	}
+		rampStep(s->tempo, s->tempoFixed, s->tempoTarget, s->tempoStep);
 	// events
 	if (s->delay > 0 && --s->delay > 0)
 		return;
@@ -659,18 +661,20 @@ uint16_t XMI_sequence_status(HSEQUENCE h)
 	return s ? s->status : SEQ_DONE;
 }
 
-static void ramp(int32_t &value, int32_t &target, int32_t &step, uint16_t percent, uint16_t milliseconds)
+static void ramp(int32_t &value, int32_t &fixed, int32_t &target, int32_t &step, uint16_t percent,
+	uint16_t milliseconds)
 {
 	int32_t intervals = (int32_t)milliseconds * INTERVAL_HZ / 1000;
 
 	target = percent;
+	fixed = value * 65536;
 	if (intervals <= 0)
 	{
 		value = target;
 		step = 0;
 		return;
 	}
-	step = (target - value) / intervals;
+	step = (target - value) * 65536 / intervals;
 	if (step == 0)
 		step = target > value ? 1 : -1;
 }
@@ -681,7 +685,7 @@ void XMI_set_relative_volume(HSEQUENCE h, uint16_t percent, uint16_t millisecond
 
 	if (s == 0)
 		return;
-	ramp(s->volume, s->volumeTarget, s->volumeStep, percent, milliseconds);
+	ramp(s->volume, s->volumeFixed, s->volumeTarget, s->volumeStep, percent, milliseconds);
 	for (uint8_t c = 0; c < 16; c++)
 		if (s->channelUsed[c])
 			sendVolume(s, c);
@@ -693,7 +697,7 @@ void XMI_set_relative_tempo(HSEQUENCE h, uint16_t percent, uint16_t milliseconds
 
 	if (s == 0)
 		return;
-	ramp(s->tempo, s->tempoTarget, s->tempoStep, percent, milliseconds);
+	ramp(s->tempo, s->tempoFixed, s->tempoTarget, s->tempoStep, percent, milliseconds);
 }
 
 int16_t XMI_measure_count(HSEQUENCE h)

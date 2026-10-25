@@ -119,7 +119,7 @@ public:
 	int16_t get_dy(void);
 	int16_t getRelX(Event &);
 	int16_t getRelY(Event &);
-	void registerHotKeys(int16_t, ...);
+	void registerHotKeys(int, ...);	// int: va_start needs a promoted type
 	uint8_t searchHotKeys(Event &);
 	void restore(Rect);
 	void restore(void);

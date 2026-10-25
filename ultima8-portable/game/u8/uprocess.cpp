@@ -363,7 +363,9 @@ void UnkProcess::load(BaseFile *file)
 	uint16_t offset;
 
 	Process::load(file);
-	spOffset = routine.sp - routine.buffer;
+	// sp and top came back as the saving run's pointers into its own copy of the stack, so
+	// sp's offset is found from those two (top was always 200 bytes in), not from this buffer.
+	spOffset = (int16_t)(routine.sp - routine.top) + 200;
 	file->read((char *)&thisOffset, 2);
 	file->read((char *)&thisSize, 1);
 	if (killed)

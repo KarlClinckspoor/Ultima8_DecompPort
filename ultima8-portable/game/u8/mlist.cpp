@@ -12,7 +12,7 @@
 // Builds the list from DEP_END-terminated words. With an owner, the list is
 // what it waits on: each pid gets linked both ways.
 // Builds the list from the words after owner, up to and including DEP_END.
-int16_t List::constructList(uint16_t owner, ...)
+int16_t List::constructList(int owner, ...)
 {
 	uint16_t words[0x400];
 	uint16_t n = 0;
@@ -26,7 +26,7 @@ int16_t List::constructList(uint16_t owner, ...)
 		words[n] = (uint16_t)va_arg(args, int);
 	} while (words[n++] != DEP_END);
 	va_end(args);
-	return constructList(owner, words, n);
+	return constructList((uint16_t)owner, (const uint16_t *)words, n);
 }
 
 int16_t List::constructList(uint16_t owner, const uint16_t *args, uint16_t n)

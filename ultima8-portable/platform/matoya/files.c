@@ -57,6 +57,7 @@ static handle handles[MAX_HANDLES + 1];
 
 const char *files_root(void)
 {
+	backend_ensure_root();
 	return root;
 }
 
@@ -136,6 +137,7 @@ static bool resolve(const char *dos, bool create, char *path)
 	char part[NAME_SIZE];
 	char real[NAME_SIZE];
 
+	backend_ensure_root();
 	snprintf(path, PATH_SIZE, "%s", root);
 	if (isalpha((unsigned char) p[0]) && p[1] == ':')
 		p += 2;
@@ -231,7 +233,14 @@ int16_t plat_file_open(const char *name, int16_t mode)
 
 	if (!resolve(name, false, path) || !is_file(path))
 		return -1;
-	return add_handle(fopen(path, (mode & PLAT_FILE_WRITE) ? "r+b" : "rb"));
+	FILE *f = fopen(path, (mode & PLAT_FILE_WRITE) ? "r+b" : "rb");
+
+	/* The game opens its data files for writing too, though it only writes its saves. Read-only
+	 * files (as GOG installs them, or a folder the player may not write) open for reading,
+	 * and a write to one fails when it is made. */
+	if (f == NULL && (mode & PLAT_FILE_WRITE))
+		f = fopen(path, "rb");
+	return add_handle(f);
 }
 
 int16_t plat_file_create(const char *name)

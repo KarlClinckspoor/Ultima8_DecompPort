@@ -25,6 +25,11 @@
 
 #ifdef __cplusplus
 #include <new>
+// Included here, before the game's #pragma pack(1) below, so the standard library's types
+// keep their own layout wherever a game file includes these again.
+#include <type_traits>
+#include <typeinfo>
+#include <utility>
 extern "C" {
 #endif
 
@@ -146,6 +151,12 @@ template <class T> inline T max(T a, T b) { return a > b ? a : b; }
 #include "u8dos.h"
 
 /* The game's structs are byte-packed, as Borland C++ laid them out without -a. */
+// The game ends the program with exit(); the platform ends it instead, as a DOS exit did,
+// without running static destructors while the other threads still use what they free.
+// (<stdlib.h> is included above, so its own declaration of exit is not renamed.)
+void u8_exit(int code);
+#define exit(code) u8_exit(code)
+
 // The decompiled files define the inline functions they use themselves. Borland emitted each
 // one a file did not expand as a "virtual segment", of which the linker kept one copy, and
 // files without a definition called that copy. U8_INLINE has every file that defines one

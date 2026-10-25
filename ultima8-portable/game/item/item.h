@@ -115,11 +115,12 @@ public:
 	void move(uint16_t, uint16_t, uint8_t);
 	void move(uint16_t);
 	Boolean legal_move(WorldPoint &, uint16_t, uint16_t);
-	Boolean legal_move(WorldPoint &&p, uint16_t a, uint16_t b) { return legal_move(p, a, b); }
+	// const & rather than &&, which GCC cannot pick the WorldPoint & overload beside (intrinsics.h).
+	Boolean legal_move(const WorldPoint &p, uint16_t a, uint16_t b) { return legal_move(const_cast<WorldPoint &>(p), a, b); }
 	Boolean legal_move(Referent &, uint16_t);
 	Boolean superlegal_move(WorldPoint &, uint16_t, uint16_t, uint16_t, Boolean *, Referent *);
 	void move(WorldPoint &);
-	void move(WorldPoint &&p) { move(p); }
+	void move(const WorldPoint &p) { move(const_cast<WorldPoint &>(p)); }
 	void move(char);
 	char getDirToCoords(uint16_t, uint16_t);
 	int16_t getDirFromCoords(uint16_t, uint16_t);

@@ -233,7 +233,7 @@ void Process::checkDependencies(uint16_t deadPid)
 
 // Passes the DEP_END-terminated arguments on to constructList. (The DOS build copied them
 // onto the stack again itself; nothing in U8.EXE called it.)
-void Process::makeDependencyList(uint16_t first, ...)
+void Process::makeDependencyList(int first, ...)
 {
 	uint16_t words[0x400];
 	uint16_t n = 0;

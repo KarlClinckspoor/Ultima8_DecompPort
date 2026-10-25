@@ -35,7 +35,7 @@ public:
 	~List(void);
 	virtual void load(BaseFile *);
 	virtual void save(BaseFile *);
-	int16_t constructList(uint16_t, ...);
+	int16_t constructList(int, ...);	// int: va_start needs a promoted type
 	int16_t constructList(uint16_t, const uint16_t *, uint16_t);
 	void clear(void);
 	int16_t addToList(uint16_t);

@@ -513,7 +513,7 @@ uint8_t Dispatcher::getNextRecordedEvent(Event &e)
 		e.f_0e = dispatcherMemory[eventCounter].buttons;
 		ticks = dispatcherMemory[eventCounter].ticks;
 		while (atimer->getTicks() < ticks)
-			;
+			plat_yield();	// the timer interrupt counted while DOS spun here
 		eventCounter++;
 		return 1;
 	}

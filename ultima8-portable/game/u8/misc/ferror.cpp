@@ -2,6 +2,7 @@
 // name: MISC\FERROR.C
 
 #include "u8port.h"
+#include "plat.h"
 
 // #include <process.h>  (DOS only)
 #include <stdarg.h>
@@ -39,7 +40,13 @@ void Fatal(const char *format, ...)
 		conputs(ExitMessage);
 		depth--;
 		SimpleExitSystem::exit();
-		exit(1);
+		// DOS left the message on the text screen; the platform shows it before ending.
+		{
+			char text[sizeof message + 64];
+
+			snprintf(text, sizeof text, "%s%s", message, ExitMessage);
+			plat_fatal(text);
+		}
 	}
 }
 

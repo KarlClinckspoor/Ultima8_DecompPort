@@ -8,7 +8,7 @@
 #include "error.h"
 #include "scrit.h"
 
-SearchCriteria::SearchCriteria(int16_t command, ...)
+SearchCriteria::SearchCriteria(int command, ...)
 {
 	int16_t pos = 1;
 	int16_t c;

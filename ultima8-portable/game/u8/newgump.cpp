@@ -409,7 +409,7 @@ void NewGump::command(Event &event)
 }
 
 // Adds a zero-terminated list of keys to the ones this gump answers.
-void NewGump::registerHotKeys(int16_t first, ...)
+void NewGump::registerHotKeys(int first, ...)
 {
 	int16_t total;
 	int16_t oldCount = 0;

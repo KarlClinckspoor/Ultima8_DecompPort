@@ -61,6 +61,9 @@ void video_refresh(bool force);
 /* Saves the last presented frame as a 320x200 PPM. */
 bool video_write_shot(const char *path);
 
+/* The data folder, chosen on first use (main.c). */
+void backend_ensure_root(void);
+
 /* files.c */
 void files_set_root(const char *dir);
 /* The game's folder, as set. */

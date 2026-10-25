@@ -22,11 +22,6 @@ Process *RestoreProcess(const char *saved, uint32_t size);
 // sizeof the process's class.
 uint16_t ProcessClassSize(Process *p);
 
-// Pointers into the program itself (string constants, mostly) as numbers that survive to
-// another run of the same build; 0 for null and for pointers elsewhere.
-uint32_t ImageOffset(const void *p);
-const void *ImageAddress(uint32_t offset);
-
 // One process class: what procreg.cpp lists.
 struct ProcessClass
 {

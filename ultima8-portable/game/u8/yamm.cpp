@@ -199,6 +199,7 @@ void Yamm::load(BaseFile &file)
 	buffer = new char[YAMM_SIZE];
 	if (buffer == 0)
 		outOfMemory(__FILE__, 247);	// __LINE__
+	u8_far_register(FAR_YAMM, buffer, YAMM_SIZE);
 	file.read(buffer, YAMM_SIZE);
 	head = (YammBlock *)resolve(8);
 }

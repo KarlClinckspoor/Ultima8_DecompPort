@@ -69,8 +69,15 @@ static uint32_t address(uint8_t a, uint8_t b, uint8_t c)
 	return (uint32_t)a << 14 | (uint32_t)b << 7 | c;
 }
 
+// The Miles MT-32 driver's set-up: parts 1-8 and rhythm on MIDI channels 2-10, the partials
+// shared out 3/4 between the parts (the power-on table leaves parts 6-8 none), a quieter
+// reverb, and each channel at full volume, panned centre.
 static void init(void)
 {
+	static const uint8_t channels[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+	static const uint8_t partials[9] = {3, 4, 3, 4, 3, 4, 3, 4, 4};
+	static const uint8_t reverb[3] = {0, 3, 2};	// mode, time, level
+
 	for (uint8_t c = 0; c < 16; c++)
 	{
 		program[c] = 0;
@@ -78,6 +85,14 @@ static void init(void)
 		send((uint8_t)(0xB0 | c), 123, 0, 3);	// all notes off
 	}
 	memset(queues, 0, sizeof queues);
+	write(address(0x10, 0, 0x0D), channels, 9);
+	write(address(0x10, 0, 0x04), partials, 9);
+	write(address(0x10, 0, 0x01), reverb, 3);
+	for (uint8_t c = 1; c < 10; c++)
+	{
+		send((uint8_t)(0xB0 | c), 7, 127, 3);	// volume
+		send((uint8_t)(0xB0 | c), 10, 64, 3);	// pan
+	}
 }
 
 // The message shows on the MT-32's display, as the driver showed it when the game ended.

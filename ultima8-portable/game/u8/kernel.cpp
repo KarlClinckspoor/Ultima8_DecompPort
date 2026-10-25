@@ -981,7 +981,8 @@ void Kernel::unpackStatics(const uint8_t *b)
 // vtable pointer was the same in every run of U8.EXE. On the host each object record starts
 // with its class's name, and loading rebuilds the object through that class's copy
 // constructor (game/u8/procreg.cpp), which sets its vtable pointers and its members'.
-// idStringList held DGROUP offsets; it holds offsets into the program's image now.
+// idStringList held DGROUP offsets; the names themselves are saved now, one after another,
+// each ended by a 0 (an empty one for a slot without a name).
 void Kernel::load(char *name)
 {
 	uint16_t i;
@@ -1018,11 +1019,22 @@ void Kernel::load(char *name)
 		file.readRecord(record++, quickProcessTypeArray);
 		file.readRecord(record++, priorityCount);
 		{
-			uint32_t *offsets = new uint32_t[maxProcesses];
-			file.readRecord(record++, offsets);
-			for (i = 0; i < maxProcesses; i++)
-				idStringList[i] = (char *)ImageAddress(offsets[i]);
-			delete[] offsets;
+			// The names stay in this block until the next load replaces them all.
+			static char *names = 0;
+			Index namesIndex;
+			uint32_t at = 0;
+
+			delete[] names;
+			file.getIndex(record, namesIndex);
+			names = new char[namesIndex.size + 1];
+			file.readRecord(record++, names);
+			names[namesIndex.size] = 0;
+			for (i = 0; i < maxProcesses; i++) {
+				idStringList[i] = at < namesIndex.size && names[at] ? names + at : 0;
+				while (at < namesIndex.size && names[at])
+					at++;
+				at++;
+			}
 		}
 
 		record = 10;
@@ -1129,11 +1141,21 @@ void Kernel::save(char *name)
 	file.writeRecord(record++, quickProcessTypeArray, 9216);
 	file.writeRecord(record++, priorityCount, 64);
 	{
-		uint32_t *offsets = new uint32_t[maxProcesses];
+		uint32_t size = 0;
+		char *names;
+
 		for (i = 0; i < maxProcesses; i++)
-			offsets[i] = ImageOffset(idStringList[i]);
-		file.writeRecord(record++, offsets, maxProcesses * 4);
-		delete[] offsets;
+			size += (idStringList[i] ? strlen(idStringList[i]) : 0) + 1;
+		names = new char[size];
+		size = 0;
+		for (i = 0; i < maxProcesses; i++) {
+			const char *name = idStringList[i] ? idStringList[i] : "";
+
+			strcpy(names + size, name);
+			size += strlen(name) + 1;
+		}
+		file.writeRecord(record++, names, size);
+		delete[] names;
 	}
 
 	record = 10;

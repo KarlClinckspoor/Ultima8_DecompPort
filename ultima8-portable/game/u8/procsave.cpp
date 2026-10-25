@@ -67,27 +67,3 @@ uint16_t ProcessClassSize(Process *p)
 
 	return c ? c->size : 0;
 }
-
-// An anchor in the program's constant data; constants and code lie within a few megabytes of
-// it, in the same order in every run of a build.
-static const char imageAnchor[] = "Ultima VIII";
-#define IMAGE_REACH 0x10000000L
-
-uint32_t ImageOffset(const void *p)
-{
-	intptr_t delta;
-
-	if (p == 0)
-		return 0;
-	delta = (intptr_t)p - (intptr_t)imageAnchor;
-	if (delta <= -IMAGE_REACH || delta >= IMAGE_REACH)
-		return 0;
-	return (uint32_t)(delta + IMAGE_REACH) | 0x80000000u;
-}
-
-const void *ImageAddress(uint32_t offset)
-{
-	if (!(offset & 0x80000000u))
-		return 0;
-	return imageAnchor + ((intptr_t)(offset & 0x7fffffffu) - IMAGE_REACH);
-}

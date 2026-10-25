@@ -2,6 +2,7 @@
 // name: SYSTIMER.C
 
 #include "u8port.h"
+#include "plat.h"
 
 // #include <phapi.h>  (DOS only)
 #include "cfile.h"
@@ -51,7 +52,7 @@ void SystemTimer::wait(uint32_t count)
 	uint32_t start = ticks;
 
 	while (start + count > ticks)
-		;
+		plat_yield();	// the timer interrupt counted while DOS spun here
 }
 
 void SystemTimer::process(void)

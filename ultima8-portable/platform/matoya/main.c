@@ -87,7 +87,8 @@ void plat_exit(int16_t code)
 void plat_fatal(const char *message)
 {
 	fprintf(stderr, "u8: %s\n", message);
-	if (on_app_thread) {
+	/* Before main has opened the window (a static constructor), this is the app thread too. */
+	if (on_app_thread || (app == NULL && !on_game_thread)) {
 		/* A scripted run has no one to close the box. */
 		if (MTY_HasDialogs() && !test_input_active())
 			MTY_ShowMessageBox(WINDOW_TITLE, "%s", message);
@@ -330,34 +331,48 @@ static void use_parent_console(void)
 }
 #endif
 
-int main(int argc, char **argv)
+/* The data folder: the one named (--data, else U8_DATA), else the current folder if it has
+ * STATIC, else the program's own (a double-click does not always start in the game's folder),
+ * else Documents/Ultima8. Documents comes last because macOS asks the player before letting an
+ * app look there. Chosen once, by the first file access: the game reads files from its static
+ * constructors, before main runs. */
+static bool root_chosen;
+static char own_dir[1024];
+
+static void find_root(const char *data_dir)
 {
-	MTY_Frame frame;
-	char problem[1024], own_dir[1024] = "", docs_dir[1024];
-	const char *data_dir;
+	char docs_dir[1024];
+	const char *fallback;
 
-	use_parent_console();
-	on_app_thread = true;
-	start_time = MTY_GetTime();
-	data_dir = take_data_dir(argc, argv);
-	files_set_root(data_dir != NULL ? data_dir : ".");
-	/* With no folder named: the current one, the program's own (a double-click does not always
-	 * start in the game's folder), then Documents/Ultima8. Documents comes last because macOS
-	 * asks the player before letting an app look there. */
-	if (data_dir == NULL && !plat_dir_exists("STATIC")) {
-		const char *fallback = exe_directory(own_dir, sizeof own_dir) ? own_dir : ".";
-
-		files_set_root(fallback);
-		if (!plat_dir_exists("STATIC") && documents_directory(docs_dir, sizeof docs_dir)) {
-			files_set_root(docs_dir);
-#ifndef __APPLE__
-			/* Found nowhere: report the program's folder, where the game is meant to go. A Mac
-			 * install keeps the app in Applications and the game in Documents/Ultima8. */
-			if (!plat_dir_exists("STATIC"))
-				files_set_root(fallback);
-#endif
-		}
+	if (data_dir != NULL) {
+		files_set_root(data_dir);
+		return;
 	}
+	files_set_root(".");
+	if (plat_dir_exists("STATIC"))
+		return;
+	fallback = exe_directory(own_dir, sizeof own_dir) ? own_dir : ".";
+	files_set_root(fallback);
+	if (!plat_dir_exists("STATIC") && documents_directory(docs_dir, sizeof docs_dir)) {
+		files_set_root(docs_dir);
+#ifndef __APPLE__
+		/* Found nowhere: report the program's folder, where the game is meant to go. A Mac
+		 * install keeps the app in Applications and the game in Documents/Ultima8. */
+		if (!plat_dir_exists("STATIC"))
+			files_set_root(fallback);
+#endif
+	}
+}
+
+/* Stops with a message saying what is wrong when the folder does not hold the game. */
+static void choose_root(const char *data_dir)
+{
+	char problem[1024];
+
+	if (root_chosen)
+		return;
+	root_chosen = true;
+	find_root(data_dir);
 	if (!files_check_data(problem, sizeof problem)) {
 		/* macOS runs a downloaded app from a hidden copy until it is moved in Finder. */
 		if (strstr(own_dir, "/AppTranslocation/") != NULL)
@@ -366,6 +381,66 @@ int main(int argc, char **argv)
 				"folder and back in, then open it again.");
 		plat_fatal(problem);
 	}
+}
+
+#if defined(__APPLE__)
+#include <crt_externs.h>
+#endif
+
+/* --data or U8_DATA, read before main has its arguments. */
+static const char *early_data_dir(void)
+{
+	static char buffer[8192];
+	int argc = 0;
+	char *argv[256];
+	const char *dir = getenv("U8_DATA");
+
+#ifdef _WIN32
+	argc = __argc < 256 ? __argc : 256;
+	for (int i = 0; i < argc; i++)
+		argv[i] = __argv[i];
+#elif defined(__APPLE__)
+	argc = *_NSGetArgc() < 256 ? *_NSGetArgc() : 256;
+	for (int i = 0; i < argc; i++)
+		argv[i] = (*_NSGetArgv())[i];
+#else
+	FILE *f = fopen("/proc/self/cmdline", "rb");
+	size_t n = 0;
+
+	if (f != NULL) {
+		n = fread(buffer, 1, sizeof buffer - 1, f);
+		fclose(f);
+	}
+	buffer[n] = '\0';
+	for (size_t at = 0; at < n && argc < 256; at += strlen(buffer + at) + 1)
+		argv[argc++] = buffer + at;
+#endif
+	for (int i = 1; i + 1 < argc; i++) {
+		if (argv[i] != NULL && strcmp(argv[i], "--data") == 0)
+			dir = argv[i + 1];
+	}
+	return dir != NULL && dir[0] != '\0' ? dir : NULL;
+}
+
+void backend_ensure_root(void)
+{
+	if (!root_chosen)
+		choose_root(early_data_dir());
+}
+
+int main(int argc, char **argv)
+{
+	MTY_Frame frame;
+	const char *data_dir;
+
+	use_parent_console();
+	on_app_thread = true;
+	/* 1 ms sleeps on Windows (its default is 15.6 ms), so the game's timers and waits keep
+	 * their rates; the process ends without reverting it, which ends it too. */
+	MTY_SetTimerResolution(1);
+	start_time = MTY_GetTime();
+	data_dir = take_data_dir(argc, argv);
+	choose_root(data_dir);
 	events_init();
 	video_init();
 	view_lock = MTY_MutexCreate();

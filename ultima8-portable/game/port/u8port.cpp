@@ -131,16 +131,21 @@ static void host_format(const char *format, char *out, size_t size)
 		/* flags, width, precision */
 		while (*format && strchr("-+ #0123456789.*", *format) && o + 4 < size)
 			out[o++] = *format++;
-		bool longer = false;
+		bool longer = false, shorter = false;
 		while (*format == 'l' || *format == 'F' || *format == 'N' || *format == 'h' || *format == 'L') {
 			if (*format == 'l')
 				longer = true;
-			else if (*format == 'h' || *format == 'L')
+			else if (*format == 'h' || *format == 'L') {
+				shorter |= *format == 'h';
 				out[o++] = *format;
+			}
 			format++;
 		}
 		if (longer && (*format == 'f' || *format == 'e' || *format == 'g' || *format == 'E' || *format == 'G'))
 			out[o++] = 'l';
+		/* An int was 16 bits: unsigned conversions of one print 16 bits (-1 as FFFF). */
+		if (!longer && !shorter && *format && strchr("ouxX", *format))
+			out[o++] = 'h';
 		if (*format)
 			out[o++] = *format++;
 	}
@@ -421,3 +426,11 @@ void operator delete(void *p) noexcept { ::free(p); }
 void operator delete[](void *p) noexcept { ::free(p); }
 void operator delete(void *p, size_t) noexcept { ::free(p); }
 void operator delete[](void *p, size_t) noexcept { ::free(p); }
+
+// ---- exit ----
+#undef exit
+
+void u8_exit(int code)
+{
+	plat_exit((int16_t)code);
+}

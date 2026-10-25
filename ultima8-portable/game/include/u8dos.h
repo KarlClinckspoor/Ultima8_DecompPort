@@ -53,6 +53,14 @@ struct find_t {
 extern "C" {
 #endif
 
+/* The Windows C runtime has functions of some of these names, so they are u8_ ones here. */
+#define _dos_findfirst u8_dos_findfirst
+#define _dos_findnext u8_dos_findnext
+#define _getdrive u8_getdrive
+#define _dos_getdrive u8_dos_getdrive
+#define _chdrive u8_chdrive
+#define _getdcwd u8_getdcwd
+
 /* 0 when a file was found, else the DOS error (18, no more files). */
 uint16_t _dos_findfirst(const char *pattern, uint16_t attrib, struct find_t *found);
 uint16_t _dos_findnext(struct find_t *found);
