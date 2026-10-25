@@ -2,6 +2,7 @@
 // name: ..\SOUND\DSFXMAN.C
 
 #include "u8port.h"
+#include "plat.h"
 
 // #include <dos.h>  (DOS only)
 // #include <mem.h>  (DOS only)
@@ -865,10 +866,29 @@ void getSoundStuff(int16_t &sport, int16_t &sirq, int16_t &sdma, int16_t &sdrq, 
 	int16_t &mdma, int16_t &mdrq, uint8_t &musicType, uint8_t &soundType,
 	char *soundName, char *musicName)
 {
-	BaseFile ini("u8.ini", ReadWrite);
-	ini.read((char *)&scard, 8);
-	ini.read((char *)&mcard, 8);
-	ini.close();
+	memset(&scard, 0, sizeof scard);
+	memset(&mcard, 0, sizeof mcard);
+	if (plat_file_exists("u8.ini"))
+	{
+		BaseFile ini("u8.ini", ReadWrite);
+		ini.read((char *)&scard, 8);
+		ini.read((char *)&mcard, 8);
+		ini.close();
+	}
+	// The port has its sound hardware whatever the installer recorded (or without u8.ini):
+	// the digitised sound on an emulated Sound Blaster, the music on the MT-32 when its ROMs
+	// are found, else on the AdLib. The game's own options still turn either off.
+	if (scard.type == 0 || scard.port <= 0)
+	{
+		scard.type = 1;
+		scard.port = 0x220;
+		scard.irq = 5;
+		scard.dma = 1;
+	}
+	mcard.type = plat_music_device() == 'r' ? 6 : 1;
+	mcard.port = plat_music_device() == 'r' ? 0x330 : 0x388;
+	mcard.irq = -1;
+	mcard.dma = -1;
 	musicType = mcard.type;
 	if (musicType)
 	{

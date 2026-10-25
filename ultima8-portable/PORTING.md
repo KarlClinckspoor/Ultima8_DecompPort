@@ -58,10 +58,14 @@ what the assembly did, including its clipping, its return values and its 16-bit 
 The comments at the top of each `.ASM` describe its interface and are kept. Functions keep
 their names and C++ signatures (`extern "C"` and `pascal` are dropped).
 
-The modules that drove the DOS extender, the interrupt controller, the descriptor tables,
-the Sound Blaster and the mouse driver (`INTERUPT`, `NEWHOOK`, `REDIRECT`, `SETREGS`,
-`GETREGS`, `SB`, `SBDAC`, and the `DEXT286`/`DOSFIX32` code) have no port: the platform layer
-does their work.
+The modules that drove the DOS extender, the descriptor tables and the hardware are replaced
+rather than translated: `INTERUPT` and `NEWHOOK` keep their interfaces over the platform
+layer (an emulated interrupt mask; the mouse hook), `SBDAC` queues the mixer's blocks with
+`plat_pcm_queue`, `AIL16` (the Miles timer services, of which U8 used none) is a few empty
+functions in `game/sound/xmidi.cpp`, and `REDIRECT`, `SETREGS`, `GETREGS`, `SMEMCPY`, `SB`
+and the `DEXT286`/`DOSFIX32` code have no counterpart. The Miles XMIDI driver DLL that the
+installer copied in (`AILXMI.DLL`) is `game/sound/xmidi.cpp` (the sequencer) with
+`xmimt32.cpp` and `xmiopl.cpp` (the synths).
 
 ## DOS, BIOS and hardware
 
@@ -74,6 +78,37 @@ does their work.
 - Mouse: the driver's event hook is `plat_mouse_set_handler`.
 - Keyboard: the BIOS buffer is `plat_key_available`/`plat_key_get`.
 - Palette: `SETCOLORRGB`/`GETCOLORRGB` call `plat_video_set_palette`/`get_palette`.
+
+## Traps found while bringing the game up
+
+These all built cleanly and failed at run time. Look for more of the same kind.
+
+- **Functions declared `void` that returned a value.** Borland returned whatever the last
+  call left in AX, and usecode, which declares the intrinsics itself, used it: `Item::ask`
+  returns the pid of the answer menu's process, which the conversation waits on;
+  `Item::getSliderInput` and `Npc::cSetActivity` return values too. `tools/data/intrinsics.txt`
+  lists the intrinsics; compare their C++ return types with ScummVM's list of what usecode
+  expects, and read the DOS code (`out/U8.EXE`, map in `out/U8.MAP`) to see what AX held.
+  Ordinary functions that fall off their end are errors (`-Werror=return-type`).
+- **Writable string literals.** Borland put literals in writable data and the game changes
+  some in place (the language letter of `eusecode.flx`). Global `char *x = "..."` now point
+  at writable arrays; a literal written through a local pointer crashes and needs the same.
+- **Usecode far pointers whose offset matters.** Usecode turns a YAMM handle into a far
+  pointer and later frees the string through the pointer's low word, so the YAMM heap must be
+  registered at its fixed selector (`FAR_YAMM`) with offset = handle.
+- **Data the DOS save format carried implicitly.** `KERNEL.DAT`'s statics record is 157 bytes
+  of the data segment and included the real-time list's count; without it the restored
+  timers never ran. When a structure is saved as raw memory, check what else lay in it.
+- **Globals named after a process.** Processes rebuilt from `KERNEL.DAT` replace the ones
+  made at start-up; each class's `load`/`postLoad` repoints its global (`systemTimer`,
+  `theCameraProcess`). Restored objects are built with the global `operator new`, as the
+  original did, not the class's.
+- **Inline functions per file.** The original defined header inlines (`Rect::Rect`,
+  `NewGumpId::NewGumpId`) in each file that used them, and a few virtual functions only
+  `inline` in a file other than the one that emits the class's vtable; those are out of line now.
+- **16-bit arithmetic.** See the first section; `tools/check_int16.py` lists comparisons,
+  divisions and shifts that mix signed and unsigned 16-bit operands, and 16-bit arithmetic
+  that Borland would have wrapped.
 
 ## Checking a file
 
