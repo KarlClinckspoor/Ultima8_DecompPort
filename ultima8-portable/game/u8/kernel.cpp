@@ -842,7 +842,10 @@ void Kernel::freeMemory(void)
 
 // The kernel's statics as the DOS build saved them: the 157 bytes of its data segment from
 // processList to magicNumberEnd, at their DOS offsets. Pointers (stale on loading anyway,
-// and reallocated by initMemory) and realTimeList (saved in a record of its own) are zero.
+// and reallocated by initMemory) are zero. realTimeList lay among them (0x44-0x52): its pids
+// go in a record of their own, but its count and whether it had data came back with the
+// statics, and List::load reads the pids only then, so those are kept here too (with the
+// data pointer as a 0/1 flag).
 #define STATICS_SIZE 157
 
 static void putWord(uint8_t *p, uint16_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
@@ -879,6 +882,12 @@ void Kernel::packStatics(uint8_t *b)
 	memcpy(b + 0x36, origKeyboardReal, 4);
 	putWord(b + 0x3e, pitDivisor);
 	putLong(b + 0x40, pitPeriod);
+	putWord(b + 0x46, realTimeList.count);
+	putWord(b + 0x48, realTimeList.linearType);
+	putLong(b + 0x4a, realTimeList.isAllocated() ? 1 : 0);
+	b[0x4e] = realTimeList.changed;
+	putWord(b + 0x4f, realTimeList.current);
+	putWord(b + 0x51, realTimeList.last);
 	b[0x53] = interruptDebug;
 	putWord(b + 0x54, hertz);
 	putWord(b + 0x56, totalSafe);
@@ -929,6 +938,17 @@ void Kernel::unpackStatics(const uint8_t *b)
 	memcpy(origKeyboardReal, b + 0x36, 4);
 	pitDivisor = getWord(b + 0x3e);
 	pitPeriod = getLong(b + 0x40);
+	{
+		// A stand-in for the stale pointer: List::load replaces it without reading it.
+		static uint16_t staleData;
+
+		realTimeList.count = getWord(b + 0x46);
+		realTimeList.linearType = getWord(b + 0x48);
+		realTimeList.data = getLong(b + 0x4a) ? &staleData : 0;
+		realTimeList.changed = b[0x4e];
+		realTimeList.current = getWord(b + 0x4f);
+		realTimeList.last = getWord(b + 0x51);
+	}
 	interruptDebug = b[0x53];
 	hertz = getWord(b + 0x54);
 	totalSafe = getWord(b + 0x56);
