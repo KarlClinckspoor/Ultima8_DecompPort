@@ -2,8 +2,8 @@ include_guard(GLOBAL)
 
 # Builds the vendored libmatoya with its own makefiles (it has no CMake project) and exposes the
 # archive as Matoya::matoya.
-function(u7_add_libmatoya)
-    set(_mty_root "${U7_THIRD_PARTY_DIR}/libmatoya")
+function(u8_add_libmatoya)
+    set(_mty_root "${U8_THIRD_PARTY_DIR}/libmatoya")
 
     if(WIN32)
         find_program(_mty_make NAMES nmake REQUIRED)
@@ -38,25 +38,25 @@ function(u7_add_libmatoya)
         COMMENT "Building libmatoya with its own makefile"
         VERBATIM
     )
-    add_custom_target(u7_libmatoya_build DEPENDS "${_mty_library}")
+    add_custom_target(u8_libmatoya_build DEPENDS "${_mty_library}")
 
-    add_library(u7_libmatoya STATIC IMPORTED GLOBAL)
-    add_library(Matoya::matoya ALIAS u7_libmatoya)
-    set_target_properties(u7_libmatoya PROPERTIES
+    add_library(u8_libmatoya STATIC IMPORTED GLOBAL)
+    add_library(Matoya::matoya ALIAS u8_libmatoya)
+    set_target_properties(u8_libmatoya PROPERTIES
         IMPORTED_LOCATION "${_mty_library}"
         INTERFACE_INCLUDE_DIRECTORIES "${_mty_root}/src"
     )
-    add_dependencies(u7_libmatoya u7_libmatoya_build)
+    add_dependencies(u8_libmatoya u8_libmatoya_build)
 
     if(APPLE)
-        target_link_libraries(u7_libmatoya INTERFACE
+        target_link_libraries(u8_libmatoya INTERFACE
             "-framework AppKit" "-framework AudioToolbox" "-framework Carbon" "-framework IOKit"
             "-framework Metal" "-framework QuartzCore" "-framework WebKit")
     elseif(WIN32)
-        target_link_libraries(u7_libmatoya INTERFACE
+        target_link_libraries(u8_libmatoya INTERFACE
             advapi32 bcrypt crypt32 d3d11 d3d12 dxgi dxguid gdi32 hid imm32 ole32 shcore shell32
             shlwapi user32 userenv windowscodecs winhttp winmm ws2_32 xinput)
     else()
-        target_link_libraries(u7_libmatoya INTERFACE m dl pthread)
+        target_link_libraries(u8_libmatoya INTERFACE m dl pthread)
     endif()
 endfunction()

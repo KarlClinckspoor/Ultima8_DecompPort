@@ -115,7 +115,9 @@ void U8Dispatcher::save(BaseFile *file)
 	U8MousePointer::save(file);
 }
 
-inline void *U8GumpShapeDrawer::get(int16_t shape)
+// Out of line: the vtable, emitted with the class's first virtual function in another file,
+// needs it.
+void *U8GumpShapeDrawer::get(int16_t shape)
 {
 	return theGumpShapeHandler->get(theGumpShapeHandler->startHandle + shape);
 }

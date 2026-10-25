@@ -1,13 +1,10 @@
 /* Shared state between the parts of the libmatoya backend.
  *
- *   app thread (process main)   game thread (ProgramMain)   audio thread
- *   window, events, drawing     plat_* calls, game timers   sound tick, Munt, speech
+ *   app thread (process main)   game thread (U8Main)        audio thread
+ *   window, events, drawing     plat_* calls, PIT handler   Munt, OPL3, digitised sound
  *        |  events_push ------------> plat_pump                   ^
  *        |  video_draw <------------ plat_video_present           |
  *                                    plat_midi_send / plat_pcm ---+
- *
- * A launcher thread runs Ultima7Main (or the one program named) and starts each program on
- * a new game thread, after the *_reset calls below clear what the last one left.
  */
 #ifndef BACKEND_H
 #define BACKEND_H
@@ -39,7 +36,7 @@ MTY_Size backend_view_size(void);
 
 /* testinput.c */
 bool test_input_active(void);
-/* Queues the U7_TEST_INPUT steps that are due, as if the user had made them. Game thread. */
+/* Queues the U8_TEST_INPUT steps that are due, as if the user had made them. Game thread. */
 void test_input_poll(void);
 /* Called as each frame is presented. Game thread. */
 void test_input_frame(void);
@@ -76,11 +73,6 @@ void files_reset(void);
 /* A new program's text cursor starts at the top left, as after a mode set. */
 void console_reset(void);
 
-/* nullpage.c */
-/* Lets the game read and write through null pointers as DOS did; see nullpage.c. */
-void nullpage_install(void);
-void nullpage_reset(void);
-
 /* audio.c */
 /* 'a' plays AdLib, 'r' the MT-32; otherwise the MT-32 when its ROMs are found. */
 void audio_choose_music(char device);
@@ -90,11 +82,5 @@ void audio_reset(void);
 /* Releases the sound lock if this thread holds it. */
 void audio_drop_lock(void);
 
-#ifdef U7_RESET_CHECK
-/* resetcheck.c: records the game's globals at start-up and after the first reset, and reports
- * what differs after each reset. */
-void reset_check_startup(void);
-void reset_check(void);
-#endif
 
 #endif

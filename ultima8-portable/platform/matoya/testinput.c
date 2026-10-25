@@ -1,22 +1,20 @@
-/* Scripted input for testing, from the U7_TEST_INPUT environment variable:
+/* Scripted input for testing, from the U8_TEST_INPUT environment variable:
  *
- *   U7_TEST_INPUT="4000 key i; 6000 move 320 100; 6100 down; 6600 move 400 120; 6700 up"
+ *   U8_TEST_INPUT="4000 key i; 6000 move 320 100; 6100 down; 6600 move 400 120; 6700 up"
  *
  * Each step is a time in milliseconds since the process started and an action: "key" with a
  * character or esc, enter, space, up, down, left, right, f1 to f12; "move x y" in the game's
  * 640x200 mouse space; "down" and "up" for the left button, "rdown" and "rup" for the right;
  * "shot file.ppm" saves the frame on screen; "end n" makes the running program exit with code
- * n, as if it had quit by itself; "quit" ends the run. The clock runs across the whole session,
- * so under the launcher one script drives every program in turn; a step that comes due between
- * programs goes to the next. Steps go through the same event handling as real input. While a
- * script runs no window opens.
+ * n, as if it had quit by itself; "quit" ends the run. Steps go through the same event
+ * handling as real input. While a script runs no window opens.
  *
  * Wall-clock steps land on different game frames from run to run. A script that starts with
  * "frames;" times each step in frames the game has presented instead, and one that starts with
  * "fixed;" in milliseconds; both run the game on a clock that moves only as the game waits, so
- * every run takes the same path. U7_TEST_CLOCK=frames or fixed does the same for any script:
+ * every run takes the same path. U8_TEST_CLOCK=frames or fixed does the same for any script:
  *
- *   U7_TEST_INPUT="frames; 300 key i; 420 shot inventory.ppm; 500 quit"
+ *   U8_TEST_INPUT="frames; 300 key i; 420 shot inventory.ppm; 500 quit"
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,7 +56,7 @@ static int64_t frames_shown, frame_shown_us;
 static int test_clock_kind(void)
 {
 	if (clock_kind < 0) {
-		const char *script = getenv("U7_TEST_INPUT"), *chosen = getenv("U7_TEST_CLOCK");
+		const char *script = getenv("U8_TEST_INPUT"), *chosen = getenv("U8_TEST_CLOCK");
 		char word[8] = {0};
 
 		if (script != NULL && sscanf(script, " %7[a-z]", word) == 1)
@@ -119,7 +117,7 @@ static void add_button(int64_t at, MTY_Button button, bool pressed)
 
 static void parse(void)
 {
-	const char *text = getenv("U7_TEST_INPUT");
+	const char *text = getenv("U8_TEST_INPUT");
 	char buffer[4096], *part, *cursor;
 
 	step_count = 0;
@@ -178,7 +176,7 @@ static void parse(void)
 
 bool test_input_active(void)
 {
-	return getenv("U7_TEST_INPUT") != NULL;
+	return getenv("U8_TEST_INPUT") != NULL;
 }
 
 /* Runs the steps that are due, or only those up to the first that is not a shot. */

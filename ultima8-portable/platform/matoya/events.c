@@ -1,4 +1,4 @@
-/* Keyboard, mouse, time and game timers.
+/* Keyboard, mouse, time and the interval timer.
  *
  * The app thread queues window events; plat_pump drains them on the game thread, so the
  * key buffer, modifier flags, mouse state and mouse handler are only touched there.
@@ -9,8 +9,8 @@
 
 #define EVENT_QUEUE_SIZE 256
 #define KEY_BUFFER_SIZE 64
-#define MAX_TIMERS 16
-#define MAX_CATCH_UP_TICKS 5
+/* Missed PIT periods run late, up to this many at a time; the rest are dropped. */
+#define MAX_CATCH_UP_PERIODS 8
 #define MOUSE_WIDTH 640
 #define MOUSE_HEIGHT 200
 
@@ -44,9 +44,10 @@ static int16_t mouse_x;
 static int16_t mouse_y;
 static uint16_t mouse_buttons;
 static plat_mouse_fn mouse_handler;
-static plat_timer_fn timers[MAX_TIMERS];
-static bool timers_started;
-static uint32_t timer_ticks;
+static int16_t bound_left = 0, bound_top = 0, bound_right = MOUSE_WIDTH - 1, bound_bottom = MOUSE_HEIGHT - 1;
+static plat_timer_fn pit_fn;
+static uint32_t pit_period_us;
+static int64_t pit_next_us;
 static bool pumping;
 static int64_t clock_start_us;
 
@@ -69,9 +70,8 @@ void events_reset(void)
 	mouse_y = 0;
 	mouse_buttons = 0;
 	mouse_handler = NULL;
-	memset(timers, 0, sizeof timers);
-	timers_started = false;
-	timer_ticks = 0;
+	pit_fn = NULL;
+	pit_period_us = 0;
 	pumping = false;
 	/* Each program's clock starts at zero. */
 	clock_start_us = backend_elapsed_us();
@@ -276,6 +276,24 @@ int16_t plat_key_get(void)
 	return (int16_t) (next & 0xFF);
 }
 
+uint16_t plat_key_bios(void)
+{
+	uint16_t next;
+
+	while (!plat_key_available())
+		plat_yield();
+	if (pending_scan >= 0) {
+		/* The second half of a getch pair: the key is gone already. */
+		next = (uint16_t) (pending_scan << 8);
+		pending_scan = -1;
+		return next;
+	}
+	next = key_buffer[key_head];
+	key_head = (key_head + 1) % KEY_BUFFER_SIZE;
+	key_count--;
+	return next;
+}
+
 uint16_t plat_key_modifiers(void)
 {
 	return modifiers;
@@ -303,10 +321,35 @@ void plat_mouse_set_handler(plat_mouse_fn fn)
 	mouse_handler = fn;
 }
 
+void plat_mouse_set_bounds(int16_t left, int16_t top, int16_t right, int16_t bottom)
+{
+	if (left >= 0)
+		bound_left = clamp16(left, 0, MOUSE_WIDTH - 1);
+	if (right >= 0)
+		bound_right = clamp16(right, 0, MOUSE_WIDTH - 1);
+	if (top >= 0)
+		bound_top = clamp16(top, 0, MOUSE_HEIGHT - 1);
+	if (bottom >= 0)
+		bound_bottom = clamp16(bottom, 0, MOUSE_HEIGHT - 1);
+	/* The driver swapped the ends given the wrong way round. */
+	if (bound_left > bound_right) {
+		int16_t t = bound_left;
+		bound_left = bound_right;
+		bound_right = t;
+	}
+	if (bound_top > bound_bottom) {
+		int16_t t = bound_top;
+		bound_top = bound_bottom;
+		bound_bottom = t;
+	}
+	mouse_x = clamp16(mouse_x, bound_left, bound_right);
+	mouse_y = clamp16(mouse_y, bound_top, bound_bottom);
+}
+
 void plat_mouse_move_to(int16_t x, int16_t y)
 {
-	mouse_x = clamp16(x, 0, MOUSE_WIDTH - 1);
-	mouse_y = clamp16(y, 0, MOUSE_HEIGHT - 1);
+	mouse_x = clamp16(x, bound_left, bound_right);
+	mouse_y = clamp16(y, bound_top, bound_bottom);
 	/* The game's static constructors call this before main() creates the lock. */
 	if (queue_lock == NULL)
 		return;
@@ -418,10 +461,15 @@ static void handle(const queued_event *e)
 		}
 		break;
 	case EVENT_MOVE:
-		if (e->x == mouse_x && e->y == mouse_y)
-			break;
-		mouse_x = e->x;
-		mouse_y = e->y;
+		{
+			int16_t x = clamp16(e->x, bound_left, bound_right);
+			int16_t y = clamp16(e->y, bound_top, bound_bottom);
+
+			if (x == mouse_x && y == mouse_y)
+				break;
+			mouse_x = x;
+			mouse_y = y;
+		}
 		deliver_mouse(PLAT_MOUSE_MOVED);
 		break;
 	case EVENT_BUTTON:
@@ -439,26 +487,30 @@ static void handle(const queued_event *e)
 	}
 }
 
-static void run_timers(void)
+/* The PIT handler, once for each period that has passed. */
+static void run_pit(void)
 {
-	uint32_t now = plat_ticks();
-	plat_timer_fn due[MAX_TIMERS];
+	int64_t now = plat_microseconds();
+	int n = 0;
 
-	if (!timers_started) {
-		timers_started = true;
-		timer_ticks = now;
+	if (pit_fn == NULL || pit_period_us == 0)
+		return;
+	if (now - pit_next_us > (int64_t) pit_period_us * MAX_CATCH_UP_PERIODS)
+		pit_next_us = now - (int64_t) pit_period_us * MAX_CATCH_UP_PERIODS;
+	while (now >= pit_next_us && pit_fn != NULL && n++ < MAX_CATCH_UP_PERIODS) {
+		pit_next_us += pit_period_us;
+		pit_fn();
 	}
-	if (now - timer_ticks > MAX_CATCH_UP_TICKS)
-		timer_ticks = now - MAX_CATCH_UP_TICKS;
-	while (timer_ticks != now) {
-		timer_ticks++;
-		/* A timer may add or remove timers. */
-		memcpy(due, timers, sizeof due);
-		for (int i = 0; i < MAX_TIMERS; i++) {
-			if (due[i] != NULL)
-				due[i]();
-		}
-	}
+}
+
+void plat_pit_set(plat_timer_fn fn, uint32_t period_us)
+{
+	bool was_running = pit_fn != NULL && pit_period_us != 0;
+
+	pit_fn = period_us ? fn : NULL;
+	pit_period_us = fn ? period_us : 0;
+	if (!was_running)
+		pit_next_us = plat_microseconds() + period_us;
 }
 
 void plat_pump(void)
@@ -480,7 +532,7 @@ void plat_pump(void)
 
 	for (uint32_t i = 0; i < count; i++)
 		handle(&taken[i]);
-	run_timers();
+	run_pit();
 	/* VGA memory was always on screen, and the pointer is drawn into it as the mouse moves,
 	 * so loops that only poll for input still show it. */
 	video_refresh(false);
@@ -492,6 +544,11 @@ void plat_pump(void)
 uint32_t plat_ticks(void)
 {
 	return (uint32_t) ((backend_elapsed_us() - clock_start_us) * PLAT_TICKS_PER_SECOND / 1000000);
+}
+
+uint64_t plat_microseconds(void)
+{
+	return (uint64_t) (backend_elapsed_us() - clock_start_us);
 }
 
 uint32_t plat_milliseconds(void)
@@ -509,29 +566,6 @@ void plat_yield(void)
 	plat_pump();
 	video_refresh(false);
 	backend_sleep(1);
-}
-
-void plat_game_timer_add(plat_timer_fn fn)
-{
-	int free_slot = -1;
-
-	for (int i = 0; i < MAX_TIMERS; i++) {
-		if (timers[i] == fn)
-			return;
-		if (timers[i] == NULL && free_slot < 0)
-			free_slot = i;
-	}
-	if (free_slot < 0)
-		plat_fatal("Too many game timers.");
-	timers[free_slot] = fn;
-}
-
-void plat_game_timer_remove(plat_timer_fn fn)
-{
-	for (int i = 0; i < MAX_TIMERS; i++) {
-		if (timers[i] == fn)
-			timers[i] = NULL;
-	}
 }
 
 MTY_Key keys_for_char(char c)

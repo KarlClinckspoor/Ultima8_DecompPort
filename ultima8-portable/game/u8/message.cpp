@@ -10,6 +10,11 @@
 #include "tbutton.h"
 #include "message.h"
 
+// The shared headers declare these; each file that uses them defines them.
+inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+
 MessageGump::MessageGump(NewGumpId id, NewGump *parent, char *message, uint8_t color) :
 	PanelGump(id, parent, Rect(0, 0, 4, 4), color)
 {

@@ -33,8 +33,8 @@
 #include "wait.h"
 #include "anim.h"
 
-extern "C" void *profilePtr = 0;
-extern "C" uint32_t nextProfileSlot = 0;
+void *profilePtr = 0;
+uint32_t nextProfileSlot = 0;
 char targetedJump = 0;		// the next jump aims at avysDropZone
 static Profiler *profiler = 0;
 WorldPoint avysDropZone;

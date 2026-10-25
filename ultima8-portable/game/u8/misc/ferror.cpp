@@ -10,9 +10,12 @@
 #include "init.h"
 #include "cbios.h"
 
-char *ExitMessage = "Program halted by code.\n";
-char *ErrorGroupMessage = "\nError #%04x\n";
-char *ErrorSubgroupMessage = "\nError #%04x, subclass %04x\n";
+static char ExitMessage_text[] = "Program halted by code.\n";
+char *ExitMessage = ExitMessage_text;
+static char ErrorGroupMessage_text[] = "\nError #%04x\n";
+char *ErrorGroupMessage = ErrorGroupMessage_text;
+static char ErrorSubgroupMessage_text[] = "\nError #%04x, subclass %04x\n";
+char *ErrorSubgroupMessage = ErrorSubgroupMessage_text;
 
 void Fatal(const char *format, ...)
 {

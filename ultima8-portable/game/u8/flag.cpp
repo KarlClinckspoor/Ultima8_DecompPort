@@ -18,7 +18,8 @@ inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
 inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 inline FileSpec::FileSpec(char *path, int16_t attrib) { become(path, attrib); }
 
-char *flagFileName = "flag.dat";
+static char flagFileName_text[] = "flag.dat";
+char *flagFileName = flagFileName_text;
 char *GlobalFlag::flagSym = 0;
 int16_t GlobalFlag::flagSymSize = 0;
 char *GlobalFlag::bits;

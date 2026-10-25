@@ -759,7 +759,11 @@ void ContainerGump::save(BaseFile *file)
 }
 
 // Labels written between the fields of each saved gump.
-char *txtref = "REF=";
-char *txtrect = "RECT=";
-char *txtshape = "SHAPE=";
-char *txtframe = "FRAME=";
+static char txtref_text[] = "REF=";
+char *txtref = txtref_text;
+static char txtrect_text[] = "RECT=";
+char *txtrect = txtrect_text;
+static char txtshape_text[] = "SHAPE=";
+char *txtshape = txtshape_text;
+static char txtframe_text[] = "FRAME=";
+char *txtframe = txtframe_text;

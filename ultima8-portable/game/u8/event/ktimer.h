@@ -14,9 +14,9 @@ public:
 	virtual void interruptHandler(uint32_t, uint32_t);
 };
 
-extern "C" void hook_timer_process(void);
-extern "C" void unhook_timer_process(void);
-extern "C" void set_PIT_period(int16_t);
+void hook_timer_process(void);
+void unhook_timer_process(void);
+void set_PIT_period(int16_t);
 void API_timer(void);
 
 extern AilTimer *ailTimer;

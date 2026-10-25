@@ -207,6 +207,7 @@ uint16_t Book::read(char *message)
 		BookGump *gump = new BookGump(Dispatcher::base[Dispatcher::baseSP], 0, 6, referent, message);
 		return gump->f_4e;
 	}
+	return 0;	// fell off the end in DOS (unused there)
 }
 
 uint16_t Scroll::read(char *message)
@@ -216,4 +217,5 @@ uint16_t Scroll::read(char *message)
 		BookGump *gump = new BookGump(Dispatcher::base[Dispatcher::baseSP], 1, 19, referent, message);
 		return gump->f_4e;
 	}
+	return 0;	// fell off the end in DOS (unused there)
 }

@@ -480,18 +480,19 @@ static void runInterval(XmiSequence *s)
 
 // ---- the driver's interface ----
 
-// AIL16's own services. U8 used none of its timers (the music plays from a kernel process),
-// so starting it up does nothing, and shutting it down shuts down the driver, sending it the
-// sign-off message. Music::deinit shuts AIL down with no message and then the driver with
-// its own; that message is the one shown.
+// AIL16.ASM, the timer services. U8 registered no AIL timers (the music plays from a kernel
+// process that serves the driver), so there is nothing for them to do: AIL_shutdown only
+// released timers, and API_timer, which the AilTimer process calls, served them.
 void AIL_startup(void)
 {
 }
 
-void AIL_shutdown(const char *message)
+void AIL_shutdown(const char *)
 {
-	if (message)
-		XMI_shutdown_driver(message);
+}
+
+void API_timer(void)
+{
 }
 
 void XMI_SERVE_DRIVER(void)

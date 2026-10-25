@@ -171,6 +171,7 @@ int16_t List::removeFromList(uint16_t value)
 		return found;
 	}
 	halt(__FILE__, 345);	// __LINE__
+	return -1;
 }
 
 uint16_t List::getMember(uint16_t index)

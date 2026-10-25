@@ -27,6 +27,13 @@
 #include "yamm.h"
 #include "debugump.h"
 
+// The shared headers declare these; each file that uses them defines them.
+inline FileSpec::FileSpec(char *path, int16_t attrib) { become(path, attrib); }
+inline NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
+inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+
 // Menu and hot key commands.
 #define CMD_LOAD_UNIT		0
 #define CMD_VIEW_FILE		1
@@ -56,7 +63,7 @@ inline YammList::YammList(uint16_t id, uint16_t elementSize, int16_t strings)
 	isString = strings;
 }
 
-extern "C" char UsecodeDir[];
+extern char UsecodeDir[];
 
 uint8_t DebugGump::init = 0;
 

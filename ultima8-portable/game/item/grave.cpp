@@ -190,6 +190,7 @@ uint16_t Grave::read(int16_t shape, char *message)
 		GraveGump *gump = new GraveGump(Dispatcher::base[Dispatcher::baseSP], shape, (FontType)11, referent, message);
 		return gump->f_4e;
 	}
+	return 0;	// fell off the end in DOS (unused there)
 }
 
 uint16_t Plaque::read(int16_t shape, char *message)
@@ -199,4 +200,5 @@ uint16_t Plaque::read(int16_t shape, char *message)
 		GraveGump *gump = new GraveGump(Dispatcher::base[Dispatcher::baseSP], shape, (FontType)10, referent, message);
 		return gump->f_4e;
 	}
+	return 0;	// fell off the end in DOS (unused there)
 }

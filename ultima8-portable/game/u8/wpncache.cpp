@@ -17,7 +17,8 @@ inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 inline SharedFile::SharedFile(void) {}
 inline FlexFile::FlexFile(void) {}
 
-char *weaponOverlayFile = "wpnovlay.dat";
+static char weaponOverlayFile_text[] = "wpnovlay.dat";
+char *weaponOverlayFile = weaponOverlayFile_text;
 char *weaponString[15] = {"Mace      ", "Sword     ", "Axe       ", "Dagger    ", "Earth Glow", "Air Glow  ", "Fire Glow ", "", "", "", "", "", "", "", ""};
 uint16_t WeaponCache::weaponType = 0;
 uint16_t WeaponCache::overlayIndex = 0;
@@ -88,6 +89,7 @@ int16_t WeaponCache::getWeaponIndex(uint16_t type)
 		if (typeIndirectionArray[i].type == type)
 			return i;
 	halt(__FILE__, 194, "%d.\n", type);	// __LINE__
+	return 0;
 }
 
 int16_t WeaponCache::getWeaponOverlayIndex(uint16_t type)

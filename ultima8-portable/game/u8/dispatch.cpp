@@ -18,6 +18,11 @@
 #include "dispatch.h"
 #include "wait.h"
 
+// The shared headers declare these; each file that uses them defines them.
+inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+
 // Inline in the shared headers when this file was built.
 inline MouseButtonStatus::MouseButtonStatus(void) {}
 inline MouseEvent::MouseEvent(void) { _action = MOUSE_MOVED; }
@@ -82,7 +87,8 @@ NewGump *Dispatcher::exclusive = 0;
 NewGump *Dispatcher::suspended = 0;
 NewGump **Dispatcher::base = 0;
 AccurateTimer *atimer = 0;
-char *eventFileDesc = "events.dat";
+static char eventFileDesc_text[] = "events.dat";
+char *eventFileDesc = eventFileDesc_text;
 
 Dispatcher::Dispatcher(int16_t recordMode)
 {

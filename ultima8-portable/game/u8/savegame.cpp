@@ -15,7 +15,8 @@
 inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
 inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 
-char *gameFileListId = "Ultima 8 SaveGame File.";
+static char gameFileListId_text[] = "Ultima 8 SaveGame File.";
+char *gameFileListId = gameFileListId_text;
 
 SavedGames::SavedGames(void)
 {

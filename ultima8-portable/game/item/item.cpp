@@ -1072,6 +1072,8 @@ int16_t Item::use(void)
 				closeGump();
 			else
 				openGump(12);
+			// DOS returned what the gump call left in AX; 0 is no process to wait on.
+			return 0;
 		}
 		else
 		{
@@ -1079,6 +1081,7 @@ int16_t Item::use(void)
 				return 0;
 			if (spawnUnk(this, 1L << USE_EVENT, USE_EVENT, pid, 0))
 				return pid;
+			return 0;
 		}
 	}
 	else

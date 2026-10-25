@@ -23,7 +23,8 @@
 inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
 inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 
-char *typeFlagFileName = "typeflag.dat";
+static char typeFlagFileName_text[] = "typeflag.dat";
+char *typeFlagFileName = typeFlagFileName_text;
 TypeObject GlobalTypes;
 
 // A shape with no entry: solid, one footpad square, no height.
@@ -78,7 +79,8 @@ TypeFlag TypeObject::getTypeFlag(uint16_t type)
 	return typeFlags[type];
 }
 
-char *typeNameFile = "typename.dat";
+static char typeNameFile_text[] = "typename.dat";
+char *typeNameFile = typeNameFile_text;
 
 // Type 0 has no name, so the file is read from its second entry.
 void TypeObject::loadTypeNames(void)

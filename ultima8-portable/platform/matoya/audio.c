@@ -1,5 +1,5 @@
 /* Sound: the 60 Hz sound tick, MT-32 music through Munt, AdLib through Nuked OPL3, and
- * 8-bit speech.
+ * 8-bit digitised sound.
  *
  * One audio thread renders 800-frame blocks at 48 kHz, exactly one tick each:
  *
@@ -22,8 +22,8 @@
 #include "backend.h"
 
 /* Without a folder built in, the ROMs are looked for beside the game's files. */
-#ifndef U7_DEFAULT_ROM_DIR
-#define U7_DEFAULT_ROM_DIR files_root()
+#ifndef U8_DEFAULT_ROM_DIR
+#define U8_DEFAULT_ROM_DIR files_root()
 #endif
 
 #define RATE 48000
@@ -92,6 +92,11 @@ void plat_sound_tick_set(plat_timer_fn fn)
 
 /* ---- MIDI ---- */
 
+char plat_music_device(void)
+{
+	return synth != NULL ? 'r' : 'a';
+}
+
 int16_t plat_midi_available(void)
 {
 	return synth != NULL;
@@ -107,7 +112,7 @@ void plat_midi_send(const uint8_t *message, int16_t length)
 		midi_count += (uint32_t) length;
 	} else if (!midi_overflow_logged) {
 		midi_overflow_logged = true;
-		plat_log("u7: MIDI queue full, messages dropped\n");
+		plat_log("u8: MIDI queue full, messages dropped\n");
 	}
 	MTY_MutexUnlock(midi_mutex);
 }
@@ -117,7 +122,7 @@ static void reopen_synth(void)
 {
 	mt32emu_close_synth(synth);
 	if (mt32emu_open_synth(synth) != MT32EMU_RC_OK) {
-		fprintf(stderr, "u7: the MT-32 synth could not restart; music is off\n");
+		fprintf(stderr, "u8: the MT-32 synth could not restart; music is off\n");
 		mt32emu_free_context(synth);
 		synth = NULL;
 	}
@@ -198,21 +203,21 @@ static const mt32emu_report_handler_i_v0 quiet_reports = {report_version, ignore
 
 static mt32emu_context open_synth(void)
 {
-	const char *dir = getenv("U7_MT32_ROMS");
+	const char *dir = getenv("U8_MT32_ROMS");
 	mt32emu_report_handler_i reports = {&quiet_reports};
 	char control[1024], pcm[1024];
 	mt32emu_context context;
 
 	if (dir == NULL || dir[0] == '\0')
-		dir = U7_DEFAULT_ROM_DIR;
+		dir = U8_DEFAULT_ROM_DIR;
 	if (!find_roms(dir, control, pcm, sizeof control)) {
-		fprintf(stderr, "u7: no MT-32 ROMs in %s\n", dir);
+		fprintf(stderr, "u8: no MT-32 ROMs in %s\n", dir);
 		return NULL;
 	}
 	context = mt32emu_create_context(reports, NULL);
 	if (mt32emu_add_rom_file(context, control) != MT32EMU_RC_ADDED_CONTROL_ROM
 		|| mt32emu_add_rom_file(context, pcm) != MT32EMU_RC_ADDED_PCM_ROM) {
-		fprintf(stderr, "u7: MT-32 ROMs in %s could not be loaded\n", dir);
+		fprintf(stderr, "u8: MT-32 ROMs in %s could not be loaded\n", dir);
 		mt32emu_free_context(context);
 		return NULL;
 	}
@@ -220,7 +225,7 @@ static mt32emu_context open_synth(void)
 	mt32emu_set_analog_output_mode(context, MT32EMU_AOM_ACCURATE);
 	mt32emu_set_stereo_output_samplerate(context, RATE);
 	if (mt32emu_open_synth(context) != MT32EMU_RC_OK) {
-		fprintf(stderr, "u7: the MT-32 synth could not start\n");
+		fprintf(stderr, "u8: the MT-32 synth could not start\n");
 		mt32emu_free_context(context);
 		return NULL;
 	}
@@ -343,7 +348,7 @@ void plat_opl_write(uint16_t port, uint8_t value)
 				on_audio_thread};
 		} else if (!opl_overflow_logged) {
 			opl_overflow_logged = true;
-			plat_log("u7: OPL queue full, writes dropped\n");
+			plat_log("u8: OPL queue full, writes dropped\n");
 		}
 		break;
 	}
@@ -723,7 +728,7 @@ void audio_choose_music(char device)
 
 void audio_start(void)
 {
-	const char *dump_path = getenv("U7_AUDIO_DUMP");
+	const char *dump_path = getenv("U8_AUDIO_DUMP");
 
 	sound_mutex = MTY_MutexCreate();
 	midi_mutex = MTY_MutexCreate();
@@ -735,15 +740,15 @@ void audio_start(void)
 	if (music_choice != 'a')
 		synth = open_synth();
 	if (synth == NULL)
-		fprintf(stderr, music_choice == 'r' ? "u7: --roland needs the MT-32 ROMs; playing AdLib\n"
-			: "u7: playing AdLib music\n");
+		fprintf(stderr, music_choice == 'r' ? "u8: --roland needs the MT-32 ROMs; playing AdLib\n"
+			: "u8: playing AdLib music\n");
 	/* Playback starts once two blocks are queued. Scripted test runs stay silent. */
-	if (getenv("U7_TEST_INPUT") == NULL)
+	if (getenv("U8_TEST_INPUT") == NULL)
 		output = MTY_AudioCreate(RATE, 34, 250, 2, NULL, true);
 	else
-		fprintf(stderr, "u7: test input; sound is off\n");
-	if (output == NULL && getenv("U7_TEST_INPUT") == NULL)
-		fprintf(stderr, "u7: no audio output; sound is off\n");
+		fprintf(stderr, "u8: test input; sound is off\n");
+	if (output == NULL && getenv("U8_TEST_INPUT") == NULL)
+		fprintf(stderr, "u8: no audio output; sound is off\n");
 	/* Raw 16-bit stereo at 48 kHz, for checking what was rendered. */
 	if (dump_path != NULL && dump_path[0] != '\0')
 		dump = fopen(dump_path, "wb");

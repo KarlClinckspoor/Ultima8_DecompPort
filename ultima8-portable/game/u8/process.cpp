@@ -534,6 +534,7 @@ int16_t Process::allocate(uint32_t size)
 		return 1;
 	}
 	halt(__FILE__, 1101);	// __LINE__
+	return 0;
 }
 
 void Process::deallocate(void *p)

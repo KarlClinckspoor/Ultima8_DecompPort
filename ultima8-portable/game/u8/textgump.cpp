@@ -18,6 +18,13 @@
 #include "system.h"
 #include "textgump.h"
 
+// The shared headers declare these; each file that uses them defines them.
+inline NewGumpId::NewGumpId(uint8_t type, uint8_t id) { instance = (type << 8) | id; f_02 = ~instance; f_04 = 0; }
+inline NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
+inline void Point::set(int16_t x, int16_t y) { f_00 = x; f_02 = y; }
+inline void Rect::set(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { Point::set(x1, y1); f_04 = x2; f_06 = y2; }
+inline Rect::Rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2) { set(x1, y1, x2, y2); }
+
 // Text mode screen: 80 columns of character and attribute bytes.
 #define TEXT_ROW	160
 
@@ -25,8 +32,10 @@
 #define HIDE_MOUSE()
 #define SHOW_MOUSE()
 
-char *doubleFrame = "\311\273\310\274\315\272";
-char *singleFrame = "\332\277\300\331\304\263";
+static char doubleFrame_text[] = "\311\273\310\274\315\272";
+char *doubleFrame = doubleFrame_text;
+static char singleFrame_text[] = "\332\277\300\331\304\263";
+char *singleFrame = singleFrame_text;
 
 WindowGump::WindowGump(NewGumpId id, NewGump *parent, Rect r, char color, uint8_t show, WindowFrame *frame) :
 	NewGump(id, parent, 0)

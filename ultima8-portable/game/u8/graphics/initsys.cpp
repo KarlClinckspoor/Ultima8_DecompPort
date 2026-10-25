@@ -2,6 +2,7 @@
 // name: GRAPHICS\INITSYS.C
 
 #include "u8port.h"
+#include "plat.h"
 
 #include "cexit.h"
 #include "cicrtc.h"
@@ -27,7 +28,10 @@ void GetBiosSegment(void)
 }
 
 // VgaScreen and TextScreen point at their buffers from the start (constant initialised), since
-// global constructors (chargen.cpp's charGen) draw before this runs.
+// global constructors (chargen.cpp's charGen) draw before this runs. Here the platform is
+// given the buffer, so what the game draws straight into screen memory shows from now on, as
+// VGA memory did.
 void SetVgaScreenDescriptor(void)
 {
+	plat_video_present(VgaScreen);
 }

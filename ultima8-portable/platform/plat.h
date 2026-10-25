@@ -68,9 +68,10 @@ typedef void (*plat_timer_fn)(void);
  * microseconds, catching up on missed periods (a few at most). 0 stops it. */
 void plat_pit_set(plat_timer_fn fn, uint32_t period_us);
 
-/* The sound tick, run by the audio backend hz times a second in step with the sound it
- * renders, under the sound lock. */
-void plat_sound_tick_set(plat_timer_fn fn, uint16_t hz);
+/* The sound tick, run by the audio backend 60 times a second in step with the sound it
+ * renders, under the sound lock. (The game's own sound runs from kernel processes on the
+ * game thread and does not use it.) */
+void plat_sound_tick_set(plat_timer_fn fn);
 /* Recursive; also held by the backend around every sound tick. */
 void plat_sound_lock(void);
 void plat_sound_unlock(void);

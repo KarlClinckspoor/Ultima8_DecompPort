@@ -69,9 +69,12 @@ struct MonsterRecord
 #define MAX_NPCS	256
 #define NPC_DATA_SIZE	(MAX_NPCS * sizeof(NpcData))
 
-char *NpcDataFileName = "npcdata.dat";
-char *NpcNameFileName = "npcnames.dat";
-char *AvatarFileName = "avatar.dat";
+static char NpcDataFileName_text[] = "npcdata.dat";
+char *NpcDataFileName = NpcDataFileName_text;
+static char NpcNameFileName_text[] = "npcnames.dat";
+char *NpcNameFileName = NpcNameFileName_text;
+static char AvatarFileName_text[] = "avatar.dat";
+char *AvatarFileName = AvatarFileName_text;
 NpcDataFile *Npc::npcFile = 0;
 uint8_t Npc::namefile[4] = {0, 0, 0, 0};
 DeathLoader *theDeathLoader = 0;

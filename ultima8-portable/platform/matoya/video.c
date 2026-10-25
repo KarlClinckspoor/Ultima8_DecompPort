@@ -20,6 +20,8 @@
 
 /* Game thread. */
 static uint8_t palette[256][4];
+/* As the game set it: 6-bit VGA values. */
+static uint8_t dac[256][3];
 static bool palette_dirty;
 static const uint8_t *last_pixels;
 static int64_t last_present_us;
@@ -47,6 +49,7 @@ void video_reset(void)
 {
 	for (int i = 0; i < 256; i++)
 		memset(palette[i], 0, 3);
+	memset(dac, 0, sizeof dac);
 	palette_dirty = false;
 	last_pixels = NULL;
 	last_present_us = 0;
@@ -62,10 +65,21 @@ void plat_video_set_palette(int16_t first, int16_t count, const uint8_t *rgb)
 		for (int c = 0; c < 3; c++) {
 			uint8_t v = rgb[3 * i + c] & 0x3F;
 
+			dac[index][c] = v;
 			palette[index][c] = (uint8_t) (v << 2 | v >> 4);
 		}
 	}
 	palette_dirty = true;
+}
+
+void plat_video_get_palette(int16_t first, int16_t count, uint8_t *rgb)
+{
+	for (int16_t i = 0; i < count; i++) {
+		int index = first + i;
+
+		for (int c = 0; c < 3; c++)
+			rgb[3 * i + c] = index >= 0 && index <= 255 ? dac[index][c] : 0;
+	}
 }
 
 static void convert(const uint8_t *pixels)
@@ -168,26 +182,6 @@ void video_draw(MTY_App *app, MTY_Window window)
 
 	MTY_WindowDrawQuad(app, window, draw_rgba, &desc);
 	MTY_WindowPresent(app, window);
-}
-
-int16_t plat_cursor_is_hardware(void)
-{
-	return 0;
-}
-
-void plat_cursor_set_shape(const uint8_t *pixels, int16_t width, int16_t height,
-	int16_t hot_x, int16_t hot_y)
-{
-	(void) pixels;
-	(void) width;
-	(void) height;
-	(void) hot_x;
-	(void) hot_y;
-}
-
-void plat_cursor_show(int16_t visible)
-{
-	(void) visible;
 }
 
 bool video_write_shot(const char *path)

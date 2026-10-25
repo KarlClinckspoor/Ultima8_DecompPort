@@ -51,7 +51,8 @@ inline CacheFont::~CacheFont(void) {}
 inline uint8_t BaseFile::is_valid(void) { return handle != -1; }
 inline BaseFile::~BaseFile(void) { if (is_valid()) close(); }
 
-char *HeaderFileName = "sgheader";
+static char HeaderFileName_text[] = "sgheader";
+char *HeaderFileName = HeaderFileName_text;
 char *optionNames[27] = {"Music:", "Sound FX:", "Avatar Steps:", "Animations:", "Text Speed:", "Frame Skipping:", "Speed Limiting:", 0, 0, "Musique:", "Effets Son:", "Pas de l'Avatar:", "Animations:", "Vitesse Dialogues:", "Limiter Animations:", "Limiter Vitesse:", 0, 0, "Musik:", "Soundeffekte:", "Avatarschritte:", "Animationen:", "Sprachtempo:", "Graphiken begrenzt:", "Geschw. begrenzt:", 0, 0};
 char *langs[3] = {"(English)", "(Fran\207ais)", "(Deutsch)"};
 GumpShape MainMenu::menuOptions[8] = {37, 37, 37, 37, 37, 37, 37, 37};

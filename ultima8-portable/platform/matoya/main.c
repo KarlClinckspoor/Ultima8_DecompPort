@@ -1,12 +1,7 @@
 /* Process entry, window and threads.
  *
- * The process main thread runs the window (libmatoya wants it there). A launcher thread runs
- * Ultima7Main, or the one program named, and each program runs on a game thread of its own.
- * Sound renders on another.
- *
- *   launcher: plat_run_program --reset--> game thread: ProgramMain ... plat_exit(code)
- *                  ^                                                       |
- *                  +------------------- code (thread parked) --------------+
+ * The process main thread runs the window (libmatoya wants it there). The game, U8Main, runs
+ * on a game thread of its own, and sound renders on another.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,7 +9,7 @@
 
 #include "backend.h"
 
-#define WINDOW_TITLE "Ultima VII: The Black Gate"
+#define WINDOW_TITLE "Ultima VIII: Pagan"
 
 static MTY_App *app;
 static MTY_Window window = -1;
@@ -31,11 +26,6 @@ static char fatal_text[1024];
 
 static int game_argc;
 static char **game_argv;
-static const char *program_name;
-
-/* A program's exit code, handed to the launcher waiting in plat_run_program. */
-static MTY_Waitable *program_done;
-static int16_t program_code;
 
 /* The window's client size, for mapping scripted mouse positions on the game thread. */
 static MTY_Mutex *view_lock;
@@ -87,20 +77,16 @@ void plat_exit(int16_t code)
 {
 	if (on_app_thread)
 		end_process(code);
-	if (on_game_thread) {
+	if (on_game_thread)
 		/* As a DOS exit: the program's stack is left as it is, never unwound. */
 		audio_drop_lock();
-		program_code = (int16_t) (code & 0xff);
-		MTY_WaitableSignal(program_done);
-		wait_for_exit();
-	}
 	backend_request_exit(code);
 	wait_for_exit();
 }
 
 void plat_fatal(const char *message)
 {
-	fprintf(stderr, "u7: %s\n", message);
+	fprintf(stderr, "u8: %s\n", message);
 	if (on_app_thread) {
 		/* A scripted run has no one to close the box. */
 		if (MTY_HasDialogs() && !test_input_active())
@@ -216,107 +202,46 @@ static bool on_frame(void *opaque)
 	return true;
 }
 
-typedef struct {
-	const char *name;
-	int16_t argc;
-	char **argv;
-} program_start;
-
 static void *game_thread(void *opaque)
 {
-	program_start *start = opaque;
-
-	on_game_thread = true;
-	plat_exit(ProgramMain(start->name, start->argc, start->argv));
-	return NULL;
-}
-
-int16_t plat_run_program(const char *name, int16_t argc, char **argv)
-{
-	program_start start = {name, (int16_t) (argc + 1), calloc((size_t) argc + 2, sizeof (char *))};
-
-	/* The program sees this executable as its argv[0], as a DOS program saw its EXE. */
-	start.argv[0] = game_argv[0];
-	memcpy(start.argv + 1, argv, (size_t) argc * sizeof *argv);
-
-	events_reset();
-	video_reset();
-	audio_reset();
-	files_reset();
-	console_reset();
-	nullpage_reset();
-	ResetEnvironment();
-#ifdef U7_RESET_CHECK
-	reset_check();
-#endif
-	MTY_ThreadDetach(game_thread, &start);
-	MTY_WaitableWait(program_done, -1);
-	free(start.argv);
-	return program_code;
-}
-
-static void *launcher_thread(void *opaque)
-{
-	int16_t code;
-
 	(void) opaque;
-	if (program_name == NULL)
-		code = Ultima7Main((int16_t) game_argc, game_argv);
-	else
-		code = plat_run_program(program_name, (int16_t) (game_argc - 1), game_argv + 1);
-	backend_request_exit(code);
+	on_game_thread = true;
+	plat_exit(U8Main((int16_t) game_argc, game_argv));
 	return NULL;
 }
 
-/* Takes "--data <dir>" and "--program <name>" out of the arguments the game sees. */
+/* Takes the port's own switches out of the arguments the game sees. */
 static void show_help(void)
 {
-	printf("Usage: Ultima7 [--data <dir>] [switches]\n"
+	printf("Usage: Ultima8 [--data <dir>] [switches]\n"
 		"\n"
-		"  --data <dir>        the game folder (default: U7_DATA, else the current folder if it\n"
-		"                      has STATIC, else the folder Ultima7 is in)\n"
-		"  --program <name>    run one program alone: u7 (add -p), mainmenu, intro, endgame\n"
-		"  --help              this list\n"
+		"  --data <dir>   the game folder, with STATIC, USECODE and U8.INI (default: U8_DATA,\n"
+		"                 else the current folder if it has STATIC, else the folder Ultima8 is\n"
+		"                 in, else Documents/Ultima8)\n"
+		"  --adlib        AdLib music, even when MT-32 ROMs are found\n"
+		"  --roland       MT-32 music (the default when its ROMs are found)\n"
+		"  --help         this list\n"
 		"\n"
-		"The game's own options:\n"
-		"  --cheat             enable the cheat keys\n"
-		"  --cheat-start       with --cheat: move at once, move anything, an Avatar that can't\n"
-		"                      die, debug output\n"
-		"  --speech            speech on\n"
-		"  --adlib[=port]      AdLib music, even when MT-32 ROMs are found\n"
-		"  --roland[=n]        Roland MT-32 music (the default when its ROMs are found)\n"
-		"  --shape-pool=<KB>   size of the shape cache\n"
-		"  --overlay-size      report the DOS overlay buffer size, then stop\n"
-		"  --version           show the version, then stop\n"
-		"\n"
-		"Settings of this port:\n"
-		"  --quiet-weapons     no crackle from the fire sword and firedoom staff, no hum from\n"
-		"                      magic weapons\n"
-		"  --mt32-short-waits  no pauses after MT-32 memory writes (ending music), which\n"
-		"                      the emulated synth does not need\n");
+		"Other switches go to the game, as U8.EXE's did.\n");
 	exit(0);
 }
 
 static const char *take_data_dir(int argc, char **argv)
 {
-	const char *dir = getenv("U7_DATA");
+	const char *dir = getenv("U8_DATA");
 
 	game_argv = calloc((size_t) argc + 1, sizeof *game_argv);
 	for (int i = 0; i < argc; i++) {
 		if (i > 0 && strcmp(argv[i], "--data") == 0 && i + 1 < argc)
 			dir = argv[++i];
-		else if (i > 0 && strcmp(argv[i], "--program") == 0 && i + 1 < argc)
-			program_name = argv[++i];
 		else if (i > 0 && strcmp(argv[i], "--help") == 0)
 			show_help();
-		else {
-			/* The programs read these too; which synth plays is the backend's choice. */
-			if (strcmp(argv[i], "--adlib") == 0 || strncmp(argv[i], "--adlib=", 8) == 0)
-				audio_choose_music('a');
-			else if (strcmp(argv[i], "--roland") == 0 || strncmp(argv[i], "--roland=", 9) == 0)
-				audio_choose_music('r');
+		else if (i > 0 && strcmp(argv[i], "--adlib") == 0)
+			audio_choose_music('a');
+		else if (i > 0 && strcmp(argv[i], "--roland") == 0)
+			audio_choose_music('r');
+		else
 			game_argv[game_argc++] = argv[i];
-		}
 	}
 	return dir != NULL && dir[0] != '\0' ? dir : NULL;
 }
@@ -331,7 +256,7 @@ static const char *take_data_dir(int argc, char **argv)
 #include <unistd.h>
 #endif
 
-/* The folder the program itself is in; for Ultima7.app, the folder holding the app. */
+/* The folder the program itself is in; for Ultima8.app, the folder holding the app. */
 static bool exe_directory(char *out, size_t size)
 {
 	char *slash;
@@ -349,7 +274,7 @@ static bool exe_directory(char *out, size_t size)
 
 	if (_NSGetExecutablePath(out, &n) != 0)
 		return false;
-	/* ".../Ultima7.app/Contents/MacOS/Ultima7" becomes ".../Ultima7.app". */
+	/* ".../Ultima8.app/Contents/MacOS/Ultima8" becomes ".../Ultima8.app". */
 	bundle = strstr(out, ".app/Contents/MacOS/");
 	if (bundle != NULL)
 		bundle[4] = '\0';
@@ -368,7 +293,7 @@ static bool exe_directory(char *out, size_t size)
 	return true;
 }
 
-/* Ultima7 in the user's Documents folder. */
+/* Ultima8 in the user's Documents folder. */
 static bool documents_directory(char *out, size_t size)
 {
 #ifdef _WIN32
@@ -376,13 +301,13 @@ static bool documents_directory(char *out, size_t size)
 
 	if (SHGetFolderPathA(NULL, CSIDL_PERSONAL, NULL, 0, docs) != S_OK)
 		return false;
-	return snprintf(out, size, "%s\\Ultima7", docs) < (int) size;
+	return snprintf(out, size, "%s\\Ultima8", docs) < (int) size;
 #else
 	const char *home = getenv("HOME");
 
 	if (home == NULL || home[0] == '\0')
 		return false;
-	return snprintf(out, size, "%s/Documents/Ultima7", home) < (int) size;
+	return snprintf(out, size, "%s/Documents/Ultima8", home) < (int) size;
 #endif
 }
 
@@ -413,14 +338,11 @@ int main(int argc, char **argv)
 
 	use_parent_console();
 	on_app_thread = true;
-#ifdef U7_RESET_CHECK
-	reset_check_startup();
-#endif
 	start_time = MTY_GetTime();
 	data_dir = take_data_dir(argc, argv);
 	files_set_root(data_dir != NULL ? data_dir : ".");
 	/* With no folder named: the current one, the program's own (a double-click does not always
-	 * start in the game's folder), then Documents/Ultima7. Documents comes last because macOS
+	 * start in the game's folder), then Documents/Ultima8. Documents comes last because macOS
 	 * asks the player before letting an app look there. */
 	if (data_dir == NULL && !plat_dir_exists("STATIC")) {
 		const char *fallback = exe_directory(own_dir, sizeof own_dir) ? own_dir : ".";
@@ -430,7 +352,7 @@ int main(int argc, char **argv)
 			files_set_root(docs_dir);
 #ifndef __APPLE__
 			/* Found nowhere: report the program's folder, where the game is meant to go. A Mac
-			 * install keeps the app in Applications and the game in Documents/Ultima7. */
+			 * install keeps the app in Applications and the game in Documents/Ultima8. */
 			if (!plat_dir_exists("STATIC"))
 				files_set_root(fallback);
 #endif
@@ -439,20 +361,18 @@ int main(int argc, char **argv)
 	if (!files_check_data(problem, sizeof problem)) {
 		/* macOS runs a downloaded app from a hidden copy until it is moved in Finder. */
 		if (strstr(own_dir, "/AppTranslocation/") != NULL)
-			snprintf(problem, sizeof problem, "macOS started Ultima7 from a temporary copy, so "
-				"it can't see the game files. In Finder, drag Ultima7.app out of the game "
+			snprintf(problem, sizeof problem, "macOS started Ultima8 from a temporary copy, so "
+				"it can't see the game files. In Finder, drag Ultima8.app out of the game "
 				"folder and back in, then open it again.");
 		plat_fatal(problem);
 	}
-	nullpage_install();
 	events_init();
 	video_init();
 	view_lock = MTY_MutexCreate();
-	program_done = MTY_WaitableCreate();
 
 	if (test_input_active()) {
 		audio_start();
-		MTY_ThreadDetach(launcher_thread, NULL);
+		MTY_ThreadDetach(game_thread, NULL);
 		run_without_window();
 	}
 	app = MTY_AppCreate(0, on_frame, on_event, NULL);
@@ -467,7 +387,7 @@ int main(int argc, char **argv)
 	MTY_WindowSetMinSize(app, window, 320, 240);
 
 	audio_start();
-	MTY_ThreadDetach(launcher_thread, NULL);
+	MTY_ThreadDetach(game_thread, NULL);
 	MTY_AppRun(app);
 	end_process(MTY_Atomic32Get(&exit_code));
 	return 0;

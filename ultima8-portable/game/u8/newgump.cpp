@@ -13,6 +13,10 @@
 #include "dispatch.h"
 #include "error.h"
 
+// The shared headers declare these; each file that uses them defines them.
+inline NewGumpId::NewGumpId(uint16_t i) { instance = i; f_02 = ~instance; f_04 = 0; }
+inline Rect::Rect(void) {}
+
 #define TRACE_MEMORY	((TraceLevel)50)
 
 inline DoubleLinkedList::DoubleLinkedList(void) { head = 0; tail = 0; }

@@ -30,6 +30,16 @@ void plat_console_goto(int16_t x, int16_t y)
 	row = y < 1 ? 0 : y > ROWS ? ROWS - 1 : y - 1;
 }
 
+int16_t plat_console_x(void)
+{
+	return (int16_t) (column + 1);
+}
+
+int16_t plat_console_y(void)
+{
+	return (int16_t) (row + 1);
+}
+
 static void draw_char(uint8_t *screen, uint8_t ch)
 {
 	uint8_t *at = screen + (row * GLYPH) * WIDTH + column * GLYPH;

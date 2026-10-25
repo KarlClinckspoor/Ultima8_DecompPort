@@ -44,6 +44,7 @@ int16_t initYamm(void)
 	last->setFree();
 	last->pid = 0;
 	Yamm::numBlocks = 2;
+	return 1;
 }
 
 void uninitYamm(void)

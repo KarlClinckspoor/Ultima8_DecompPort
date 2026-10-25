@@ -262,7 +262,8 @@ void ItemRelativeGump::commandMouseRight(Event &event)
 		parent->commandMouseBoth(event);
 }
 
-char *GumpSaveFile = "gumps.dat";
+static char GumpSaveFile_text[] = "gumps.dat";
+char *GumpSaveFile = GumpSaveFile_text;
 
 void loadGumps(void)
 {

@@ -201,6 +201,7 @@ int16_t CheatWindow::resetMenu(void)
 	menuBar = newGumpList.hasType(3, found);
 	menuItem = (PureMenuItemGump *)((MenuGump *)menuBar)->findMenuItem(NewGumpId(0x12));
 	menuItem->f_3c = f_3e.isValid() && GlobalTypes.getTypeFlag(f_3e.getType()).family == QUAL_FAMILY;
+	return 0;
 }
 
 void CheatWindow::buildMenu(void)
@@ -1953,7 +1954,9 @@ void BogusProcess::process(void)
 {
 }
 
-inline void TextCheckMenuItemGump::addPullDown(PullDownGump *, uint8_t)
+// Out of line: the vtable, emitted with the class's first virtual function in another file,
+// needs it.
+void TextCheckMenuItemGump::addPullDown(PullDownGump *, uint8_t)
 {
 }
 
