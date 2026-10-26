@@ -18,8 +18,8 @@ MT-32 ROMs.
 ultima8-portable/
   CMakeLists.txt          the build
   cmake/Libmatoya.cmake   builds libmatoya with its own makefiles
-  editor/                 u8edit, a Qt 6 viewer for the game's world (its own build; see
-                          editor/README.md)
+  editor/                 u8edit, a Qt 6 editor for the game's world and statistics (its own
+                          build; see editor/README.md)
   game/                   the game: ../source converted to portable C++, plus ports of its .ASM
   game/port/              DOS and Borland library calls the game used, done with plat_*
   game/sound/xmi*.cpp     the XMIDI music driver that replaces AILXMI.DLL
@@ -249,6 +249,10 @@ Other variables for checking the port:
 - The XMIDI music driver is new code following the Miles AIL 2.0 drivers' behaviour (timbre
   library, percussion bank, velocity scaling, pitch bend range) rather than a translation of
   them; the MT-32 path has not been heard on real ROMs.
+- The weapon, armour and monster statistics are compiled into the game, as they were into
+  U8.EXE; at start the port takes them from U8.EXE in the game folder when it has them
+  (`game/port/exetables.cpp`), so a U8.EXE changed by the editor plays the same here as in DOS.
+  The console says so when they differ from the original numbers.
 - Saved games are not interchangeable with the DOS game's. They keep the DOS layout except
   for the kernel's process records (`GAMEDAT\KERNEL.DAT`), which hold each process's class
   name and its object as the host lays it out. A new game starts from the shipped

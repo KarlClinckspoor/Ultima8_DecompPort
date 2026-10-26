@@ -100,14 +100,51 @@ bool SaveFile::load(const QString &path, QString *error)
 		at += 4;
 		if (nameLen == 0 || at + qint64(nameLen) + 4 > d.size())
 			return bad();
-		QString name = QString::fromLatin1(d.constData() + at, int(nameLen) - 1).toUpper();
+		QString name = QString::fromLatin1(d.constData() + at, int(nameLen) - 1);
 		at += int(nameLen);
 		uint32_t size = read32(d.constData() + at);
 		at += 4;
 		if (at + qint64(size) > d.size())
 			return bad();
-		files_.insert(name, d.mid(at, int(size)));
+		files_.append({name, d.mid(at, int(size))});
 		at += int(size);
 	}
 	return true;
+}
+
+bool SaveFile::has(const QString &name) const
+{
+	for (const auto &f : files_)
+		if (f.first.compare(name, Qt::CaseInsensitive) == 0)
+			return true;
+	return false;
+}
+
+QByteArray SaveFile::file(const QString &name) const
+{
+	for (const auto &f : files_)
+		if (f.first.compare(name, Qt::CaseInsensitive) == 0)
+			return f.second;
+	return QByteArray();
+}
+
+QByteArray SaveFile::build(const QVector<QPair<QString, QByteArray>> &files)
+{
+	QByteArray out("Ultima 8 SaveGame File.", 24);	// with its NUL
+	auto put32 = [&](uint32_t v) {
+		for (int i = 0; i < 4; i++)
+			out.append(char((v >> (8 * i)) & 0xff));
+	};
+	out.append(char(files.size() & 0xff));
+	out.append(char(files.size() >> 8));
+	for (const auto &f : files)
+	{
+		QByteArray name = f.first.toLatin1();
+		put32(uint32_t(name.size() + 1));
+		out.append(name);
+		out.append('\0');
+		put32(uint32_t(f.second.size()));
+		out.append(f.second);
+	}
+	return out;
 }

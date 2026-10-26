@@ -2,7 +2,8 @@
 #pragma once
 
 #include <QByteArray>
-#include <QMap>
+#include <QPair>
+#include <QVector>
 #include <QString>
 #include <QStringList>
 
@@ -45,15 +46,18 @@ private:
 
 // A saved game, U8SAVE.nnn: "Ultima 8 SaveGame File." and a NUL, a 16-bit file count, then for
 // each file its name's length (with its NUL), the name, its size and its bytes
-// (SavedGames::pack in u8/savegame.cpp). Names are kept upper case.
+// (SavedGames::pack in u8/savegame.cpp). Names are matched without regard to case.
 class SaveFile
 {
 public:
 	bool load(const QString &path, QString *error);
-	bool has(const QString &name) const { return files_.contains(name.toUpper()); }
-	QByteArray file(const QString &name) const { return files_.value(name.toUpper()); }
-	QStringList names() const { return files_.keys(); }
+	bool has(const QString &name) const;
+	QByteArray file(const QString &name) const;
+	// The files in the order the saved game has them.
+	const QVector<QPair<QString, QByteArray>> &files() const { return files_; }
+	// A saved game holding these files, in this order.
+	static QByteArray build(const QVector<QPair<QString, QByteArray>> &files);
 
 private:
-	QMap<QString, QByteArray> files_;
+	QVector<QPair<QString, QByteArray>> files_;
 };

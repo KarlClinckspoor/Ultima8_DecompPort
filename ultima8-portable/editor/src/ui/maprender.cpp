@@ -301,14 +301,58 @@ static void drawEntry(QPainter &p, const MapRender::Entry &e)
 		p.drawImage(e.rect.topLeft(), img);
 }
 
-void MapRender::paint(QPainter &p, const QRectF &area, const LayerOptions &o) const
+void MapRender::paint(QPainter &p, const QRectF &area, const LayerOptions &o, int skipItem) const
 {
 	for (int i : candidates(area.toAlignedRect()))
 	{
 		const Entry &e = entries_[i];
-		if (shows(e, o) && e.rect.intersects(area.toAlignedRect()))
+		if (e.item != skipItem && shows(e, o) && e.rect.intersects(area.toAlignedRect()))
 			drawEntry(p, e);
 	}
+}
+
+// An entry for an item that is not (or not yet) in the list.
+static MapRender::Entry entryFor(const Shapes &shapes, const MapItem &it)
+{
+	MapRender::Entry e;
+	e.frame = shapes.frame(it.shape, it.frame);
+	if (!e.frame)
+		e.frame = shapes.frame(0, 0);
+	const TypeInfo &t = shapes.type(it.shape);
+	e.flip = it.flipped();
+	e.x = it.x >> 2;
+	e.y = it.y >> 2;
+	e.z = it.z;
+	int xd = t.xSize * 8, yd = t.ySize * 8;
+	if (e.flip)
+		std::swap(xd, yd);
+	e.xd = xd;
+	e.yd = yd;
+	e.zd = t.zSize * 8;
+	if (e.zd == 0 && !t.fixed)
+		e.zd = 1;
+	e.sx = e.x - e.y;
+	e.sy = (e.x >> 1) + (e.y >> 1) - e.z;
+	if (e.frame)
+		e.rect = QRect(e.sx + e.frame->left(e.flip), e.sy + e.frame->top(), e.frame->width, e.frame->height);
+	return e;
+}
+
+static void outlineBox(QPainter &p, const MapRender::Entry &e);
+
+void MapRender::paintGhost(QPainter &p, const MapItem &item, qreal opacity, qreal scale) const
+{
+	if (!world_)
+		return;
+	const Entry e = entryFor(world_->shapes(), item);
+	if (!e.frame)
+		return;
+	p.setOpacity(opacity);
+	p.drawImage(e.rect.topLeft(), e.flip ? e.frame->flipped : e.frame->image);
+	p.setOpacity(1);
+	p.setBrush(Qt::NoBrush);
+	p.setPen(QPen(QColor(120, 220, 255), 1.5 / scale));
+	outlineBox(p, e);
 }
 
 QImage MapRender::renderOverview(const LayerOptions &o, qreal scale) const
@@ -405,7 +449,7 @@ void MapRender::paintOverlays(QPainter &p, const QRectF &area, const LayerOption
 			}
 			// Glob eggs are everywhere (each stands for a patch of floor), so they are named only
 			// close up.
-			if (o.labels && scale >= (e.family == FamilyGlobEgg ? 2.0 : 0.75))
+			if (o.labels && scale >= (e.family == FamilyGlobEgg ? 4.0 : 0.75))
 			{
 				QString text;
 				const World &w = *world_;

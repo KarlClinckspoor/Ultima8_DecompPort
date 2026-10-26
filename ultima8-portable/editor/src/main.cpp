@@ -1,6 +1,8 @@
-// u8edit: a viewer for Ultima VIII's world.
+// u8edit.
 //
 //   u8edit [--data DIR] [--save FILE] [--map N]
+//
+// An editor for Ultima VIII's world and game data.
 //
 // With no --data it uses U8_DATA, then the folder it last used, then the port's (data= in
 // u8port.cfg), then asks. The switches after that are for testing and for pictures: they set up
@@ -52,7 +54,7 @@ int main(int argc, char **argv)
 	darkPalette(app);
 
 	QCommandLineParser cl;
-	cl.setApplicationDescription("A viewer for Ultima VIII's world");
+	cl.setApplicationDescription("An editor for Ultima VIII's world and game data");
 	cl.addHelpOption();
 	QCommandLineOption data("data", "The game folder, with STATIC and USECODE.", "dir");
 	QCommandLineOption save("save", "A saved game (U8SAVE.nnn) or a GAMEDAT folder to take movable items from.", "file");
@@ -64,8 +66,9 @@ int main(int argc, char **argv)
 	QCommandLineOption size("size", "The window's size.", "wxh");
 	QCommandLineOption shot("shot", "Save the window to this PNG, then quit.", "file");
 	QCommandLineOption graph("graph", "Show the transitions tab.");
+	QCommandLineOption tab("tab", "Show a tab: map, transitions or data.", "name");
 	QCommandLineOption noEggs("no-eggs", "Start with eggs hidden.");
-	cl.addOptions({data, save, map, at, zoom, pick, roof, size, shot, graph, noEggs});
+	cl.addOptions({data, save, map, at, zoom, pick, roof, size, shot, graph, tab, noEggs});
 	cl.process(app);
 
 	QString dir = cl.value(data);
@@ -110,11 +113,13 @@ int main(int argc, char **argv)
 				a->setChecked(false);
 	}
 	if (cl.isSet(roof))
-		window.findChild<QSpinBox *>()->setValue(cl.value(roof).toInt());
+		window.setRoof(cl.value(roof).toInt());
 	if (cl.isSet(map))
 		window.openMap(cl.value(map).toInt());
 	if (cl.isSet(graph))
 		window.tabs()->setCurrentWidget(window.graph());
+	if (cl.isSet(tab))
+		window.tabs()->setCurrentIndex(QStringList{"map", "transitions", "data"}.indexOf(cl.value(tab).toLower()));
 
 	// Positioning waits until the window has its size.
 	QTimer::singleShot(0, &window, [&] {

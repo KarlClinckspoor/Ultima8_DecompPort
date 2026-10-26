@@ -59,7 +59,9 @@ public:
 	bool shows(const Entry &e, const LayerOptions &o) const;
 	// Draws the items whose pixels meet area (screen pixels) onto a painter already set up to
 	// map screen pixels to the device.
-	void paint(QPainter &p, const QRectF &area, const LayerOptions &o) const;
+	void paint(QPainter &p, const QRectF &area, const LayerOptions &o, int skipItem = -1) const;
+	// One item drawn by itself where its fields put it, over the rest, with its outline.
+	void paintGhost(QPainter &p, const MapItem &item, qreal opacity, qreal scale) const;
 	// Egg ranges, labels and the selected item's outline; scale is device pixels per screen pixel.
 	void paintOverlays(QPainter &p, const QRectF &area, const LayerOptions &o, qreal scale, int selectedItem) const;
 	// The item whose drawn pixel is at screen point pt, or -1.
