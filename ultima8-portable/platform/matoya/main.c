@@ -244,6 +244,7 @@ static void *game_thread(void *opaque)
 	on_game_thread = true;
 	if (argv == NULL)
 		argv = options()->game_argv;
+	U8LoadExeTables();
 	plat_exit(U8Main((int16_t) argc, argv));
 	return NULL;
 }
