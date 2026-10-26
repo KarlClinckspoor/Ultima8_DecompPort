@@ -18,6 +18,8 @@ MT-32 ROMs.
 ultima8-portable/
   CMakeLists.txt          the build
   cmake/Libmatoya.cmake   builds libmatoya with its own makefiles
+  editor/                 u8edit, a Qt 6 viewer for the game's world (its own build; see
+                          editor/README.md)
   game/                   the game: ../source converted to portable C++, plus ports of its .ASM
   game/port/              DOS and Borland library calls the game used, done with plat_*
   game/sound/xmi*.cpp     the XMIDI music driver that replaces AILXMI.DLL
