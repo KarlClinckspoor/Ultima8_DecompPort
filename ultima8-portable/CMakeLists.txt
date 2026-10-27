@@ -6,9 +6,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if(WIN32)
+if(WIN32 AND NOT MINGW)
     # The game builds with clang; on Windows that is clang-cl (Visual Studio's "C++ Clang
-    # tools for Windows").
+    # tools for Windows"). A mingw-w64 build (from Linux, say) uses its GCC instead; see
+    # cmake/Libmatoya.cmake for what that leaves out.
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         message(FATAL_ERROR "On Windows, build with clang-cl: -DCMAKE_C_COMPILER=clang-cl "
             "-DCMAKE_CXX_COMPILER=clang-cl")
@@ -111,7 +112,15 @@ if(U8_BACKEND_MATOYA)
         # A windowed program, so no console opens with the game; main() stays the entry point.
         # Started from a terminal, it attaches to that console for its messages (main.c).
         set_target_properties(u8 PROPERTIES WIN32_EXECUTABLE TRUE)
-        target_link_options(u8 PRIVATE /ENTRY:mainCRTStartup)
+        if(MINGW)
+            # One file to copy: the C, C++ and thread runtimes go in. GCC emits a copy of each
+            # U8_INLINE function in the files that define it (-fkeep-inline-functions); ELF
+            # lets those sit beside the real one, COFF calls them a second definition. They
+            # are the same code, so the first is kept.
+            target_link_options(u8 PRIVATE -static -s -Wl,--allow-multiple-definition)
+        else()
+            target_link_options(u8 PRIVATE /ENTRY:mainCRTStartup)
+        endif()
     endif()
     if(U8_MT32_ROM_DIR)
         target_compile_definitions(u8 PRIVATE U8_DEFAULT_ROM_DIR="${U8_MT32_ROM_DIR}")

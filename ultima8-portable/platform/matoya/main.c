@@ -476,9 +476,13 @@ int main(int argc, char **argv)
 		&frame, 0);
 	MTY_AppSetPNGCursor(app, blank_cursor, sizeof blank_cursor, 0, 0);
 	MTY_AppSetCursor(app, MTY_CURSOR_ARROW);
-	/* Linux's default is Vulkan; a system without a Vulkan driver may still have OpenGL. */
+	/* Linux's default is Vulkan; a system without a Vulkan driver may still have OpenGL.
+	 * Windows's is Direct3D 11, which a mingw build does not have (cmake/Libmatoya.cmake);
+	 * Vulkan stands in. */
 	if (window < 0 || (!MTY_WindowSetGFX(app, window, MTY_GetDefaultGFX(), true)
-#if !defined(_WIN32) && !defined(__APPLE__)
+#if defined(_WIN32)
+		&& !MTY_WindowSetGFX(app, window, MTY_GFX_VK, true)
+#elif !defined(__APPLE__)
 		&& !MTY_WindowSetGFX(app, window, MTY_GFX_GL, true)
 #endif
 		))

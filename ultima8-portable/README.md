@@ -74,6 +74,19 @@ cmake --build build --target u8
 libmatoya's makefile relies on `cmd`'s `mkdir`. If Git's `usr\bin` is on `PATH`, nmake runs
 Git's `mkdir` instead and the libmatoya step fails, so build from a prompt without it.
 
+A Windows build can also be made on Linux with mingw-w64 (the `mingw-w64` package):
+
+```sh
+cmake -S ultima8-portable -B build-windows -DCMAKE_TOOLCHAIN_FILE=ultima8-portable/cmake/mingw-w64.cmake \
+    -DCMAKE_BUILD_TYPE=Release
+cmake --build build-windows --target u8
+```
+
+That `Ultima8.exe` is one file with nothing else to install, but it draws with Vulkan only:
+libmatoya's Direct3D renderers need shaders compiled by Microsoft's `fxc`, so they are left out
+(`cmake/mingw/`). Current Windows graphics drivers include Vulkan; the clang-cl build above has
+Direct3D 11 too.
+
 The first build also builds libmatoya (through its own makefile, into
 `third_party/libmatoya/bin/`) and mt32emu (as a CMake subproject). The program is
 `build/Ultima8` (`build\Ultima8.exe` on Windows), named so it can sit in the game folder beside
