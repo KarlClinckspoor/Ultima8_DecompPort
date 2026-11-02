@@ -9,3 +9,11 @@ macOS and Linux, after the Ultima VII portable port: given the game data, it pla
 VIII in a window with emulated MT-32 or AdLib music and Sound Blaster speech and effects.
 See [ultima8-portable/README.md](ultima8-portable/README.md) for building and running it, and
 [ultima8-portable/PORTING.md](ultima8-portable/PORTING.md) for how it was ported.
+
+## Lessons learned
+
+- [DECOMPILATION-LESSONS.md](DECOMPILATION-LESSONS.md): what working on top of the
+  decompilation taught: what the source says and what only the rebuilt executable can, and
+  how to check what you learn against the game's own data.
+- [ultima8-portable/PORT-LESSONS.md](ultima8-portable/PORT-LESSONS.md): how the portable
+  version was made, what went wrong, and what to do differently next time.
