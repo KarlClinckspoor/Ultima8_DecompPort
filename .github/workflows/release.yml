@@ -1,0 +1,82 @@
+# Builds the release packages when a version tag (v0.2.0, ...) is pushed, and puts them on
+# the tag's GitHub release (made from CHANGELOG.md when it does not exist yet). See RELEASING.md.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'An existing tag to build, like v0.2.0'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ env.TAG }}' }
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build make glslang-tools qt6-base-dev qt6-wayland zip
+      - run: ultima8-portable/tools/release/linux.sh "$TAG"
+      - uses: actions/upload-artifact@v4
+        with: { name: linux, path: dist/* }
+
+  windows-port:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ env.TAG }}' }
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64 cmake ninja-build zip
+      - run: ultima8-portable/tools/release/windows-port.sh "$TAG"
+      - uses: actions/upload-artifact@v4
+        with: { name: windows-port, path: dist/* }
+
+  windows-editor:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ env.TAG }}' }
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          install: >-
+            zip
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-qt6-base
+            mingw-w64-ucrt-x86_64-qt6-tools
+      - run: ultima8-portable/tools/release/windows-editor.sh "$TAG"
+      - uses: actions/upload-artifact@v4
+        with: { name: windows-editor, path: dist/* }
+
+  release:
+    needs: [linux, windows-port, windows-editor]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ env.TAG }}' }
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            ultima8-portable/tools/release/notes.sh "$TAG" > notes.md
+            gh release create "$TAG" --title "$TAG" --notes-file notes.md
+          fi
+          gh release upload "$TAG" dist/* --clobber

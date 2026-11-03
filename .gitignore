@@ -21,3 +21,4 @@ __pycache__/
 
 # Builds made at the top of the repository (the editor's README builds into build/editor)
 /build/
+/dist/

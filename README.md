@@ -10,6 +10,13 @@ VIII in a window with emulated MT-32 or AdLib music and Sound Blaster speech and
 See [ultima8-portable/README.md](ultima8-portable/README.md) for building and running it, and
 [ultima8-portable/PORTING.md](ultima8-portable/PORTING.md) for how it was ported.
 
+## Downloads
+
+Ready-made builds of the port and the editor for Windows and Linux are on the
+[Releases](https://github.com/KarlClinckspoor/Ultima8_DecompPort/releases) page; they need your
+own copy of the game. [RELEASING.md](RELEASING.md) says how they are made, and
+[CHANGELOG.md](CHANGELOG.md) what each has.
+
 ## How the game works
 
 [GAME-MECHANICS.md](GAME-MECHANICS.md): the game's rules as the code implements them:
