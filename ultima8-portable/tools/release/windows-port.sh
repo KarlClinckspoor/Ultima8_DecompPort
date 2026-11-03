@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The port for Windows, cross-compiled on Linux with mingw-w64: a .zip in OUTDIR (default dist/).
 #   tools/release/windows-port.sh 0.1.0
-# Needs the mingw-w64 package (x86_64-w64-mingw32-gcc), cmake, ninja and zip.
+# Needs the mingw-w64 package (x86_64-w64-mingw32-gcc), cmake, ninja, glslangValidator and zip.
 source "$(dirname "$0")/common.sh"
 
 cmake -S "$PORTABLE" -B "$WORK/windows-port" -G Ninja -DCMAKE_BUILD_TYPE=Release \

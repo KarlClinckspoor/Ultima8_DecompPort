@@ -37,7 +37,8 @@ not change; say so in the notes when it did.
 ## Making one
 
 A release is published by GitHub Actions (`.github/workflows/release.yml`) when a push to
-`master` changes `VERSION`. Pushing a branch is all it takes, so whoever can push to `master`
+`master` changes `VERSION` (or the workflow or the release scripts, which finishes a release
+whose run failed: a version that has its release already is never built again). Pushing a branch is all it takes, so whoever can push to `master`
 can release; a tag or a release made by hand is not needed.
 
 1. **Test** the commit to release:
@@ -85,7 +86,7 @@ then create the release on GitHub (tag `VERSION` on `master`), with
 | --- | --- |
 | `common.sh` | the paths, the version and the `LICENSES/` folder, for the others |
 | `linux.sh` | builds the port and the editor and packs them; bundles Qt for the editor |
-| `windows-port.sh` | cross-compiles the port with `cmake/mingw-w64.cmake` and zips it |
+| `windows-port.sh` | cross-compiles the port with `cmake/mingw-w64.cmake` and zips it (needs `glslangValidator` for libmatoya's Vulkan shaders) |
 | `windows-editor.sh` | builds the editor in MSYS2, runs `windeployqt6`, adds the DLLs it leaves out, zips it |
 | `notes.sh` | prints a version's section of `CHANGELOG.md` |
 
