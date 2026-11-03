@@ -55,6 +55,7 @@ protected:
 	void closeEvent(QCloseEvent *) override;
 
 private:
+	void applyTranslation();
 	void buildMenus();
 	void buildDocks();
 	void fillMapList();

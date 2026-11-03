@@ -51,6 +51,7 @@ for _ in 1 2 3; do
 	done
 done
 printf '[Paths]\nPrefix=..\nPlugins=plugins\n' > "$dir/bin/qt.conf"
+cp -r "$WORK/linux-editor/languages" "$dir/languages"	# File > Apply a Translation
 cat > "$dir/u8edit" <<'LAUNCH'
 #!/bin/sh
 # Starts the editor with the Qt libraries in this folder.

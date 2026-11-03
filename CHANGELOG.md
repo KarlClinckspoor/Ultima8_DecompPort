@@ -3,6 +3,17 @@
 Each release's notes. The newest is first; `ultima8-portable/tools/release/notes.sh VERSION`
 prints one section, and the release on GitHub carries it.
 
+## Unreleased
+
+- **Editor: File > Apply a Translation.** Makes a translated copy of the English game folder
+  from a translation table: the usecode's strings swapped (every branch and call moved to
+  match), the letters the language needs added to the fonts from a small font patch, and, by
+  choice, the English voices left out so that their lines show as text. The editor comes with
+  the Brazilian Portuguese table (`languages/pt_BR.json`) and its font patch. The result is
+  the same, byte for byte, as `u8lang.py build`.
+- `u8lang.py fontpatch` writes a font patch; `u8lang.py build --keep-voices`; the tool runs
+  with `uv run u8lang.py ...`, with no Python to install.
+
 ## v0.1.0
 
 The first release of the portable Ultima VIII and its editor, for Windows and Linux (64-bit).

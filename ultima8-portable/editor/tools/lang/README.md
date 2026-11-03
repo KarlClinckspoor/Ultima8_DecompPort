@@ -1,42 +1,69 @@
 # Languages for Ultima VIII
 
-`u8lang.py` makes a new language for the game out of a table of translated strings: the
-dialogue, books, scrolls, signs and item names, which all live in the usecode
-(`USECODE/EUSECODE.FLX`). Buttons, menus, the intro and the credits are pictures or text in the
-program and stay as they are.
+A new language for the game is made from a **translation table**: every string of the
+usecode (`USECODE/EUSECODE.FLX`: the dialogue, books, scrolls, signs and item names) with its
+translation. Buttons, menus, the intro and the credits are pictures or text in the program and
+stay as they are.
 
-    python3 u8lang.py extract <ENGLISH> --compare <FRENCH> <GERMAN> -o table.json
-    (translate: fill in "tr" for every string)
-    python3 u8lang.py build <ENGLISH> table.json <NEW FOLDER>
-
-`pt_BR.json` is Brazilian Portuguese, all 5,766 strings:
-
-    python3 u8lang.py build <ENGLISH> pt_BR.json <PORTUGUESE>
+| File | What |
+| --- | --- |
+| `pt_BR.json` | the Brazilian Portuguese table: all 5,766 strings |
+| `u8fonts-pt.json` | the font patch it names: the 116 letters (`ã`, `õ`, accented capitals, in 9 fonts) that the fonts lack, as frames to add to `STATIC/U8FONTS.FLX` |
+| `u8lang.py`, `usecode.py`, `fonts.py` | the tool that extracts tables, makes font patches and builds languages |
+| `TRANSLATING.md` | the rules and glossary the Portuguese followed |
 
 ## Playing the Portuguese version
 
-Everyone builds it from their own copy of the game: the repository holds the tool and the
-translation, not the game's files. It needs Python 3 (Windows: from python.org, or in MSYS2
-`pacman -S mingw-w64-ucrt-x86_64-python`) and the English game folder (GOG: the `ENGLISH`
-folder of the installation). From this folder:
+Everyone makes it from their own copy of the game (GOG: the `ENGLISH` folder of the
+installation). The English folder is not changed; the new one is a whole game folder, played
+with the port (`Ultima8 --data <PORTUGUESE>`) or in DOSBox like the English one. There are two
+ways, which give the same files, byte for byte.
 
-    python3 u8lang.py build "C:/GOG Games/Ultima 8/ENGLISH" pt_BR.json "C:/GOG Games/Ultima 8/PORTUGUESE"
+**With the editor** (nothing else to install): File > Apply a Translation. It offers the
+Portuguese table the editor comes with (`languages/` beside the program), the English folder
+open in the editor, and a `PORTUGUESE` folder beside it, and leaves out the English voices
+unless told not to. Apply makes the folder, and the editor can open it.
 
-(`python` instead of `python3` on Windows.) The new folder is a whole game folder. Play it with
-the port (`Ultima8 --data <PORTUGUESE>`), or in DOSBox the way the English folder is played.
-The English folder is not changed.
+**With Python**, from this folder. The easiest way to run it is [uv](https://docs.astral.sh/uv/),
+which fetches a Python of its own on first use, so no Python needs installing:
+
+    # install uv (once)
+    winget install --id=astral-sh.uv -e                      # Windows (or the PowerShell line below)
+    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+    curl -LsSf https://astral.sh/uv/install.sh | sh          # Linux, macOS
+
+    uv run u8lang.py build "C:/GOG Games/Ultima 8/ENGLISH" pt_BR.json "C:/GOG Games/Ultima 8/PORTUGUESE"
+
+`--keep-voices` keeps the English voices. With a Python 3.9 or newer already installed,
+`python3 u8lang.py ...` (`python` on Windows) does the same; the tool needs nothing beyond
+Python's standard library.
+
+## Making a translation
+
+    uv run u8lang.py extract <ENGLISH> --compare <FRENCH> <GERMAN> -o table.json
+    (translate: fill in "tr" for every string; add "language", "folder" and "font_patch")
+    uv run u8lang.py fontpatch <ENGLISH> -o u8fonts-xx.json
+    uv run u8lang.py build <ENGLISH> table.json <NEW FOLDER>
+
+`extract` lists each distinct string once, and with `--compare` marks the ones that are the
+same in every language Origin shipped (file names, debugging, words of power) to leave as they
+are. `fontpatch` writes the letters `fonts.ENCODING` lists that the fonts lack (Portuguese's,
+today; add a language's letters there and to `fonts.SMALL`/`fonts.CAPITAL`). A table names its
+font patch, which goes beside it; put both in the editor's `tools/lang/` and list them in
+`U8EDIT_LANGUAGES` (its `CMakeLists.txt`) to have the editor offer it.
 
 ## Sharing a translation
 
-Share the table (`pt_BR.json`) with `u8lang.py`, `usecode.py` and `fonts.py`, and let each
-player build it from their own game, as above. That is what this repository does, and it is
+Share the table and its font patch (`pt_BR.json`, `u8fonts-pt.json`), and let each player
+build the folder from their own game, with the editor or with `u8lang.py`, as above. The editor
+comes with them. That is what this repository does, and it is
 the usual way of sharing fan translations:
 
 - it works from any copy of the English game, which needs nothing else;
 - what is shared is the translation table (which quotes the English lines it translates),
   not Origin's files: `EUSECODE.FLX` is the whole game's code, and `U8FONTS.FLX` Origin's
   fonts;
-- a corrected table makes a corrected game with the same command.
+- a corrected table makes a corrected game the same way.
 
 Sharing only the dialogue file is not enough. A built language changes three things, and a
 player given `EUSECODE.FLX` alone would get the third wrong and miss the second:
@@ -63,8 +90,9 @@ A copy of the English game folder with three changes:
   byte for byte, except the few classes whose code Origin changed for those languages.
 - `STATIC/U8FONTS.FLX` has the letters the translation needs that the fonts lack (for
   Portuguese: a and o with tilde and the accented capitals), drawn from the font's own accents
-  (`fonts.py`).
-- The recorded voices (`SOUND/E<npc>.FLX`) are left out. The game plays a voice only when the
+  (`fonts.py`) and kept as the font patch; each frame is appended to its font and the font's
+  frame table points at it.
+- The recorded voices (`SOUND/E<npc>.FLX`) are left out, unless asked to keep them. The game plays a voice only when the
   text matches the recorded words, and shows no text while it does, so with them the nine
   voiced characters would speak English with no subtitles. This is how Origin's French and
   German versions work too.

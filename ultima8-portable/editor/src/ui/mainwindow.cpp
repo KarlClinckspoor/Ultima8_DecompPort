@@ -32,6 +32,7 @@
 #include "ui/mapview.h"
 #include "ui/minimap.h"
 #include "ui/shapebrowser.h"
+#include "ui/translatedialog.h"
 
 enum { MapColumn, NameColumn, ItemsColumn, ExitsColumn };
 
@@ -302,6 +303,7 @@ void MainWindow::buildMenus()
 			QSettings().setValue("portProgram", path);
 	});
 	file->addSeparator();
+	entry(file, tr("&Apply a Translation..."), this, [this] { applyTranslation(); });
 	entry(file, tr("&Export View as Image..."), this, [this] { exportView(); });
 	file->addSeparator();
 	entry(file, tr("&Quit"), this, [this] { close(); }, QKeySequence::Quit);
@@ -777,4 +779,18 @@ void MainWindow::updateTitle()
 	if (world_ && world_->dirty())
 		title.prepend(QStringLiteral("* "));
 	setWindowTitle(title);
+}
+
+// A translated copy of the English game folder (TranslateDialog); then, if wanted, open it.
+void MainWindow::applyTranslation()
+{
+	TranslateDialog dialog(world_ ? world_->dataDir() : QString(), this);
+	if (dialog.exec() != QDialog::Accepted || dialog.made().isEmpty())
+		return;
+	if (QMessageBox::question(this, tr("Apply a Translation"), tr("Open the new folder in the editor?"))
+		!= QMessageBox::Yes || !askToSave(tr("opening the new folder")))
+		return;
+	QString error;
+	if (!loadWorld(dialog.made(), QString(), &error))
+		QMessageBox::warning(this, tr("U8 Editor"), error);
 }

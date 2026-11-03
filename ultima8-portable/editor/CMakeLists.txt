@@ -25,6 +25,8 @@ add_library(u8edit_core STATIC
 	src/data/gametables.cpp
 	src/data/gametables.h
 	src/data/itemcache.cpp
+	src/data/language.cpp
+	src/data/language.h
 	src/data/itemcache.h
 	src/data/shapes.cpp
 	src/data/shapes.h
@@ -50,12 +52,25 @@ add_library(u8edit_core STATIC
 	src/ui/minimap.h
 	src/ui/shapebrowser.cpp
 	src/ui/shapebrowser.h
+	src/ui/translatedialog.cpp
+	src/ui/translatedialog.h
 )
 target_include_directories(u8edit_core PUBLIC src)
 target_link_libraries(u8edit_core PUBLIC Qt6::Widgets)
 
 add_executable(u8edit WIN32 MACOSX_BUNDLE src/main.cpp)
 target_link_libraries(u8edit PRIVATE u8edit_core)
+
+# The translations the editor comes with (File > Apply a Translation): the tables and their
+# font patches from tools/lang, copied to languages/ beside the program.
+set(U8EDIT_LANGUAGES tools/lang/pt_BR.json tools/lang/u8fonts-pt.json)
+foreach(f ${U8EDIT_LANGUAGES})
+	get_filename_component(name ${f} NAME)
+	add_custom_command(TARGET u8edit POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:u8edit>/languages
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/${f}
+			$<TARGET_FILE_DIR:u8edit>/languages/${name})
+endforeach()
 
 foreach(target u8edit_core u8edit)
 	if(MSVC)
@@ -69,4 +84,6 @@ if(U8EDIT_TESTS)
 	find_package(Qt6 REQUIRED COMPONENTS Test)
 	add_executable(u8edit-tests tests/tests.cpp)
 	target_link_libraries(u8edit-tests PRIVATE u8edit_core Qt6::Test)
+	target_compile_definitions(u8edit-tests PRIVATE U8EDIT_LANG_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tools/lang")
+	add_dependencies(u8edit-tests u8edit)
 endif()

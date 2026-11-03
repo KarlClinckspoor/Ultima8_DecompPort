@@ -20,6 +20,9 @@ File > Test in the Port (F5) saves, then starts the portable version on what was
 looks for Ultima8 beside u8edit or one folder up; File > Choose the Port Program points it
 anywhere else.
 
+File > Apply a Translation makes a translated copy of the English game folder. The Brazilian
+Portuguese translation is in languages/; the English folder is not changed.
+
 The folder holds the Qt libraries the editor needs: on Windows, Qt's DLLs beside u8edit.exe;
 on Linux, lib/ and plugins/, which the ./u8edit script uses. Linux needs glibc 2.38 or newer
 (Ubuntu 24.04, Debian 13, Fedora 39 or later), X11 or Wayland.

@@ -1,4 +1,7 @@
 {
+ "language": "Português (Brasil)",
+ "folder": "PORTUGUESE",
+ "font_patch": "u8fonts-pt.json",
  "keep": [
   [
    44,

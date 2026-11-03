@@ -141,9 +141,10 @@ def _squeeze(g, newtop):
     return dict(g, pix=pix)
 
 
-def add_portuguese(fontsflx):
-    """U8FONTS.FLX with the letters ENCODING needs in every text font."""
+def portuguese_glyphs(fontsflx):
+    """{font: {code: frame bytes}}: the letters ENCODING needs that each text font lacks."""
     records = [fontsflx[o:o + s] for o, s in flex(fontsflx)]
+    out = {}
     for f in TEXT_FONTS:
         shape = bytearray(records[f])
         offs = frames(shape)
@@ -156,10 +157,25 @@ def add_portuguese(fontsflx):
                 continue		# the font has it already
             squeezed = _squeeze(glyph(cap), _top(glyph(ref_base)))
             new[code] = _accent(squeezed, glyph(ref), glyph(ref_base))
-        for code, g in new.items():
-            data = encode(g)
+        out[f] = {code: encode(g) for code, g in new.items()}
+    return out
+
+
+def apply_glyphs(fontsflx, glyphs):
+    """U8FONTS.FLX with these frames ({font: {code: frame bytes}}) added: each is appended to
+    its font's shape and the frame table points at it. The editor does the same with a font
+    patch (u8lang.py fontpatch)."""
+    records = [fontsflx[o:o + s] for o, s in flex(fontsflx)]
+    for f, frames_ in glyphs.items():
+        shape = bytearray(records[f])
+        for code, data in frames_.items():	# in order: it decides where each lands
             at = len(shape)
             shape[6 + code * 6:12 + code * 6] = bytes([at & 0xff, (at >> 8) & 0xff, at >> 16, 0]) + struct.pack('<H', len(data))
             shape += data
         records[f] = bytes(shape)
     return write_flex(fontsflx, records, struct.unpack_from('<I', fontsflx, 0x60)[0] != 0)
+
+
+def add_portuguese(fontsflx):
+    """U8FONTS.FLX with the letters ENCODING needs in every text font."""
+    return apply_glyphs(fontsflx, portuguese_glyphs(fontsflx))

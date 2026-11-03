@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.9"
+# ///
 """Makes a new language for Ultima VIII out of a table of translated strings.
 
   u8lang.py extract ENGLISH [--compare FRENCH GERMAN] -o table.json
@@ -6,19 +9,28 @@
       --compare, the strings that are the same in every language Origin shipped (names of
       files, debugging, words of power) are marked to keep as they are.
 
-  u8lang.py build ENGLISH table.json OUTPUT
+  u8lang.py fontpatch ENGLISH -o u8fonts-pt.json
+      Writes the font patch: the glyphs the translation needs that the fonts lack, made from
+      the fonts' own accents, as frames to add to STATIC/U8FONTS.FLX. The editor applies it;
+      so does build, when the table names it.
+
+  u8lang.py build ENGLISH table.json OUTPUT [--keep-voices]
       Copies the ENGLISH game folder to OUTPUT with the strings of the table, the letters the
       table needs added to the fonts, and the recorded voices left out (their lines then show
       as text). The new folder still says it is English, so buttons, menus and the intro stay
       English and it plays in DOS U8.EXE as in the port.
 
-The table: {"keep": [[class, n], ...], "strings": [{"en": ..., "tr": ..., "cls": ...}]}.
+The table: {"language": ..., "folder": ..., "font_patch": ..., "keep": [[class, n], ...],
+"strings": [{"en": ..., "tr": ..., "cls": ...}]}. "language" and "folder" name the language
+and the folder made for it, "font_patch" the font patch, beside the table.
 Strings with the same English get the same translation everywhere, so code that compares a
 string with another still finds them equal. Classes whose names hold GRAVE or PLAQUE are
 engraved in fonts with no accents, so their accents are dropped.
 """
 import argparse
+import base64
 import glob
+import hashlib
 import json
 import os
 import shutil
@@ -74,19 +86,47 @@ def extract(args):
     print('%d strings to translate, %d kept as they are' % (len(strings), len(keep)))
 
 
-def encode(text, engraved):
+def encode(text, engraved, characters=None):
+    characters = characters or fonts.ENCODING
     text = ''.join(QUOTES.get(ch, ch) for ch in text)
     if engraved:
         text = ''.join(ch for ch in unicodedata.normalize('NFD', text) if unicodedata.category(ch) != 'Mn')
     out = bytearray()
     for ch in text:
-        if ch in fonts.ENCODING:
-            out.append(fonts.ENCODING[ch])
+        if ch in characters:
+            out.append(characters[ch])
         elif ord(ch) < 128:
             out.append(ord(ch))
         else:
             raise ValueError('the fonts have no %r (in %r)' % (ch, text))
     return bytes(out)
+
+
+def fontpatch(args):
+    original = open(find(args.english, 'STATIC/U8FONTS.FLX'), 'rb').read()
+    glyphs = fonts.portuguese_glyphs(original)
+    patch = {
+        'format': 'u8fonts-glyphs 1',
+        'about': 'Glyphs to add to STATIC/U8FONTS.FLX: each frame is appended to its font '
+            '(record "font", a shape) and becomes its character "code". Made by u8lang.py '
+            'fontpatch from the fonts\' own accents.',
+        'base': {'size': len(original), 'sha256': hashlib.sha256(original).hexdigest()},
+        'characters': dict(fonts.ENCODING),
+        'glyphs': [{'font': f, 'code': c, 'frame': base64.b64encode(d).decode('ascii')}
+            for f, frames in glyphs.items() for c, d in frames.items()],
+    }
+    json.dump(patch, open(args.output, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+    print('%d glyphs in %d fonts' % (len(patch['glyphs']), len(glyphs)))
+
+
+def load_fontpatch(path):
+    patch = json.load(open(path, encoding='utf-8'))
+    if patch.get('format') != 'u8fonts-glyphs 1':
+        raise SystemExit('%s is not a font patch' % path)
+    glyphs = {}
+    for g in patch['glyphs']:
+        glyphs.setdefault(g['font'], {})[g['code']] = base64.b64decode(g['frame'])
+    return patch, glyphs
 
 
 def problems(item):
@@ -110,6 +150,12 @@ def build(args):
                 warned += 1
                 print('warning: %s: %r: %s' % (it['cls'], it['en'][:40], p))
     keep = {tuple(k) for k in table['keep']}
+    patch = glyphs = None
+    if table.get('font_patch'):
+        p = os.path.join(os.path.dirname(os.path.abspath(args.table)), table['font_patch'])
+        if os.path.exists(p):
+            patch, glyphs = load_fontpatch(p)
+    characters = patch['characters'] if patch else fonts.ENCODING
     e = open(find(args.english, 'USECODE/EUSECODE.FLX'), 'rb').read()
     new, missing = {}, 0
     for c, rec in usecode.classes(e).items():
@@ -120,7 +166,7 @@ def build(args):
                 missing += (c, n) not in keep
                 out.append(s)
             else:
-                out.append(encode(it['tr'], 'GRAVE' in it['cls'] or 'PLAQUE' in it['cls']))
+                out.append(encode(it['tr'], 'GRAVE' in it['cls'] or 'PLAQUE' in it['cls'], characters))
         new[c] = out
     code = usecode.rebuild(e, new)
     if os.path.exists(args.output):
@@ -135,9 +181,10 @@ def build(args):
             os.chmod(os.path.join(root, f), 0o644)
     open(find(args.output, 'USECODE/EUSECODE.FLX'), 'wb').write(code)
     fp = find(args.output, 'STATIC/U8FONTS.FLX')
-    font_data = fonts.add_portuguese(open(fp, 'rb').read())
+    original_fonts = open(fp, 'rb').read()
+    font_data = fonts.apply_glyphs(original_fonts, glyphs) if glyphs else fonts.add_portuguese(original_fonts)
     open(fp, 'wb').write(font_data)
-    for p in glob.glob(os.path.join(find(args.output, 'SOUND'), '*')):
+    for p in [] if args.keep_voices else glob.glob(os.path.join(find(args.output, 'SOUND'), '*')):
         name = os.path.basename(p).upper()
         if name[:1] == 'E' and name[1:2].isdigit() and name.endswith('.FLX'):
             os.remove(p)	# recorded voices: they match the English text only
@@ -157,8 +204,12 @@ def main():
     b.add_argument('english')
     b.add_argument('table')
     b.add_argument('output')
+    b.add_argument('--keep-voices', action='store_true', help='keep the English voices')
+    f = sub.add_parser('fontpatch')
+    f.add_argument('english')
+    f.add_argument('-o', '--output', required=True)
     args = ap.parse_args()
-    extract(args) if args.cmd == 'extract' else build(args)
+    {'extract': extract, 'build': build, 'fontpatch': fontpatch}[args.cmd](args)
 
 
 if __name__ == '__main__':

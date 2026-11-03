@@ -11,6 +11,7 @@ pkg="u8edit-$VERSION-windows-x64"
 dir="$WORK/$pkg"
 rm -rf "$dir" && mkdir -p "$dir"
 cp "$WORK/windows-editor/u8edit.exe" "$dir/"
+cp -r "$WORK/windows-editor/languages" "$dir/languages"	# File > Apply a Translation
 strip "$dir/u8edit.exe"
 # Qt's DLLs and plug-ins; then everything else they need from UCRT64 (the compiler's run-time,
 # ICU, FreeType, HarfBuzz, zlib, ...), which windeployqt leaves out for MSYS2 builds.

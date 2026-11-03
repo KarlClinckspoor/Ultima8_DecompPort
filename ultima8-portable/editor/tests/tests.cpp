@@ -5,17 +5,21 @@
 // The files are read and written back unchanged, then the main window is driven as a user would:
 // select, drag, undo, place, delete, change a weapon, save; and what was saved is read again.
 
+#include <QCryptographicHash>
 #include <QDir>
+#include <QLineEdit>
 #include <QFile>
 #include <QStandardPaths>
 #include <QTableWidget>
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include "data/language.h"
 #include "data/world.h"
 #include "ui/edits.h"
 #include "ui/gamedata.h"
 #include "ui/mainwindow.h"
+#include "ui/translatedialog.h"
 #include "ui/mapview.h"
 
 namespace
@@ -77,6 +81,7 @@ class Tests : public QObject
 private slots:
 	void initTestCase();
 	void roundTrip();
+	void translation();
 	void editInWindow();
 
 private:
@@ -125,6 +130,67 @@ void Tests::roundTrip()
 			QCOMPARE(w.serializeForTest(m, MapItem::NonFixed), nonFixed.record(m));
 	}
 	QVERIFY(!w.dirty());
+}
+
+// File > Apply a Translation, with the Portuguese table: the usecode keeps its code and gets
+// every string, the fonts get their letters, the voices go.
+void Tests::translation()
+{
+	QString error;
+	QFile f(QDir(data_).filePath(find(find(data_, "USECODE"), "EUSECODE.FLX")));
+	QVERIFY(f.open(QIODevice::ReadOnly));
+	const QByteArray usecode = f.readAll();
+	QCOMPARE(Language::rebuildUsecode(usecode, {}, &error), usecode);
+	QCOMPARE(Language::rebuildUsecode(usecode, Language::usecodeStrings(usecode, &error), &error), usecode);
+
+	// A voice file and the music, to see which stay.
+	QDir(data_).mkpath("SOUND");
+	for (const char *name : {"SOUND/E80.FLX", "SOUND/MUSIC.FLX"})
+	{
+		QFile s(QDir(data_).filePath(name));
+		QVERIFY(s.open(QIODevice::WriteOnly));
+		s.write("x");
+	}
+
+	Language::Options o;
+	o.englishDir = data_;
+	o.tablePath = QStringLiteral(U8EDIT_LANG_DIR "/pt_BR.json");
+	o.outputDir = temp_.filePath("PORTUGUESE");
+	Language::Result r;
+	QVERIFY2(Language::build(o, &r, &error), qPrintable(error));
+	QVERIFY(r.translated > 10000);
+	QCOMPARE(r.untranslated, 0);
+	QVERIFY(r.largestClass < 0xffff);
+	QVERIFY2(r.warnings.isEmpty(), qPrintable(r.warnings.join('\n')));
+
+	QFile pt(find(find(o.outputDir, "USECODE"), "EUSECODE.FLX"));
+	QVERIFY(pt.open(QIODevice::ReadOnly));
+	const QByteArray translated = pt.readAll();
+	const auto before = Language::usecodeStrings(usecode, &error);
+	const auto after = Language::usecodeStrings(translated, &error);
+	QCOMPARE(after.size(), before.size());
+	for (auto it = before.begin(); it != before.end(); ++it)
+		QCOMPARE(after.value(it.key()).size(), it->size());
+	qInfo("EUSECODE.FLX %s, U8FONTS.FLX %s",
+		QCryptographicHash::hash(translated, QCryptographicHash::Md5).toHex().constData(),
+		[&] {
+			QFile fonts(find(find(o.outputDir, "STATIC"), "U8FONTS.FLX"));
+			fonts.open(QIODevice::ReadOnly);
+			return QCryptographicHash::hash(fonts.readAll(), QCryptographicHash::Md5).toHex();
+		}().constData());
+	QVERIFY(!QFile::exists(QDir(o.outputDir).filePath("GAMEDAT/NONFIXED.DAT")));
+	QCOMPARE(r.voicesRemoved, 1);
+	QVERIFY(!QFile::exists(QDir(o.outputDir).filePath("SOUND/E80.FLX")));
+	QVERIFY(QFile::exists(QDir(o.outputDir).filePath("SOUND/MUSIC.FLX")));
+
+	// The dialog finds the table that comes with the editor and suggests a folder beside the
+	// English one.
+	TranslateDialog dialog(data_);
+	QVERIFY(!TranslateDialog::bundledTables().isEmpty());
+	const QList<QLineEdit *> edits = dialog.findChildren<QLineEdit *>();
+	QCOMPARE(edits.size(), 3);
+	QVERIFY(edits[0]->text().endsWith("pt_BR.json"));
+	QCOMPARE(QDir::fromNativeSeparators(edits[2]->text()), QDir(data_ + "/..").absoluteFilePath("PORTUGUESE"));
 }
 
 void Tests::editInWindow()

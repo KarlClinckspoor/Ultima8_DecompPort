@@ -144,6 +144,11 @@ when they differ from the original ones.
   ways it stands for; double-click to go to the first. Double-click a map to open it. Drag maps
   to tidy the picture; the places are kept.
 - **Game Data**: the weapon, armour and monster tables and the NPCs' statistics, to type into.
+- **File > Apply a Translation** makes a translated copy of the English game folder from a
+  translation table: the dialogue, books, signs and item names, the letters the language needs
+  added to the fonts, and (by choice) the English voices left out, so that their lines show as
+  text. The Brazilian Portuguese table comes with the editor (`languages/` beside it); see
+  `tools/lang/README.md`.
 - **Edit > Undo/Redo** take back any change; **File > Save** (Ctrl+S) writes them.
 - **File > Test in the Port** (F5) saves, then starts the port (`Ultima8` beside `u8edit` or one
   level up, or the one chosen with File > Choose the Port Program) on a home folder of its own
