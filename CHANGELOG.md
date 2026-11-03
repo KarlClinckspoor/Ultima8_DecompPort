@@ -1,9 +1,14 @@
 # Changes
 
 Each release's notes. The newest is first; `ultima8-portable/tools/release/notes.sh VERSION`
-prints one section, and the release on GitHub carries it.
+prints one section, and the release on GitHub carries it. A release is made by writing its
+section here and putting its number in `VERSION` (see RELEASING.md).
 
-## Unreleased
+## 0.2.0
+
+The editor can now make the game in another language, with Brazilian Portuguese included. The
+packages are as in 0.1.0 and need the same: your own copy of the game, Windows 10 or 11, or
+Linux with glibc 2.38 or newer.
 
 - **Editor: File > Apply a Translation.** Makes a translated copy of the English game folder
   from a translation table: the usecode's strings swapped (every branch and call moved to
@@ -14,7 +19,7 @@ prints one section, and the release on GitHub carries it.
 - `u8lang.py fontpatch` writes a font patch; `u8lang.py build --keep-voices`; the tool runs
   with `uv run u8lang.py ...`, with no Python to install.
 
-## v0.1.0
+## 0.1.0
 
 The first release of the portable Ultima VIII and its editor, for Windows and Linux (64-bit).
 Both need your own copy of the game: nothing of the game is included.

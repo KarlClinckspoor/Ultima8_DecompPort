@@ -1,55 +1,80 @@
-# Builds the release packages when a version tag (v0.2.0, ...) is pushed, and puts them on
-# the tag's GitHub release (made from CHANGELOG.md when it does not exist yet). See RELEASING.md.
+# Publishes a release when VERSION changes on master: makes the tag and the GitHub release
+# (its text from CHANGELOG.md's section for that version), builds the four packages and
+# attaches them. A version that already has a release is not built again. See RELEASING.md.
 name: Release
 
 on:
   push:
-    tags: ['v*']
+    branches: [master]
+    paths: [VERSION]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'An existing tag to build, like v0.2.0'
-        required: true
 
 permissions:
   contents: write
 
-env:
-  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      build: ${{ steps.v.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="$(tr -d ' \r\n' < VERSION)"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if gh release view "$v" > /dev/null 2>&1; then
+            echo "Release $v exists already; nothing to do."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            ultima8-portable/tools/release/notes.sh "$v" | grep -q '[^[:space:]]' \
+              || { echo "CHANGELOG.md has no section for $v"; exit 1; }
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
   linux:
+    needs: version
+    if: needs.version.outputs.build == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-        with: { ref: '${{ env.TAG }}' }
       - run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build make glslang-tools qt6-base-dev qt6-wayland zip
-      - run: ultima8-portable/tools/release/linux.sh "$TAG"
+          sudo apt-get install -y clang cmake ninja-build make glslang-tools \
+            qt6-base-dev qt6-base-dev-tools qt6-wayland zip
+      - run: ultima8-portable/tools/release/linux.sh "${{ needs.version.outputs.version }}"
       - uses: actions/upload-artifact@v4
         with: { name: linux, path: dist/* }
 
   windows-port:
+    needs: version
+    if: needs.version.outputs.build == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-        with: { ref: '${{ env.TAG }}' }
       - run: |
           sudo apt-get update
           sudo apt-get install -y mingw-w64 cmake ninja-build zip
-      - run: ultima8-portable/tools/release/windows-port.sh "$TAG"
+      - run: ultima8-portable/tools/release/windows-port.sh "${{ needs.version.outputs.version }}"
       - uses: actions/upload-artifact@v4
         with: { name: windows-port, path: dist/* }
 
   windows-editor:
+    needs: version
+    if: needs.version.outputs.build == 'true'
     runs-on: windows-latest
     defaults:
       run:
         shell: msys2 {0}
     steps:
       - uses: actions/checkout@v4
-        with: { ref: '${{ env.TAG }}' }
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -60,23 +85,21 @@ jobs:
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-qt6-base
             mingw-w64-ucrt-x86_64-qt6-tools
-      - run: ultima8-portable/tools/release/windows-editor.sh "$TAG"
+      - run: ultima8-portable/tools/release/windows-editor.sh "${{ needs.version.outputs.version }}"
       - uses: actions/upload-artifact@v4
         with: { name: windows-editor, path: dist/* }
 
   release:
-    needs: [linux, windows-port, windows-editor]
+    needs: [version, linux, windows-port, windows-editor]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-        with: { ref: '${{ env.TAG }}' }
       - uses: actions/download-artifact@v4
         with: { path: dist, merge-multiple: true }
       - env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
-          if ! gh release view "$TAG" > /dev/null 2>&1; then
-            ultima8-portable/tools/release/notes.sh "$TAG" > notes.md
-            gh release create "$TAG" --title "$TAG" --notes-file notes.md
-          fi
-          gh release upload "$TAG" dist/* --clobber
+          ls -la dist
+          ultima8-portable/tools/release/notes.sh "$VERSION" > notes.md
+          gh release create "$VERSION" dist/* --target "$GITHUB_SHA" --title "$VERSION" --notes-file notes.md
