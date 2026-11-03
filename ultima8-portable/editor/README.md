@@ -13,8 +13,45 @@ game:
     cmake -S editor -B build/editor -DCMAKE_BUILD_TYPE=Release
     cmake --build build/editor
 
-On Windows, point CMake at Qt with `-DCMAKE_PREFIX_PATH=C:\Qt\6.x\msvc2022_64` and run
-`windeployqt` on the result to ship it.
+### Windows, with MSYS2
+
+[MSYS2](https://www.msys2.org) installs Qt, the compiler and CMake from its package manager,
+with no Qt account or installer. Use its **UCRT64** terminal (the *MSYS* terminal is for
+MSYS2's own tools, and its packages do not make Windows programs):
+
+    pacman -Syu
+    pacman -S --needed mingw-w64-ucrt-x86_64-{gcc,cmake,ninja,qt6-base,qt6-tools,qt6-translations}
+
+`pacman -Syu` may close the terminal to finish updating itself: open UCRT64 again and run it
+once more before the second line. Install every package with the same `ucrt-x86_64` prefix;
+packages for another environment (`x86_64` is MINGW64's) do not mix.
+
+Then, from the repository's top folder (MSYS2 names `C:\` as `/c/`):
+
+    cmake -S ultima8-portable/editor -B build/editor -G Ninja -DCMAKE_BUILD_TYPE=Release
+    cmake --build build/editor
+    ./build/editor/u8edit --data /c/path/to/Ultima8/ENGLISH
+
+Started from the UCRT64 terminal it finds Qt's DLLs on that terminal's `PATH`. To start it by
+double-clicking, or to copy it elsewhere, put the DLLs it needs beside it:
+
+    windeployqt6 build/editor/u8edit.exe
+    ldd build/editor/u8edit.exe build/editor/*/*.dll |
+        grep -i ucrt64 | awk '{print $3}' | sort -u | xargs -I{} cp {} build/editor/
+
+`windeployqt6` copies Qt's own DLLs and plug-ins. The `ldd` line copies the rest that MSYS2
+builds need and `windeployqt6` leaves out: the compiler's run-time (`libstdc++-6.dll`,
+`libgcc_s_seh-1.dll`, `libwinpthread-1.dll`) and the libraries Qt uses (ICU, FreeType,
+HarfBuzz, zlib, ...). `windeployqt6` stops with *Cannot open .../translations/catalogs.json*
+when `qt6-translations` is not installed: install it, or add `--no-translations`.
+
+Qt here is LGPL: it stays in its own DLLs beside `u8edit.exe`, which is how the LGPL lets it
+be shipped with a program.
+
+### Windows, with Qt's installer
+
+Point CMake at Qt with `-DCMAKE_PREFIX_PATH=C:\Qt\6.x\msvc2022_64` and run `windeployqt` on
+the result to ship it.
 
 `-DU8EDIT_TESTS=ON` also builds `u8edit-tests`, which works on a copy of the game data:
 

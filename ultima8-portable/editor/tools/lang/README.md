@@ -13,6 +13,45 @@ program and stay as they are.
 
     python3 u8lang.py build <ENGLISH> pt_BR.json <PORTUGUESE>
 
+## Playing the Portuguese version
+
+Everyone builds it from their own copy of the game: the repository holds the tool and the
+translation, not the game's files. It needs Python 3 (Windows: from python.org, or in MSYS2
+`pacman -S mingw-w64-ucrt-x86_64-python`) and the English game folder (GOG: the `ENGLISH`
+folder of the installation). From this folder:
+
+    python3 u8lang.py build "C:/GOG Games/Ultima 8/ENGLISH" pt_BR.json "C:/GOG Games/Ultima 8/PORTUGUESE"
+
+(`python` instead of `python3` on Windows.) The new folder is a whole game folder. Play it with
+the port (`Ultima8 --data <PORTUGUESE>`), or in DOSBox the way the English folder is played.
+The English folder is not changed.
+
+## Sharing a translation
+
+Share the table (`pt_BR.json`) with `u8lang.py`, `usecode.py` and `fonts.py`, and let each
+player build it from their own game, as above. That is what this repository does, and it is
+the usual way of sharing fan translations:
+
+- it works from any copy of the English game, which needs nothing else;
+- what is shared is the translation table (which quotes the English lines it translates),
+  not Origin's files: `EUSECODE.FLX` is the whole game's code, and `U8FONTS.FLX` Origin's
+  fonts;
+- a corrected table makes a corrected game with the same command.
+
+Sharing only the dialogue file is not enough. A built language changes three things, and a
+player given `EUSECODE.FLX` alone would get the third wrong and miss the second:
+
+1. `USECODE/EUSECODE.FLX`, the text;
+2. `STATIC/U8FONTS.FLX`, the fonts with the letters the translation adds (for Portuguese, `ã`,
+   `õ` and the accented capitals); without it those letters show as gaps;
+3. the recorded voices `SOUND/E<number>.FLX` taken out, so that the voiced characters' lines
+   show as text. With them, those characters speak English and show no text.
+
+To hand someone a ready-built version anyway, give them those two files and tell them to
+start from a copy of their English folder, replace the two files and delete
+`SOUND/E*.FLX` (not `MUSIC.FLX` or `SOUND.FLX`). Both files are built from Origin's, so this
+shares the game's code and fonts.
+
 ## What the new folder is
 
 A copy of the English game folder with three changes:
