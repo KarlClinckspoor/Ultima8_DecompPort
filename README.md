@@ -10,6 +10,12 @@ VIII in a window with emulated MT-32 or AdLib music and Sound Blaster speech and
 See [ultima8-portable/README.md](ultima8-portable/README.md) for building and running it, and
 [ultima8-portable/PORTING.md](ultima8-portable/PORTING.md) for how it was ported.
 
+## How the game works
+
+[GAME-MECHANICS.md](GAME-MECHANICS.md): the game's rules as the code implements them:
+events and usecode, time and schedules, conversation, quest flags, statistics and how they
+grow, and combat, with the formulas.
+
 ## Lessons learned
 
 - [DECOMPILATION-LESSONS.md](DECOMPILATION-LESSONS.md): what working on top of the
