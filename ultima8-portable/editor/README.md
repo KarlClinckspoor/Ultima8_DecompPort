@@ -76,6 +76,7 @@ remembers (`data=` in the port's `u8port.cfg`), and then asks.
 | NPCs: where they stand, frame, flags | `ITEMCACH.DAT` in the saved game | what NPCs carry is not editable yet |
 | NPC strength, dexterity, intelligence, hit points, mana, alignment, flags | `NPCDATA.DAT` in the saved game | |
 | Weapons, armour, monsters | `U8.EXE` | tables in the program's data; see below |
+| Global flags (the story so far) | `FLAG.DAT` in the saved game | written when a flag is changed; `U8SAVE.000` has none, so a new game starts with every flag 0 |
 
 The saved game is `SAVEGAME/U8SAVE.000` unless another is opened: every new game starts from it.
 File > Open the Game in Progress edits `GAMEDAT` (the game the DOS version continues) instead.
@@ -117,7 +118,7 @@ when they differ from the original ones.
   Double-click a name (or press F2) to name a map; names are kept in the editor's settings.
 - **Map**: drawn in the game's own order (`DL_ItemNode::compare`). Drag to move the view, wheel
   to zoom, arrow keys to move, `+`/`-` to zoom, `1` for actual size, `0` for the whole map.
-  Click an item to select it and see it in the Item window.
+  Click an item to select it and see it in the Item window. Hover over an item for its name.
   - Drag the selected item to move it; Shift+drag moves it up and down.
   - Ctrl+arrows move it along the world's x and y, Page Up/Down raise and lower it (Shift: by 1).
   - Delete deletes it (and what it holds), Ctrl+D copies it, F flips it, `[` and `]` change its
@@ -130,6 +131,12 @@ when they differ from the original ones.
   frame, then Place (or double-click, or press P over the map) and click on the map; a new item
   stands on what is under the mouse. Right-click or Esc stops placing. I picks the selected item's
   shape.
+- **Names**: an item's name is what the game shows when the Avatar looks at it: the editor runs
+  the item's look routine from the usecode (in a small copy of the game's usecode interpreter)
+  against the item's quality, frame and the saved game's flags, so a key says which door it
+  opens and Devon is "man" until the flags say the Avatar knows him. The name heads the Item
+  window and the map's tooltip. Items whose usecode has no look routine (most scenery) have
+  none, and show their usecode class.
 - **Item** window: the Edit tab changes the item: its position, shape, frame, quality, npcNum,
   mapNum and flags, and in plain terms what it does as an egg: a teleport egg's destination map,
   teleport id, fade and hatch range; a monster egg's monster, count, probability and activity; a
@@ -144,6 +151,13 @@ when they differ from the original ones.
   ways it stands for; double-click to go to the first. Double-click a map to open it. Drag maps
   to tidy the picture; the places are kept.
 - **Game Data**: the weapon, armour and monster tables and the NPCs' statistics, to type into.
+- **Flags** (View > Flags, Ctrl+L): every global flag the usecode reads or writes (445 of
+  them), with its value in the open saved game, the classes that read and write it, and a name
+  and notes of your own (kept in the editor's settings, for you only; a few the editor knows
+  are filled in, greyed). Type a value to change it; it is saved to the saved game's
+  `FLAG.DAT`. Search by number, name, notes or class, or show only the flags that are not 0.
+  Double-click a flag's number or its classes for every place the usecode uses it, with the
+  routine and the strings around it, which usually say what the flag means.
 - **File > Apply a Translation** makes a translated copy of the English game folder from a
   translation table: the dialogue, books, signs and item names, the letters the language needs
   added to the fonts, and (by choice) the English voices left out, so that their lines show as

@@ -155,6 +155,13 @@ void ItemPanel::showItem(const World *world, int map, int item)
 	refresh();
 }
 
+QString ItemPanel::titleOf(const MapItem &it) const
+{
+	const QString name = world_->itemName(map_, it);
+	const QString what = world_->describe(it);
+	return name.isEmpty() ? what : tr("%1 \u2014 %2").arg(name, what);
+}
+
 void ItemPanel::refresh()
 {
 	if (!world_ || item_ < 0 || item_ >= int(world_->map(map_).items.size()) || world_->map(map_).items[item_].deleted)
@@ -164,7 +171,7 @@ void ItemPanel::refresh()
 	}
 	const MapItem &it = world_->map(map_).items[item_];
 	const Shapes &shapes = world_->shapes();
-	title_->setText(world_->describe(it));
+	title_->setText(titleOf(it));
 	// The frame, up to twice its size.
 	QPixmap pic(picture_->size() - QSize(2, 2));
 	pic.fill(QColor(16, 16, 20));
@@ -205,7 +212,7 @@ void ItemPanel::fillDetails()
 	const MapItem &it = m.items[item];
 	const Shapes &shapes = world->shapes();
 	const TypeInfo &t = shapes.type(it.shape);
-	title_->setText(world->describe(it));
+	title_->setText(titleOf(it));
 
 	// The frame, up to twice its size.
 	QPixmap pic(picture_->size() - QSize(2, 2));
@@ -238,7 +245,7 @@ void ItemPanel::fillDetails()
 	if (it.parent >= 0)
 	{
 		const MapItem &par = m.items[it.parent];
-		row(s, it.source == MapItem::Glob ? tr("Glob egg") : tr("Container"), world->describe(par), map, it.parent);
+		row(s, it.source == MapItem::Glob ? tr("Glob egg") : tr("Container"), titleOf(par), map, it.parent);
 	}
 
 	const int cls = world->classOf(it);
@@ -360,7 +367,7 @@ void ItemPanel::fillDetails()
 				if (kid.deleted)
 					continue;
 				QString extra = kid.quality ? QStringLiteral(", quality %1").arg(kid.quality) : QString();
-				QTreeWidgetItem *r = row(parent, world->describe(kid), tr("index %1%2").arg(k).arg(extra), map, k);
+				QTreeWidgetItem *r = row(parent, titleOf(kid), tr("index %1%2").arg(k).arg(extra), map, k);
 				addKids(r, kid);
 			}
 		};

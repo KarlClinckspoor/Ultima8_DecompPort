@@ -15,6 +15,7 @@ class QSpinBox;
 class QTabWidget;
 class QTreeWidget;
 class Editor;
+class FlagsView;
 class GameDataView;
 class ItemPanel;
 class MapView;
@@ -75,6 +76,7 @@ private:
 	MapView *view_;
 	Minimap *minimap_;
 	TransitionGraph *graph_;
+	FlagsView *flags_ = nullptr;
 	GameDataView *gameData_;
 	ShapeBrowser *shapes_;
 	QTabWidget *tabs_;

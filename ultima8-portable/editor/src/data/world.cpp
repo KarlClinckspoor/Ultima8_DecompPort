@@ -181,6 +181,7 @@ QVector<int> World::mapNumbers() const
 
 bool World::load(const QString &dataDir, const QString &savePath, QString *error)
 {
+	names_.reset();
 	dataDir_ = dataDir;
 	staticDir_ = findEntry(dataDir, "STATIC");
 	QString usecodeDir = findEntry(dataDir, "USECODE");
@@ -216,6 +217,7 @@ bool World::load(const QString &dataDir, const QString &savePath, QString *error
 		nonFixedFile_ = readAll(findEntry(source, "NONFIXED.DAT"));
 		itemCache = readAll(findEntry(source, "ITEMCACH.DAT"));
 		npcData = readAll(findEntry(source, "NPCDATA.DAT"));
+		flags_ = readAll(findEntry(source, "FLAG.DAT"));
 	}
 	else if (!source.isEmpty())
 	{
@@ -226,7 +228,11 @@ bool World::load(const QString &dataDir, const QString &savePath, QString *error
 		nonFixedFile_ = save.file("NONFIXED.DAT");
 		itemCache = save.file("ITEMCACH.DAT");
 		npcData = save.file("NPCDATA.DAT");
+		flags_ = save.file("FLAG.DAT");
 	}
+	flagsInSave_ = !flags_.isEmpty();
+	flags_.resize(FlagFileSize, '\0');	// GlobalFlag::load clears the rest
+	flagsDirty_ = false;
 	Flex nonFixed;
 	if (!nonFixedFile_.isEmpty())
 	{
@@ -464,6 +470,13 @@ QString World::describe(const MapItem &item) const
 	return QStringLiteral("%1 (shape %2:%3)").arg(name).arg(item.shape).arg(item.frame);
 }
 
+QString World::itemName(int map, const MapItem &item) const
+{
+	if (!names_)
+		names_ = std::make_unique<ItemNames>(*this);
+	return names_->name(map, item);
+}
+
 const QVector<Transition> &World::transitions() const
 {
 	if (transitionsStale_)
@@ -684,11 +697,39 @@ void World::setNpcStats(int npc, const NpcStats &s)
 {
 	npcData_.set(npc, s);
 	npcDataDirty_ = true;
+	if (names_)
+		names_->clear();
 }
 
 bool World::dirty() const
 {
-	return !fixedDirty_.isEmpty() || !nonFixedDirty_.isEmpty() || cacheDirty_ || npcDataDirty_ || exe_.dirty();
+	return !fixedDirty_.isEmpty() || !nonFixedDirty_.isEmpty() || cacheDirty_ || npcDataDirty_ || flagsDirty_
+		|| exe_.dirty();
+}
+
+int World::flag(int bit, int width) const
+{
+	if (bit < 0 || width < 1 || width > 16 || bit / 8 + 4 > flags_.size())
+		return 0;
+	const char *p = flags_.constData() + bit / 8;
+	const uint32_t word = read32(p);
+	const uint32_t mask = ((1u << width) - 1) << (bit & 7);
+	return int(int16_t((word & mask) >> (bit & 7)));
+}
+
+void World::setFlag(int bit, int width, int value)
+{
+	if (bit < 0 || width < 1 || width > 16 || bit / 8 + 4 > flags_.size())
+		return;
+	char *p = flags_.data() + bit / 8;
+	uint32_t word = read32(p);
+	const uint32_t mask = ((1u << width) - 1) << (bit & 7);
+	word = (word & ~mask) | ((uint32_t(value) << (bit & 7)) & mask);
+	for (int i = 0; i < 4; i++)
+		p[i] = char((word >> (8 * i)) & 0xff);
+	flagsDirty_ = true;
+	if (names_)
+		names_->clear();
 }
 
 QStringList World::pendingFiles() const
@@ -696,7 +737,7 @@ QStringList World::pendingFiles() const
 	QStringList out;
 	if (!fixedDirty_.isEmpty())
 		out << QStringLiteral("STATIC/FIXED.DAT");
-	if (!nonFixedDirty_.isEmpty() || cacheDirty_ || npcDataDirty_)
+	if (!nonFixedDirty_.isEmpty() || cacheDirty_ || npcDataDirty_ || flagsDirty_)
 		out << QDir(dataDir_).relativeFilePath(saveSource_);
 	if (exe_.dirty())
 		out << QStringLiteral("U8.EXE");
@@ -846,7 +887,7 @@ bool World::save(QString *error)
 		fixedDirty_.clear();
 	}
 
-	if (!nonFixedDirty_.isEmpty() || cacheDirty_ || npcDataDirty_)
+	if (!nonFixedDirty_.isEmpty() || cacheDirty_ || npcDataDirty_ || flagsDirty_)
 	{
 		Flex nonFixed;
 		nonFixed.setData(nonFixedFile_, "NONFIXED.DAT", nullptr);
@@ -872,6 +913,14 @@ bool World::save(QString *error)
 				return false;
 			if (npcDataDirty_ && !writeFile(findEntry(saveSource_, "NPCDATA.DAT"), npcData_.bytes(), error))
 				return false;
+			if (flagsDirty_)
+			{
+				QString path = findEntry(saveSource_, "FLAG.DAT");
+				if (path.isEmpty())
+					path = QDir(saveSource_).filePath("FLAG.DAT");
+				if (!writeFile(path, flags_, error))
+					return false;
+			}
 		}
 		else
 		{
@@ -885,6 +934,19 @@ bool World::save(QString *error)
 				else if (f.first.compare("NPCDATA.DAT", Qt::CaseInsensitive) == 0 && npcDataDirty_)
 					f.second = npcData_.bytes();
 			}
+			if (flagsDirty_)
+			{
+				// A new game's saved game has no FLAG.DAT; the game reads one when it is there.
+				bool found = false;
+				for (auto &f : files)
+					if (f.first.compare("FLAG.DAT", Qt::CaseInsensitive) == 0)
+					{
+						f.second = flags_;
+						found = true;
+					}
+				if (!found)
+					files.append({QStringLiteral("FLAG.DAT"), flags_});
+			}
 			if (!writeFile(saveSource_, SaveFile::build(files), error))
 				return false;
 			saveFiles_ = files;
@@ -894,6 +956,9 @@ bool World::save(QString *error)
 		nonFixedDirty_.clear();
 		cacheDirty_ = false;
 		npcDataDirty_ = false;
+		if (flagsDirty_)
+			flagsInSave_ = true;
+		flagsDirty_ = false;
 	}
 
 	if (exe_.dirty())

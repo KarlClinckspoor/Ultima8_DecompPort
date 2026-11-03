@@ -14,6 +14,7 @@
 #include <map>
 
 #include "data/flex.h"
+#include "data/ucode.h"
 
 namespace
 {
@@ -151,82 +152,6 @@ QByteArray writeFlex(const QByteArray &original, const std::vector<FlexIndex> &o
 	return out;
 }
 
-// --- Usecode (u8/inter.cpp) ---
-
-// Operand bytes after each opcode; -1 is not an opcode. 0x0d (push string) and 0x5c (debug
-// unit) are sized by decode.
-int operandBytes(uint8_t op)
-{
-	static int table[256];
-	static bool made = false;
-	if (!made)
-	{
-		std::fill(std::begin(table), std::end(table), -1);
-		const int lens[][2] = {{0x00, 1}, {0x01, 1}, {0x02, 1}, {0x03, 2}, {0x08, 0}, {0x09, 3}, {0x0a, 1},
-			{0x0b, 2}, {0x0c, 4}, {0x0e, 2}, {0x0f, 3}, {0x10, 4}, {0x11, 4}, {0x12, 0}, {0x13, 0}, {0x14, 0},
-			{0x15, 0}, {0x16, 0}, {0x17, 0}, {0x18, 1}, {0x19, 1}, {0x1a, 1}, {0x1b, 1}, {0x38, 2}, {0x3e, 1},
-			{0x3f, 1}, {0x40, 1}, {0x41, 1}, {0x42, 2}, {0x43, 1}, {0x44, 2}, {0x45, 2}, {0x4b, 1}, {0x4c, 1},
-			{0x4d, 1}, {0x4e, 3}, {0x4f, 3}, {0x50, 0}, {0x51, 2}, {0x52, 2}, {0x53, 0}, {0x54, 2}, {0x55, 0},
-			{0x56, 0}, {0x57, 6}, {0x58, 8}, {0x59, 0}, {0x5a, 1}, {0x5b, 2}, {0x5d, 0}, {0x5e, 0}, {0x5f, 0},
-			{0x60, 0}, {0x61, 0}, {0x62, 1}, {0x63, 1}, {0x64, 1}, {0x65, 1}, {0x66, 1}, {0x67, 1}, {0x68, 0},
-			{0x69, 1}, {0x6a, 0}, {0x6b, 0}, {0x6c, 2}, {0x6d, 0}, {0x6e, 1}, {0x6f, 1}, {0x70, 3}, {0x73, 0},
-			{0x74, 1}, {0x75, 4}, {0x76, 4}, {0x77, 0}, {0x78, 0}, {0x79, 0}};
-		for (const auto &l : lens)
-			table[l[0]] = l[1];
-		for (int op = 0x1c; op < 0x38; op++)
-			if (table[op] < 0)
-				table[op] = 0;
-		for (int op = 0x39; op <= 0x3d; op++)
-			table[op] = 0;
-		made = true;
-	}
-	return table[op];
-}
-
-struct Instruction
-{
-	int at;
-	uint8_t op;
-	int size;
-};
-
-// The instructions of a class's code (after its 12-byte header), from 0x80, past the 32
-// event offsets.
-bool decode(const QByteArray &code, std::vector<Instruction> *out, QString *error)
-{
-	out->clear();
-	int at = 0x80;
-	const auto *c = reinterpret_cast<const uint8_t *>(code.constData());
-	while (at < code.size())
-	{
-		const uint8_t op = c[at];
-		int size;
-		if (op == 0x0d)
-		{
-			if (at + 3 > code.size())
-				break;
-			size = 3 + (c[at + 1] | c[at + 2] << 8) + 1;
-		}
-		else if (op == 0x5c)
-			size = 12;
-		else if (operandBytes(op) >= 0)
-			size = 1 + operandBytes(op);
-		else
-		{
-			fail(error, QObject::tr("unknown opcode %1 at %2").arg(op, 2, 16, QChar('0')).arg(at, 0, 16));
-			return false;
-		}
-		out->push_back({at, op, size});
-		at += size;
-	}
-	if (at != code.size())
-	{
-		fail(error, QObject::tr("the last instruction runs past the end"));
-		return false;
-	}
-	return true;
-}
-
 int16_t s16(const QByteArray &b, int at)
 {
 	return int16_t(read16(b.constData() + at));
@@ -347,19 +272,19 @@ QHash<int, QVector<QByteArray>> usecodeStrings(const QByteArray &usecode, QStrin
 	std::vector<FlexIndex> index;
 	if (!flexIndex(usecode, &index, error))
 		return out;
-	std::vector<Instruction> ins;
+	std::vector<Ucode::Instruction> ins;
 	for (int r = 2; r < int(index.size()); r++)
 	{
 		if (index[r].size <= 12)
 			continue;
 		const QByteArray code = usecode.mid(int(index[r].offset) + 12, int(index[r].size) - 12);
-		if (!decode(code, &ins, error))
+		if (!Ucode::decode(code, &ins, error))
 		{
 			out.clear();
 			return out;
 		}
 		QVector<QByteArray> &list = out[r - 2];
-		for (const Instruction &i : ins)
+		for (const Ucode::Instruction &i : ins)
 			if (i.op == 0x0d)
 				list.append(code.mid(i.at + 3, i.size - 4));
 	}
@@ -374,7 +299,7 @@ QByteArray rebuildUsecode(const QByteArray &usecode, const QHash<int, QVector<QB
 	struct Class
 	{
 		QByteArray code;		// the old code
-		std::vector<Instruction> ins;
+		std::vector<Ucode::Instruction> ins;
 		QByteArray rebuilt;		// the new code
 		std::map<int, int> moved;	// old offset of each instruction (and of the end) -> new
 	};
@@ -386,12 +311,12 @@ QByteArray rebuildUsecode(const QByteArray &usecode, const QHash<int, QVector<QB
 		const int c = r - 2;
 		Class &k = classes[c];
 		k.code = usecode.mid(int(index[r].offset) + 12, int(index[r].size) - 12);
-		if (!decode(k.code, &k.ins, error))
+		if (!Ucode::decode(k.code, &k.ins, error))
 			return QByteArray();
 		auto given = strings.constFind(c);
 		int n = 0;
 		k.rebuilt = k.code.left(0x80);
-		for (const Instruction &i : k.ins)
+		for (const Ucode::Instruction &i : k.ins)
 		{
 			k.moved[i.at] = k.rebuilt.size();
 			if (i.op == 0x0d)
@@ -443,7 +368,7 @@ QByteArray rebuildUsecode(const QByteArray &usecode, const QHash<int, QVector<QB
 			if (off)
 				put32(out, e * 4, uint32_t(where(c, int(off))));
 		}
-		for (const Instruction &i : k.ins)
+		for (const Ucode::Instruction &i : k.ins)
 		{
 			const int na = k.moved[i.at];
 			switch (i.op)

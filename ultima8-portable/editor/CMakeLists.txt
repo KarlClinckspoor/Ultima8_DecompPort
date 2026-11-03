@@ -28,14 +28,23 @@ add_library(u8edit_core STATIC
 	src/data/language.cpp
 	src/data/language.h
 	src/data/itemcache.h
+	src/data/itemnames.cpp
+	src/data/itemnames.h
 	src/data/shapes.cpp
 	src/data/shapes.h
+	src/data/ucode.cpp
+	src/data/ucode.h
+	src/data/ucvm.cpp
+	src/data/ucvm.h
+	src/data/intrinsics.inc
 	src/data/usecode.cpp
 	src/data/usecode.h
 	src/data/world.cpp
 	src/data/world.h
 	src/ui/edits.cpp
 	src/ui/edits.h
+	src/ui/flagsview.cpp
+	src/ui/flagsview.h
 	src/ui/gamedata.cpp
 	src/ui/gamedata.h
 	src/ui/graphview.cpp

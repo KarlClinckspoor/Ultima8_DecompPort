@@ -12,6 +12,7 @@
 
 #include "data/flex.h"
 #include "data/gametables.h"
+#include "data/itemnames.h"
 #include "data/itemcache.h"
 #include "data/shapes.h"
 #include "data/usecode.h"
@@ -142,6 +143,8 @@ public:
 	// The usecode class an item runs (spawnUnk): its NPC class, usecode egg class or shape.
 	int classOf(const MapItem &item) const;
 	QString describe(const MapItem &item) const;
+	// What the item calls itself when the Avatar looks at it (ItemNames), or empty.
+	QString itemName(int map, const MapItem &item) const;
 
 	// ---- Changing it ----
 
@@ -160,6 +163,16 @@ public:
 	bool hasNpcData() const { return npcData_.valid(); }
 	NpcStats npcStats(int npc) const { return npcData_.get(npc); }
 	void setNpcStats(int npc, const NpcStats &s);
+
+	// ---- Global flags: FLAG.DAT in the saved game, 0x400 bytes of bits (u8/flag.cpp) ----
+	enum { FlagFileSize = 0x400 };
+	// The saved game has a FLAG.DAT; without one (a new game) every flag is 0.
+	bool flagsInSave() const { return flagsInSave_; }
+	// A flag's value, as GlobalFlag::get reads it: width bits from bit, in the 32-bit word at
+	// bit / 8.
+	int flag(int bit, int width) const;
+	void setFlag(int bit, int width, int value);
+	const QByteArray &flagBytes() const { return flags_; }
 
 	bool dirty() const;
 	// What a save would write, for asking the user.
@@ -200,8 +213,12 @@ private:
 	std::vector<MapData> maps_;
 	mutable QVector<Transition> transitions_;
 	mutable bool transitionsStale_ = true;
+	mutable std::unique_ptr<ItemNames> names_;	// made when first asked, forgotten when flags change
 	QSet<int> fixedDirty_;
 	QSet<int> nonFixedDirty_;
 	bool cacheDirty_ = false;
 	bool npcDataDirty_ = false;
+	QByteArray flags_ = QByteArray(FlagFileSize, '\0');
+	bool flagsInSave_ = false;
+	bool flagsDirty_ = false;
 };

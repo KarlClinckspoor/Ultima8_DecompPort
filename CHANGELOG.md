@@ -4,6 +4,15 @@ Each release's notes. The newest is first; `ultima8-portable/tools/release/notes
 prints one section, and the release on GitHub carries it. A release is made by writing its
 section here and putting its number in `VERSION` (see RELEASING.md).
 
+## Unreleased
+
+- **Editor: the Flags tab.** Every global flag the usecode uses, with its value in the saved
+  game (changes are saved to its `FLAG.DAT`), the classes that read and write it, where in the
+  usecode, with the strings around each use, and names and notes of your own.
+- **Editor: item names.** The Item window and the map's tooltip give an item's name as the
+  game shows it when looked at, by running the item's look routine from the usecode in a copy
+  of the game's interpreter, against its quality, frame and the saved game's flags.
+
 ## 0.2.0
 
 The editor can now make the game in another language, with Brazilian Portuguese included. The

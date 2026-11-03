@@ -41,6 +41,8 @@ signals:
 	void showShape(int shape, int frame);
 
 private:
+	// The item's name when it has one, then its class, shape and frame.
+	QString titleOf(const MapItem &it) const;
 	struct Field
 	{
 		QString label;

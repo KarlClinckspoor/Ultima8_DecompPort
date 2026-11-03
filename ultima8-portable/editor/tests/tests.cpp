@@ -14,6 +14,7 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include "data/itemnames.h"
 #include "data/language.h"
 #include "data/world.h"
 #include "ui/edits.h"
@@ -83,6 +84,8 @@ private slots:
 	void roundTrip();
 	void translation();
 	void editInWindow();
+	void itemNames();
+	void flags();
 
 private:
 	QTemporaryDir temp_;
@@ -269,6 +272,73 @@ void Tests::editInWindow()
 	if (again.exeTables().loaded())
 		QCOMPARE(again.exeTables().weapons[0].baseDamage, 50);
 	QVERIFY(QFile::exists(QDir(data_).filePath("SAVEGAME/U8SAVE.000.orig")));
+}
+
+// Names come from the class's look event, run in the editor's usecode machine: a key's by its
+// quality, Devon's by what the flags say the Avatar knows of him.
+void Tests::itemNames()
+{
+	World w;
+	QString error;
+	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
+	ItemNames names(w);
+	MapItem key;
+	key.shape = 82;	// KEY
+	key.quality = 59;
+	QCOMPARE(names.look(0, key, &error), QStringLiteral("Key of the Conventicler"));
+	key.quality = 0;
+	QCOMPARE(names.look(0, key, &error), QStringLiteral("key blank"));
+
+	int map = -1, devon = -1;
+	for (int m : w.mapNumbers())
+		if ((devon = npcItem(w, m, 2)) >= 0)
+		{
+			map = m;
+			break;
+		}
+	QVERIFY(devon >= 0);
+	const MapItem &it = w.map(map).items[devon];
+	QCOMPARE(w.classOf(it), NpcClassBase + 2);
+	QCOMPARE(w.itemName(map, it), QStringLiteral("man"));
+	w.setFlag(253, 2, 1);
+	QCOMPARE(w.itemName(map, it), QStringLiteral("fisherman"));
+	w.setFlag(252, 1, 1);
+	QCOMPARE(w.itemName(map, it), QStringLiteral("Devon"));
+
+	// An item with no look event has no name.
+	MapItem plain;
+	plain.shape = 190;
+	QVERIFY(names.look(0, plain, &error).isEmpty());
+	QVERIFY(!error.isEmpty());
+}
+
+// A flag set in the editor is written to the saved game's FLAG.DAT and read back.
+void Tests::flags()
+{
+	World w;
+	QString error;
+	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
+	QCOMPARE(w.flag(252, 1), 0);
+	QVERIFY(!w.usecode().flagUses().isEmpty());
+	w.setFlag(252, 1, 1);
+	w.setFlag(1000, 4, 0x1f);	// kept to its 4 bits
+	QCOMPARE(w.flag(252, 1), 1);
+	QCOMPARE(w.flag(1000, 4), 0xf);
+	QVERIFY(w.dirty());
+	QVERIFY(w.pendingFiles().join(' ').contains("U8SAVE", Qt::CaseInsensitive));
+	QVERIFY2(w.save(&error), qPrintable(error));
+	QVERIFY(w.flagsInSave());
+
+	World again;
+	QVERIFY2(again.load(data_, QString(), &error), qPrintable(error));
+	QVERIFY(again.flagsInSave());
+	QCOMPARE(again.flag(252, 1), 1);
+	QCOMPARE(again.flag(1000, 4), 0xf);
+	QCOMPARE(again.flag(253, 2), 0);
+	QCOMPARE(again.flagBytes().size(), int(World::FlagFileSize));
+	SaveFile save;
+	QVERIFY(save.load(again.saveSource(), &error));
+	QCOMPARE(save.file("FLAG.DAT").size(), int(World::FlagFileSize));
 }
 
 QTEST_MAIN(Tests)

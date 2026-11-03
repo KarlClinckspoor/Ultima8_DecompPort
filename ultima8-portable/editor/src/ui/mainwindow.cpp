@@ -26,6 +26,7 @@
 #include <functional>
 
 #include "ui/edits.h"
+#include "ui/flagsview.h"
 #include "ui/gamedata.h"
 #include "ui/graphview.h"
 #include "ui/itempanel.h"
@@ -75,6 +76,8 @@ MainWindow::MainWindow()
 	tabs_->addTab(view_, tr("Map"));
 	tabs_->addTab(graph_, tr("Transitions"));
 	tabs_->addTab(gameData_, tr("Game Data"));
+	flags_ = new FlagsView(editor_);
+	tabs_->addTab(flags_, tr("Flags"));
 	tabs_->setDocumentMode(true);
 	setCentralWidget(tabs_);
 
@@ -176,6 +179,11 @@ MainWindow::MainWindow()
 		updateTitle();
 	});
 	connect(editor_, &Editor::tablesChanged, this, &MainWindow::updateTitle);
+	// Names can follow flags (a person's name once the Avatar has met them).
+	connect(editor_, &Editor::flagChanged, this, [this] {
+		panel_->refresh();
+		updateTitle();
+	});
 	connect(editor_, &Editor::refused, this, [this](const QString &why) {
 		statusBar()->showMessage(why, 10000);
 	});
@@ -400,6 +408,7 @@ void MainWindow::buildMenus()
 	}, QKeySequence(Qt::CTRL | Qt::Key_I));
 	entry(viewMenu, tr("&Transitions"), this, [this] { tabs_->setCurrentWidget(graph_); }, QKeySequence(Qt::CTRL | Qt::Key_T));
 	entry(viewMenu, tr("&Game Data"), this, [this] { tabs_->setCurrentWidget(gameData_); }, QKeySequence(Qt::CTRL | Qt::Key_G));
+	entry(viewMenu, tr("&Flags"), this, [this] { tabs_->setCurrentWidget(flags_); }, QKeySequence(Qt::CTRL | Qt::Key_L));
 	for (QDockWidget *d : findChildren<QDockWidget *>())
 		viewMenu->addAction(d->toggleViewAction());
 
@@ -459,6 +468,7 @@ bool MainWindow::loadWorld(const QString &dataDir, const QString &savePath, QStr
 	graphStale_ = false;
 	shapes_->setWorld(world_.get());
 	gameData_->reload();
+	flags_->reload();
 	if (!world_->notes().isEmpty())
 		statusBar()->showMessage(world_->notes().trimmed(), 15000);
 	const QVector<int> maps = world_->mapNumbers();
@@ -669,6 +679,7 @@ bool MainWindow::save()
 		return false;
 	}
 	editor_->undo()->setClean();
+	flags_->reload();	// a FLAG.DAT may be new
 	statusBar()->showMessage(tr("Saved %1.").arg(files.join(", ")), 8000);
 	updateTitle();
 	return true;

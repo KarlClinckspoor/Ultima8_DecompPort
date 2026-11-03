@@ -30,6 +30,8 @@ public:
 	bool deleteItem(int map, int item);
 	int duplicateItem(int map, int item, int dx, int dy);
 	void editNpc(int npc, const NpcStats &stats);
+	// A global flag's value (World::setFlag), width bits from bit.
+	void editFlag(int bit, int width, int value);
 	TableSnapshot tables() const;
 	void editTables(const TableSnapshot &after, const QString &what);
 
@@ -37,12 +39,14 @@ public:
 	void notifyMap(int map, int item) { emit mapChanged(map, item); }
 	void notifyNpc(int npc) { emit npcChanged(npc); }
 	void notifyTables() { emit tablesChanged(); }
+	void notifyFlag(int bit) { emit flagChanged(bit); }
 	void restoreTables(const TableSnapshot &t);
 
 signals:
 	void mapChanged(int map, int item);
 	void npcChanged(int npc);
 	void tablesChanged();
+	void flagChanged(int bit);
 	void refused(const QString &why);
 
 private:

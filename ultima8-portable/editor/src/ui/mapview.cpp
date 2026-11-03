@@ -1,5 +1,8 @@
 #include "ui/mapview.h"
 
+#include <QHelpEvent>
+#include <QToolTip>
+
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
@@ -339,6 +342,27 @@ void MapView::mouseMoveEvent(QMouseEvent *e)
 		text = tr("x %1, y %2 (at height 0)").arg(int(w.x())).arg(int(w.y()));
 	}
 	emit status(text);
+}
+
+bool MapView::event(QEvent *e)
+{
+	if (e->type() != QEvent::ToolTip)
+		return QWidget::event(e);
+	auto *help = static_cast<QHelpEvent *>(e);
+	const World *world = render_.world();
+	const int item = world && drag_ == None ? render_.pick(toMap(help->pos()).toPoint(), options_) : -1;
+	if (item < 0)
+	{
+		QToolTip::hideText();
+		e->ignore();
+		return true;
+	}
+	const MapItem &it = world->map(render_.mapNumber()).items[item];
+	const QString name = world->itemName(render_.mapNumber(), it);
+	const QString what = world->describe(it).toHtmlEscaped();
+	QToolTip::showText(help->globalPos(), name.isEmpty() ? what
+		: QStringLiteral("<b>%1</b><br>%2").arg(name.toHtmlEscaped(), what), this);
+	return true;
 }
 
 void MapView::mouseReleaseEvent(QMouseEvent *e)

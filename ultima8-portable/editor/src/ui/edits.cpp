@@ -93,6 +93,24 @@ private:
 	NpcStats before_, after_;
 };
 
+class EditFlag : public QUndoCommand
+{
+public:
+	EditFlag(Editor *e, int bit, int width, int before, int after, const QString &text)
+		: QUndoCommand(text), e_(e), bit_(bit), width_(width), before_(before), after_(after) {}
+	void redo() override { apply(after_); }
+	void undo() override { apply(before_); }
+
+private:
+	void apply(int v)
+	{
+		e_->world()->setFlag(bit_, width_, v);
+		e_->notifyFlag(bit_);
+	}
+	Editor *e_;
+	int bit_, width_, before_, after_;
+};
+
 class EditTables : public QUndoCommand
 {
 public:
@@ -217,6 +235,17 @@ void Editor::editNpc(int npc, const NpcStats &stats)
 	if (memcmp(&before, &stats, sizeof stats) == 0)
 		return;
 	undo_.push(new EditNpc(this, npc, before, stats, tr("Change NPC %1").arg(npc)));
+}
+
+void Editor::editFlag(int bit, int width, int value)
+{
+	if (!world_)
+		return;
+	const int before = world_->flag(bit, width);
+	const int after = int(int16_t(value & ((1 << width) - 1)));
+	if (before == after)
+		return;
+	undo_.push(new EditFlag(this, bit, width, before, after, tr("Set flag %1 to %2").arg(bit).arg(after)));
 }
 
 TableSnapshot Editor::tables() const

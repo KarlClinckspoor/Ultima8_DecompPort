@@ -73,6 +73,8 @@ protected:
 	void keyPressEvent(QKeyEvent *) override;
 	void resizeEvent(QResizeEvent *) override;
 	void leaveEvent(QEvent *) override;
+	// The tooltip: what the item under the pointer calls itself (World::itemName).
+	bool event(QEvent *) override;
 
 private:
 	void draw(QPainter &p, QSize size);
