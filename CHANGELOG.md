@@ -4,7 +4,11 @@ Each release's notes. The newest is first; `ultima8-portable/tools/release/notes
 prints one section, and the release on GitHub carries it. A release is made by writing its
 section here and putting its number in `VERSION` (see RELEASING.md).
 
-## Unreleased
+## 0.3.0
+
+The editor reads the game's story state: the usecode's global flags, and items' names as the
+game gives them. The packages are as before and need the same: your own copy of the game,
+Windows 10 or 11, or Linux with glibc 2.38 or newer.
 
 - **Editor: the Flags tab.** Every global flag the usecode uses, with its value in the saved
   game (changes are saved to its `FLAG.DAT`), the classes that read and write it, where in the
