@@ -33,6 +33,9 @@ extern "C" {
 /* The backend owns the process's main(). It opens the window and audio, then calls U8Main,
  * the game's own main(), on the game thread. */
 int16_t U8Main(int16_t argc, char **argv);
+/* Port only (game/port/exetables.cpp): takes the weapon, armour and monster tables from U8.EXE in
+ * the game folder, as an edited U8.EXE has them. Called on the game thread before U8Main. */
+void U8LoadExeTables(void);
 /* Shows the message and ends the process. */
 void plat_fatal(const char *message);
 /* Ends the program with this exit code. The game's stack is not unwound. */

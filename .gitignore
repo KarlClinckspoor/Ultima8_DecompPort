@@ -18,3 +18,7 @@ __pycache__/
 
 # Agent working files
 .agents/
+
+# Builds made at the top of the repository (the editor's README builds into build/editor)
+/build/
+/dist/

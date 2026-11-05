@@ -5,6 +5,54 @@ include_guard(GLOBAL)
 function(u8_add_libmatoya)
     set(_mty_root "${U8_THIRD_PARTY_DIR}/libmatoya")
 
+    if(MINGW)
+        # Its makefile wants nmake and Microsoft's shader compiler, so with mingw (a build for
+        # Windows from Linux, say) the sources are compiled here. The Direct3D back ends, whose
+        # shaders need fxc, are left out (cmake/mingw/d3d-stub.c); such a build draws with
+        # Vulkan. cmake/mingw also fills in what mingw-w64's headers lack.
+        set(_mty_sources app async crypto dtls file hash http image json list log memory queue
+            resample system thread tlocal version gfx/vk/vk gfx/vk/vk-ctx gfx/vk/vk-ui hid/hid
+            hid/utils windows/aes-gcm windows/appw windows/compress windows/cryptow
+            windows/dialog windows/dtlsw windows/filew windows/hidw windows/imagew
+            windows/memoryw windows/request windows/systemw windows/threadw windows/time
+            windows/ws windows/webview)
+        list(TRANSFORM _mty_sources PREPEND "${_mty_root}/src/")
+        list(TRANSFORM _mty_sources APPEND ".c")
+        set(_mty_shims "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/mingw")
+        # The Vulkan renderer's shaders, compiled to SPIR-V headers as its GNUmakefile does
+        # (src/gfx/vk/shaders/*.h, which are not in the repository).
+        find_program(_mty_glslang glslangValidator REQUIRED)
+        set(_mty_shader_dir "${CMAKE_CURRENT_BINARY_DIR}/libmatoya-shaders")
+        set(_mty_shader_headers)
+        foreach(_s fs:frag:FRAG fsui:frag:FRAG vs:vert:VERT vsui:vert:VERT)
+            string(REPLACE ":" ";" _s "${_s}")
+            list(GET _s 0 _name)
+            list(GET _s 1 _stage)
+            list(GET _s 2 _var)
+            set(_out "${_mty_shader_dir}/shaders/${_name}.h")
+            add_custom_command(OUTPUT "${_out}"
+                COMMAND "${CMAKE_COMMAND}" -E make_directory "${_mty_shader_dir}/shaders"
+                COMMAND "${_mty_glslang}" -S ${_stage} -V --vn ${_var}
+                    "${_mty_root}/src/gfx/vk/shaders/${_name}.${_stage}vk" -o "${_out}"
+                DEPENDS "${_mty_root}/src/gfx/vk/shaders/${_name}.${_stage}vk"
+                VERBATIM)
+            list(APPEND _mty_shader_headers "${_out}")
+        endforeach()
+        add_library(u8_libmatoya STATIC ${_mty_sources} "${_mty_shims}/audio.c" "${_mty_shims}/d3d-stub.c"
+            ${_mty_shader_headers})
+        target_include_directories(u8_libmatoya PRIVATE "${_mty_shims}" "${_mty_root}/deps"
+            "${_mty_root}/src" "${_mty_root}/src/windows" "${_mty_shader_dir}")
+        target_include_directories(u8_libmatoya PUBLIC "${_mty_root}/src")
+        target_compile_definitions(u8_libmatoya PRIVATE UNICODE WIN32_LEAN_AND_MEAN MTY_VK_WIN32)
+        target_compile_options(u8_libmatoya PRIVATE -w)
+        target_link_libraries(u8_libmatoya PUBLIC
+            advapi32 bcrypt crypt32 dxgi dxguid gdi32 hid imm32 ole32 shcore shell32 shlwapi
+            user32 userenv windowscodecs winhttp winmm ws2_32 xinput1_4 uuid)
+        add_library(Matoya::matoya ALIAS u8_libmatoya)
+        add_custom_target(u8_libmatoya_build)
+        return()
+    endif()
+
     if(WIN32)
         find_program(_mty_make NAMES nmake REQUIRED)
         if(CMAKE_SIZEOF_VOID_P EQUAL 8)

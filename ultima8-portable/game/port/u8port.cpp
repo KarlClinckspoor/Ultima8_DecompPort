@@ -207,6 +207,9 @@ int u8_printf(const char *format, ...)
 	return n;
 }
 
+// u8port.h sends the game's vfprintf here; this one is the C library's.
+#undef vfprintf
+
 int u8_vfprintf(FILE *f, const char *format, va_list args)
 {
 	char fixed[1024];
