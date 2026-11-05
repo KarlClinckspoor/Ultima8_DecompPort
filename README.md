@@ -44,6 +44,43 @@ in DOS U8.EXE as well as in the port. It opens a game folder and a saved game: e
   save.
 - Every change can be undone, and the first save of a file keeps the original beside it.
 
+![The map view: Maps list, minimap, shape browser, search and the Item window around the map](ultima8-portable/editor/screenshots/map.png)
+
+*The Map tab on map 3: the maps and minimap on the left, the shape browser, search and Item
+window on the right.*
+
+| | |
+|---|---|
+| ![Usecode tab: a class's events, disassembly, and the items that run it](ultima8-portable/editor/screenshots/usecode-graph.png) | ![Transitions tab: the maps as a graph joined by teleport eggs and usecode](ultima8-portable/editor/screenshots/transitions.png) |
+| *Usecode: a class's code, disassembled, with the items that run it.* | *Transitions: how the maps connect.* |
+| ![Flags tab: every global flag with its value and where it is used](ultima8-portable/editor/screenshots/flags.png) | ![Game Data tab: weapon, armour and monster tables](ultima8-portable/editor/screenshots/gamedata.png) |
+| *Flags: the story's memory, with the classes that use each flag.* | *Game Data: the tables that live inside U8.EXE.* |
+
+### Limitations
+
+- **Work on a copy of the game folder.** Saving writes into the open folder (the first write of
+  each file keeps the original as `name.orig`).
+- **Glob items** (the floors and scenery a glob egg puts down) cannot be edited one by one: change,
+  move or delete the glob egg, or pick another glob.
+- **What NPCs carry** (their inventory) is not editable yet. Their position, frame, flags and
+  statistics are.
+- **Names are computed, not stored.** They come from running the item's usecode in a copy of the
+  interpreter, so a few items fall back to their shape's name or their usecode class.
+- **The usecode scan reads bytes, not decoded code**, and keeps only calls whose arguments are all
+  constants: transitions made by computed calls are not drawn. The usecode view is read-only; the
+  editor does not change usecode.
+- **Weapon, armour and monster tables** are found by what editing leaves alone, so they work on the
+  retail U8.EXE and may not on a differently patched one.
+- **No sound, music or shape/art editing**, and no new maps: it edits the world that is there.
+- **Starting maps:** a new game takes the map `U8SAVE.000` was saved on from the save's item cache
+  (see the editor README); that map is rebuilt on save, so check edits to it with Test in the Port.
+- Built and tested on Windows (MSYS2) and Ubuntu 22.04 (Qt 6.2); macOS has not been tried.
+
+### Planned
+
+- Editing what NPCs carry.
+- A faster, more complete usecode scan.
+
 See [ultima8-portable/editor/README.md](ultima8-portable/editor/README.md) for building,
 running and using it.
 
