@@ -1,6 +1,10 @@
 #include "ui/usecodeview.h"
 
 #include <QApplication>
+#include <QComboBox>
+#include <QHBoxLayout>
+#include <QStackedWidget>
+#include <QToolButton>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
@@ -16,6 +20,7 @@
 #include "data/ucode.h"
 #include "data/world.h"
 #include "ui/names.h"
+#include "ui/usecodegraph.h"
 
 enum { ClassRole = Qt::UserRole, MapRole, ItemRole, OffsetRole };
 
@@ -66,6 +71,24 @@ UsecodeView::UsecodeView(QWidget *parent) : QWidget(parent)
 	mono.setStyleHint(QFont::TypeWriter);
 	listing_->setFont(mono);
 	connect(listing_, &QTextBrowser::anchorClicked, this, &UsecodeView::openLink);
+	graph_ = new UsecodeGraph;
+	connect(graph_, &UsecodeGraph::openClass, this, [this](int c, int off) { showClass(c, -1, off); });
+	connect(graph_, &UsecodeGraph::showFlag, this, &UsecodeView::showFlag);
+	stack_ = new QStackedWidget;
+	stack_->addWidget(listing_);
+	stack_->addWidget(graph_);
+	graphButton_ = new QToolButton;
+	graphButton_->setText(tr("Graph"));
+	graphButton_->setCheckable(true);
+	graphButton_->setToolTip(tr("Show the routine as a graph of blocks joined by its branches"));
+	connect(graphButton_, &QToolButton::toggled, this, &UsecodeView::setGraphMode);
+	routines_ = new QComboBox;
+	routines_->setToolTip(tr("The class's routines: its events and those it calls"));
+	connect(routines_, &QComboBox::activated, this, [this](int index) {
+		const int head = routines_->itemData(index).toInt();
+		if (head >= 0 && head < lines_.size())
+			goTo(-1, lines_[head].at);
+	});
 
 	items_ = new QTreeWidget;
 	items_->setColumnCount(3);
@@ -93,8 +116,12 @@ UsecodeView::UsecodeView(QWidget *parent) : QWidget(parent)
 	auto *top = new QWidget;
 	auto *tv = new QVBoxLayout(top);
 	tv->setContentsMargins(0, 0, 0, 0);
-	tv->addWidget(title_);
-	tv->addWidget(listing_, 1);
+	auto *bar = new QHBoxLayout;
+	bar->addWidget(title_, 1);
+	bar->addWidget(routines_);
+	bar->addWidget(graphButton_);
+	tv->addLayout(bar);
+	tv->addWidget(stack_, 1);
 	right->addWidget(top);
 	right->addWidget(refs_);
 	right->setStretchFactor(0, 3);
@@ -121,6 +148,48 @@ void UsecodeView::setWorld(const World *world)
 	title_->clear();
 	items_->clear();
 	callers_->clear();
+	lines_.clear();
+	routines_->clear();
+}
+
+void UsecodeView::setGraphMode(bool graph)
+{
+	if (graphButton_->isChecked() != graph)
+	{
+		graphButton_->setChecked(graph);	// comes back here
+		return;
+	}
+	stack_->setCurrentWidget(graph ? static_cast<QWidget *>(graph_) : listing_);
+	if (graph && routines_->currentIndex() >= 0)
+	{
+		const int head = routines_->currentData().toInt();
+		graph_->showRoutine(world_, class_, lines_, head);
+	}
+}
+
+void UsecodeView::goTo(int event, int offset)
+{
+	int head = -1;
+	if (offset >= 0)
+		head = Ucode::routineHead(lines_, offset);
+	else
+		for (int k = 0; k < lines_.size() && head < 0; k++)
+			if (lines_[k].kind == Ucode::Line::Head && (event < 0 || lines_[k].event == event))
+				head = k;
+	if (head >= 0)
+	{
+		const int index = routines_->findData(head);
+		if (index >= 0)
+			routines_->setCurrentIndex(index);
+	}
+	if (offset >= 0)
+		listing_->scrollToAnchor(QStringLiteral("o%1").arg(offset));
+	else if (event >= 0)
+		listing_->scrollToAnchor(QStringLiteral("e%1").arg(event));
+	else
+		listing_->moveCursor(QTextCursor::Start);
+	if (graphButton_->isChecked() && head >= 0)
+		graph_->showRoutine(world_, class_, lines_, head, offset);
 }
 
 void UsecodeView::findUsers()
@@ -206,6 +275,13 @@ void UsecodeView::showClass(int classId, int event, int offset)
 		QString html = QStringLiteral("<html><body style='white-space:pre'>");
 		if (!Ucode::disassemble(u, classId, &lines, &error))
 			html += esc(error);
+		lines_ = lines;
+		routines_->clear();
+		for (int k = 0; k < lines.size(); k++)
+			if (lines[k].kind == Ucode::Line::Head)
+				routines_->addItem(lines[k].event >= 0
+					? tr("%1 (event %2)").arg(Ucode::eventName(lines[k].event).isEmpty() ? tr("never sent") : Ucode::eventName(lines[k].event)).arg(lines[k].event)
+					: tr("routine %1").arg(lines[k].at, 4, 16, QLatin1Char('0')), k);
 		for (const Ucode::Line &l : lines)
 		{
 			if (l.kind == Ucode::Line::Head)
@@ -289,12 +365,7 @@ void UsecodeView::showClass(int classId, int event, int offset)
 				classes_->scrollToItem(classes_->topLevelItem(i));
 			}
 	}
-	if (offset >= 0)
-		listing_->scrollToAnchor(QStringLiteral("o%1").arg(offset));
-	else if (event >= 0)
-		listing_->scrollToAnchor(QStringLiteral("e%1").arg(event));
-	else
-		listing_->moveCursor(QTextCursor::Start);
+	goTo(event, offset);
 }
 
 void UsecodeView::openLink(const QUrl &url)
@@ -302,11 +373,11 @@ void UsecodeView::openLink(const QUrl &url)
 	const QString s = url.toString();
 	const QStringList parts = s.split(QLatin1Char(':'));
 	if (parts.size() >= 2 && parts[0] == QLatin1String("go"))
-		listing_->scrollToAnchor(QStringLiteral("o%1").arg(parts[1]));
+		goTo(-1, parts[1].toInt());
 	else if (parts.size() >= 3 && parts[0] == QLatin1String("class"))
 		showClass(parts[1].toInt(), -1, parts[2].toInt());
 	else if (parts.size() >= 2 && parts[0] == QLatin1String("event"))
-		listing_->scrollToAnchor(QStringLiteral("e%1").arg(parts[1]));
+		goTo(parts[1].toInt(), -1);
 	else if (parts.size() >= 2 && parts[0] == QLatin1String("flag"))
 		emit showFlag(parts[1].toInt());
 }

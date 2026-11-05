@@ -70,8 +70,9 @@ int main(int argc, char **argv)
 	QCommandLineOption graph("graph", "Show the transitions tab.");
 	QCommandLineOption tab("tab", "Show a tab: map, transitions, data, flags or usecode.", "name");
 	QCommandLineOption usecodeClass("class", "Show this usecode class in the Usecode tab.", "n");
+	QCommandLineOption codeGraph("code-graph", "With --class: show it as a graph, at this event.", "event");
 	QCommandLineOption noEggs("no-eggs", "Start with eggs hidden.");
-	cl.addOptions({data, save, map, at, zoom, pick, roof, size, shot, graph, tab, usecodeClass, noEggs});
+	cl.addOptions({data, save, map, at, zoom, pick, roof, size, shot, graph, tab, usecodeClass, codeGraph, noEggs});
 	cl.process(app);
 
 	QString dir = cl.value(data);
@@ -132,6 +133,11 @@ int main(int argc, char **argv)
 	{
 		window.tabs()->setCurrentWidget(window.usecodeView());
 		window.usecodeView()->showClass(cl.value(usecodeClass).toInt(0, 0));
+		if (cl.isSet(codeGraph))
+		{
+			window.usecodeView()->setGraphMode(true);
+			window.usecodeView()->showClass(cl.value(usecodeClass).toInt(0, 0), cl.value(codeGraph).toInt());
+		}
 	}
 
 	// Positioning waits until the window has its size.

@@ -472,6 +472,23 @@ intrinsic's name (<code>Item::bark</code>, <code>teleportToEgg</code>...), strin
 </ul>
 <p>Below the listing, <b>Items</b> lists every item on the maps that runs the class (double-click to
 show one), and <b>Called from</b> the other classes that call or spawn its routines.</p>
+<h3>The graph</h3>
+<p><b>Graph</b> (beside the routine list) shows the routine chosen there as a graph, as IDA draws a
+function: its instructions in boxes that run straight through, a box ending at each branch or
+return, joined by arrows to where the code goes next:</p>
+<ul>
+<li><span style="color:#50c86e">green</span>: where an <i>if false, go to</i> goes when the value is
+true (it falls through), and a <i>for each</i> loop's body;</li>
+<li><span style="color:#eb554b">red</span>: where it goes when the value is false, and where a loop
+goes when its list is done;</li>
+<li><span style="color:#5a96ff">blue</span>: a <i>go to</i>; grey: straight on into the next box.</li>
+</ul>
+<p>Arrows that go back up (loops) run round the left of the graph; arrows that skip boxes run round
+their right. A line that reads a global flag has a <span style="color:#eb463c">red arrow coming in</span>
+from the left, labelled with the flag (and its name, when it has one in the Flags tab); a line that
+writes one has a <span style="color:#46d264">green arrow going out</span> to the right.</p>
+<p>Wheel to zoom, drag to move, <code>0</code> to fit, <code>1</code> for actual size. Double-click a line
+to follow it: a call or spawn opens that class, a flag the Flags tab, a branch its target box.</p>
 <p>The usecode is a stack machine: values are pushed, operations take them off and push their
 result, <code>[bp-02]</code> is a local variable, and a call's result is read back with "push
 result" or "push temp". <span style="color:#b0702c" title="Inferred: the names of a few opcodes (give heap, set process info, exclusive) are read from what the interpreter does with them, which is not always plain.">The editor's names for a few rarely used

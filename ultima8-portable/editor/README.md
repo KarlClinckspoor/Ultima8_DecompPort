@@ -227,7 +227,10 @@ when they differ from the original ones.
 - **Usecode** (View > Usecode, Ctrl+U): every usecode class with its events and how many items
   run it; a class's code disassembled an instruction a line (intrinsics by name, strings, flags),
   with its branches, calls and spawns as links to follow and its flags linked to the Flags tab;
-  below it the items on the maps that run the class and the classes that call it. The Item
+  below it the items on the maps that run the class and the classes that call it. **Graph**
+  shows a routine as IDA does: blocks of instructions joined by its branches (green when the
+  test holds, red when it fails, blue for go to), loops round the left; a flag read has a red
+  arrow coming into its line, a write a green arrow going out. The Item
   window's Usecode button, and its Details rows for each event, open an item's class there.
 - **Flags** (View > Flags, Ctrl+L): every global flag the usecode reads or writes (445 of
   them), with its value in the open saved game, the classes that read and write it, and a name

@@ -71,6 +71,8 @@ add_library(u8edit_core STATIC
 	src/ui/shapebrowser.h
 	src/ui/translatedialog.cpp
 	src/ui/translatedialog.h
+	src/ui/usecodegraph.cpp
+	src/ui/usecodegraph.h
 	src/ui/usecodeview.cpp
 	src/ui/usecodeview.h
 )

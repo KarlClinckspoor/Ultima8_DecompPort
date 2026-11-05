@@ -6,6 +6,12 @@
 #include <QHash>
 #include <QWidget>
 
+#include "data/disasm.h"
+
+class QComboBox;
+class QStackedWidget;
+class QToolButton;
+class UsecodeGraph;
 class QLabel;
 class QLineEdit;
 class QTabWidget;
@@ -26,6 +32,9 @@ public:
 	void showClass(int classId, int event = -1, int offset = -1);
 	int currentClass() const { return class_; }
 	QTextBrowser *listing() const { return listing_; }
+	UsecodeGraph *graph() const { return graph_; }
+	// Shows the code as a graph of the current routine (true) or as a listing.
+	void setGraphMode(bool graph);
 
 	// What a class is for: "the class of shape 82 (KEY)", "NPC 2's class", "usecode egg type 4".
 	static QString classRole(const World &world, int classId);
@@ -39,6 +48,8 @@ private:
 	void filter(const QString &text);
 	void openLink(const QUrl &url);
 	void findUsers();
+	// Goes to an event's routine or an offset in the class shown, in the listing and the graph.
+	void goTo(int event, int offset);
 
 	const World *world_ = nullptr;
 	int class_ = -1;
@@ -48,6 +59,11 @@ private:
 	QTreeWidget *classes_;
 	QLabel *title_;
 	QTextBrowser *listing_;
+	UsecodeGraph *graph_;
+	QStackedWidget *stack_;
+	QComboBox *routines_;
+	QToolButton *graphButton_;
+	QVector<Ucode::Line> lines_;	// the class shown
 	QTabWidget *refs_;
 	QTreeWidget *items_;
 	QTreeWidget *callers_;

@@ -25,6 +25,10 @@
 #include "ui/searchpanel.h"
 #include "ui/manualview.h"
 #include "ui/usecodeview.h"
+#include "ui/usecodegraph.h"
+
+#include <QGraphicsScene>
+#include <QPainter>
 #include "data/disasm.h"
 #include "data/ucode.h"
 
@@ -109,6 +113,7 @@ private slots:
 	void picking();
 	void manual();
 	void usecodeListing();
+	void usecodeGraph();
 
 private:
 	QTemporaryDir temp_;
@@ -579,6 +584,96 @@ void Tests::usecodeListing()
 	auto *items = view.findChildren<QTreeWidget *>().value(1);
 	QVERIFY(items);
 	QVERIFY(items->topLevelItemCount() > 0);
+}
+
+// Blocks end at branches and returns and start at their targets; every block but the first is
+// reached from another; LOCKDOOR's area event reads flags (red arrows in) and the graph draws
+// them. With U8EDIT_GRAPH_PNG set, the graph is saved there as an image.
+void Tests::usecodeGraph()
+{
+	World w;
+	QString error;
+	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
+	const Usecode &u = w.usecode();
+	int routines = 0;
+	for (int k = 0; k < u.classCount(); k++)
+	{
+		if (!u.hasClass(k))
+			continue;
+		QVector<Ucode::Line> lines;
+		QVERIFY(Ucode::disassemble(u, k, &lines, &error));
+		for (int h = 0; h < lines.size(); h++)
+		{
+			if (lines[h].kind != Ucode::Line::Head)
+				continue;
+			const QVector<Ucode::Block> blocks = Ucode::flowGraph(lines, h);
+			routines++;
+			QVector<int> reached(blocks.size(), 0);
+			for (int b = 0; b < blocks.size(); b++)
+			{
+				QVERIFY(blocks[b].first <= blocks[b].last);
+				for (int x = blocks[b].first; x < blocks[b].last; x++)
+				{
+					const int op = lines[x].opcode;
+					QVERIFY2(op != 0x51 && op != 0x52 && op != 0x50, qPrintable(QStringLiteral("%1:%2").arg(k).arg(lines[x].at, 0, 16)));
+				}
+				for (const Ucode::Edge &e : blocks[b].out)
+				{
+					QVERIFY(e.to >= 0 && e.to < blocks.size());
+					reached[e.to]++;
+				}
+			}
+			for (int b = 1; b < blocks.size(); b++)
+				if (!reached[b])
+				{
+					// Code after a return that nothing jumps to (dead code) has no way in.
+					const int prev = lines[blocks[b - 1].last].opcode;
+					QVERIFY2(prev == 0x50 || prev == 0x52, qPrintable(QStringLiteral("class %1 block %2").arg(k).arg(blocks[b].offset, 0, 16)));
+				}
+		}
+	}
+	QVERIFY(routines > 1000);
+
+	const int lockdoor = UsecodeEggClassBase + 59;
+	QCOMPARE(u.className(lockdoor), QStringLiteral("LOCKDOOR"));
+	QVector<Ucode::Line> lines;
+	QVERIFY(Ucode::disassemble(u, lockdoor, &lines, &error));
+	int head = -1;
+	for (int h = 0; h < lines.size(); h++)
+		if (lines[h].kind == Ucode::Line::Head && lines[h].event == 15)
+			head = h;
+	QVERIFY(head >= 0);
+	UsecodeGraph graph;
+	graph.resize(1200, 900);
+	graph.showRoutine(&w, lockdoor, lines, head);
+	QVERIFY(graph.blockCount() > 3);
+	QVERIFY(graph.flagArrows(false) > 0);
+	// TELPFLAG (1215) sets the places the recall item knows: green arrows out.
+	QCOMPARE(u.className(1215), QStringLiteral("TELPFLAG"));
+	QVector<Ucode::Line> telp;
+	QVERIFY(Ucode::disassemble(u, 1215, &telp, &error));
+	int writes = 0;
+	for (int h = 0; h < telp.size(); h++)
+		if (telp[h].kind == Ucode::Line::Head)
+		{
+			UsecodeGraph g;
+			g.showRoutine(&w, 1215, telp, h);
+			writes += g.flagArrows(true);
+		}
+	QVERIFY(writes > 0);
+	const QString png = qEnvironmentVariable("U8EDIT_GRAPH_PNG");
+	if (!png.isEmpty())
+	{
+		const QRectF r = graph.scene()->sceneRect();
+		QImage img((r.size() * 0.7).toSize(), QImage::Format_ARGB32_Premultiplied);
+		img.fill(QColor(14, 16, 20));
+		QPainter p(&img);
+		p.setRenderHint(QPainter::Antialiasing);
+		p.setRenderHint(QPainter::TextAntialiasing);
+		graph.scene()->render(&p, QRectF(QPointF(0, 0), img.size()), r);
+		p.end();
+		img.save(png);
+	}
 }
 
 QTEST_MAIN(Tests)

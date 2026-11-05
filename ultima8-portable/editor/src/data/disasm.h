@@ -24,7 +24,32 @@ struct Line
 	int callClass = -1;		// a call or spawn's class and offset
 	int callOffset = -1;
 	int flagBit = -1;		// a global flag read or written
+	int flagWidth = 0;		// its width in bits
+	bool flagWrite = false;
+	int opcode = -1;		// Code: the instruction's opcode
 };
+
+// One routine as a graph: its instructions cut into blocks that run straight through, joined
+// by the branches between them (IDA's graph view).
+struct Edge
+{
+	enum Kind { Next, Taken, NotTaken, Jump };	// falls through; a conditional branch taken or not; go to
+	int to;		// the block
+	Kind kind;
+};
+
+struct Block
+{
+	int first, last;	// indices of its lines (Code lines only)
+	QVector<Edge> out;
+	int offset = -1;	// of its first instruction
+};
+
+// The blocks of the routine whose heading is lines[head] (a Head line), in code order; the
+// first is where it starts.
+QVector<Block> flowGraph(const QVector<Line> &lines, int head);
+// The index of the Head line of the routine that holds offset, or -1.
+int routineHead(const QVector<Line> &lines, int offset);
 
 // The class's code as lines; false (and why) when it cannot be decoded.
 bool disassemble(const Usecode &usecode, int classId, QVector<Line> *out, QString *error);

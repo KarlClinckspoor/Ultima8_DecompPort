@@ -74,9 +74,10 @@ bool disassemble(const Usecode &usecode, int classId, QVector<Line> *out, QStrin
 	for (int e = 0; e < EventCount; e++)
 		if (const int off = usecode.eventOffset(classId, e))
 			eventAt.insert(off, e);
+	bool afterEnd = false;	// a routine ends with 79: what follows starts another
 	for (const Instruction &i : ins)
 	{
-		if (starts.contains(i.at) || eventAt.contains(i.at))
+		if (starts.contains(i.at) || eventAt.contains(i.at) || afterEnd)
 		{
 			Line h;
 			h.kind = Line::Head;
@@ -84,8 +85,10 @@ bool disassemble(const Usecode &usecode, int classId, QVector<Line> *out, QStrin
 			h.event = eventAt.value(i.at, -1);
 			out->append(h);
 		}
+		afterEnd = i.op == 0x79;
 		Line l;
 		l.at = i.at;
+		l.opcode = i.op;
 		const int a = i.at + 1;	// the operands
 		const int end = i.at + i.size;
 		switch (i.op)
@@ -142,6 +145,8 @@ bool disassemble(const Usecode &usecode, int classId, QVector<Line> *out, QStrin
 		case 0x4f:
 			l.op = i.op == 0x4e ? "push flag" : "store flag";
 			l.flagBit = u16(c, a);
+			l.flagWidth = u8(c, a + 2);
+			l.flagWrite = i.op == 0x4f;
 			l.args = QStringLiteral("%1, %2 bit%3").arg(l.flagBit).arg(u8(c, a + 2)).arg(u8(c, a + 2) == 1 ? "" : "s");
 			break;
 		case 0x51: l.op = "if false, go to"; l.jump = (end + s16(c, a)) & 0xffff; break;
@@ -200,6 +205,89 @@ bool disassemble(const Usecode &usecode, int classId, QVector<Line> *out, QStrin
 		out->append(l);
 	}
 	return true;
+}
+
+int routineHead(const QVector<Line> &lines, int offset)
+{
+	int head = -1;
+	for (int k = 0; k < lines.size(); k++)
+	{
+		if (lines[k].kind == Line::Head && lines[k].at <= offset)
+			head = k;
+		if (lines[k].at > offset)
+			break;
+	}
+	return head;
+}
+
+QVector<Block> flowGraph(const QVector<Line> &lines, int head)
+{
+	QVector<Block> blocks;
+	if (head < 0 || head >= lines.size())
+		return blocks;
+	// To the routine's end marker (79), which is no code that runs, or the next heading.
+	int end = head + 1;
+	while (end < lines.size() && lines[end].kind != Line::Head && lines[end].opcode != 0x79)
+		end++;
+	if (end == head + 1)
+		return blocks;
+	QHash<int, int> lineAt;	// offset: line index, in this routine
+	for (int k = head + 1; k < end; k++)
+		lineAt.insert(lines[k].at, k);
+	auto branches = [](int op) { return op == 0x51 || op == 0x52 || op == 0x75 || op == 0x76; };
+	auto ends = [&](int op) { return branches(op) || op == 0x50 || op == 0x79; };
+	// Blocks start at the routine's start, at branch targets, and after branches and returns.
+	QVector<bool> leader(lines.size(), false);
+	leader[head + 1] = true;
+	for (int k = head + 1; k < end; k++)
+	{
+		const Line &l = lines[k];
+		if (branches(l.opcode) && lineAt.contains(l.jump))
+			leader[lineAt.value(l.jump)] = true;
+		if (ends(l.opcode) && k + 1 < end)
+			leader[k + 1] = true;
+	}
+	QHash<int, int> blockOfLine;
+	for (int k = head + 1; k < end; k++)
+	{
+		if (leader[k])
+		{
+			Block b;
+			b.first = k;
+			b.offset = lines[k].at;
+			blocks.append(b);
+		}
+		blocks.last().last = k;
+		blockOfLine.insert(k, blocks.size() - 1);
+	}
+	for (int b = 0; b < blocks.size(); b++)
+	{
+		const Line &l = lines[blocks[b].last];
+		const bool hasNext = b + 1 < blocks.size();
+		const int target = lineAt.contains(l.jump) ? blockOfLine.value(lineAt.value(l.jump)) : -1;
+		switch (l.opcode)
+		{
+		case 0x51:	// if false, go to: taken when the value is false
+		case 0x75:	// for each: past the list's end it goes to the target
+		case 0x76:
+			if (target >= 0)
+				blocks[b].out.append({target, Edge::Taken});
+			if (hasNext)
+				blocks[b].out.append({b + 1, Edge::NotTaken});
+			break;
+		case 0x52:
+			if (target >= 0)
+				blocks[b].out.append({target, Edge::Jump});
+			break;
+		case 0x50:
+		case 0x79:
+			break;
+		default:
+			if (hasNext)
+				blocks[b].out.append({b + 1, Edge::Next});
+		}
+	}
+	return blocks;
 }
 
 QVector<QPair<int, int>> callers(const Usecode &usecode, int classId)
