@@ -4,6 +4,36 @@ Each release's notes. The newest is first; `ultima8-portable/tools/release/notes
 prints one section, and the release on GitHub carries it. A release is made by writing its
 section here and putting its number in `VERSION` (see RELEASING.md).
 
+## 0.4.0
+
+The editor gets tools for finding things and for seeing what the game's scripts do with them,
+and a manual. The packages are as before and need the same: your own copy of the game,
+Windows 10 or 11, or Linux with glibc 2.38 or newer.
+
+- **Editor: picking and selecting.** A right-click lists everything drawn at and around the
+  pointer, with pictures, to pick buried items from. Ctrl+click, Ctrl+drag and Ctrl+A select
+  several items; moving, copying, deleting, flipping and frame changes apply to them all, each
+  as one step to undo.
+- **Editor: exact moves.** Alt+arrows, Alt+drag and the Item window's Nudge buttons move items
+  by single units.
+- **Editor: seeing inside.** Heights shows an item's bottom and top; Opacity fades each layer;
+  X-ray fades each layer above a height around the pointer.
+- **Editor: search.** Find items on one map or in the whole game, by name or by terms such as
+  `shape:`, `q:`, `key:` or `is:locked`.
+- **Editor: doors and keys.** A key lists the doors it opens and a door its keys, anywhere in
+  the game, and the map outlines them; doors edit their key number, lock and open state.
+- **Editor: teleporters.** Arrows to where a teleport egg leads on the same map, Go to sender
+  on receiving eggs, and map names on the egg labels.
+- **Editor: names.** Full names (a person is named before the Avatar meets them), names for
+  shapes and maps, shared through File > Export Names and Import Names.
+- **Editor: the Usecode tab.** Every usecode class, disassembled, with its calls, branches and
+  flags to follow, the items that run it and the classes that call it; the Item window's
+  Usecode button opens an item's class there.
+- **Editor: the manual** (Help > Manual, F1): using the editor, and what every field means in
+  the game, from the decompiled sources; what is inferred is marked as such.
+- **Editor:** tooltips that describe each item; the Item window is a dock that stays where it
+  is put; monster eggs no longer accept probability or activity values that break the game.
+
 ## 0.3.0
 
 The editor reads the game's story state: the usecode's global flags, and items' names as the
