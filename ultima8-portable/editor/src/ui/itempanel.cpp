@@ -119,9 +119,44 @@ QTreeWidgetItem *ItemPanel::section(const QString &title)
 	return s;
 }
 
+// What a field of the Details tab means, for its tooltip.
+static QString fieldHelp(const QString &field)
+{
+	static const QHash<QString, QString> help{
+		{QObject::tr("Map"), QObject::tr("The map the item is on")},
+		{QObject::tr("Index"), QObject::tr("The editor's number for the item on this map (not saved)")},
+		{QObject::tr("From"), QObject::tr("The file the item is kept in, and its place there")},
+		{QObject::tr("Depth"), QObject::tr("A contained item's x: how deep it is in its container's list")},
+		{QObject::tr("Position"), QObject::tr("World x, y and z of the footpad's corner nearest the viewer; the top is z plus the shape's height")},
+		{QObject::tr("Shape"), QObject::tr("The shape (U8SHAPES.FLX); it decides the item's type flags and usecode class")},
+		{QObject::tr("Frame"), QObject::tr("The picture of the shape it shows; usecode often keeps states in it")},
+		{QObject::tr("Status"), QObject::tr("The item's flag bits: invisible, flipped, owned, contained...")},
+		{QObject::tr("Quality"), QObject::tr("A number whose meaning depends on the shape: a quantity, a key number, an egg's settings...")},
+		{QObject::tr("npcNum"), QObject::tr("The NPC the item belongs to; for eggs, the hatch ranges")},
+		{QObject::tr("mapNum"), QObject::tr("For eggs, the egg id (a teleport egg's destination map)")},
+		{QObject::tr("Class"), QObject::tr("The usecode class the item runs: an NPC's own, a usecode egg's, or its shape's")},
+		{QObject::tr("Has code"), QObject::tr("Whether EUSECODE.FLX has code for the class")},
+		{QObject::tr("Family"), QObject::tr("The shape's family (TYPEFLAG.DAT): how the game treats quality, containers and eggs")},
+		{QObject::tr("Footpad"), QObject::tr("The box the item takes up, in world units (32 a footpad step in x and y, 8 in z)")},
+		{QObject::tr("Flags"), QObject::tr("The shape's type flags from TYPEFLAG.DAT; see the manual (Help > Manual)")},
+		{QObject::tr("Weight, volume"), QObject::tr("From TYPEFLAG.DAT: what it weighs, and how much room it takes in a container")},
+		{QObject::tr("Hatch range"), QObject::tr("The egg hatches when the Avatar comes within these steps of 32 units either side")},
+		{QObject::tr("Teleport id"), QObject::tr("A sending egg goes to the receiving egg with this id on its destination map")},
+		{QObject::tr("Goes to"), QObject::tr("The receiving egg this one sends the Avatar to; double-click to go there")},
+		{QObject::tr("Senders"), QObject::tr("How many eggs and scripts send the Avatar to this egg")},
+		{QObject::tr("Key number"), QObject::tr("A key opens the doors whose quality's low byte is its quality")},
+		{QObject::tr("Locked"), QObject::tr("Door quality bit 0x400")},
+		{QObject::tr("Open"), QObject::tr("Door quality bit 0x100")},
+	};
+	return help.value(field);
+}
+
 QTreeWidgetItem *ItemPanel::row(QTreeWidgetItem *parent, const QString &field, const QString &value, int map, int item)
 {
 	auto *r = new QTreeWidgetItem(parent, {field, value});
+	const QString help = fieldHelp(field);
+	if (!help.isEmpty())
+		r->setToolTip(0, help);
 	if (map >= 0 && item >= 0)
 	{
 		r->setData(0, MapRole, map);
@@ -587,8 +622,10 @@ void ItemPanel::buildEditor()
 		add(item, tr("Z"), [](const MapItem &i) { return int(i.z); }, [](MapItem &i, int v) { i.z = uint8_t(v); }, 0, 0xfa,
 			tr("Height; 251 and up take an item out of play"));
 	}
-	add(item, tr("Shape"), [](const MapItem &i) { return int(i.shape); }, [](MapItem &i, int v) { i.shape = uint16_t(v); }, 1, 2047);
-	add(item, tr("Frame"), [](const MapItem &i) { return int(i.frame); }, [](MapItem &i, int v) { i.frame = uint8_t(v); }, 0, -1);
+	add(item, tr("Shape"), [](const MapItem &i) { return int(i.shape); }, [](MapItem &i, int v) { i.shape = uint16_t(v); }, 1, 2047,
+		tr("The shape: its picture, type flags and usecode class. Changing it may move the item between FIXED.DAT and NONFIXED.DAT"));
+	add(item, tr("Frame"), [](const MapItem &i) { return int(i.frame); }, [](MapItem &i, int v) { i.frame = uint8_t(v); }, 0, -1,
+		tr("Which of the shape's pictures it shows ([ and ] on the map); usecode often keeps states in it"));
 	add(item, tr("Quality"), [](const MapItem &i) { return int(i.quality); }, [](MapItem &i, int v) { i.quality = uint16_t(v); }, 0, 0xffff,
 		tr("Its meaning depends on the shape: a key's lock, a quantity, an egg's settings..."));
 	add(item, tr("npcNum"), [](const MapItem &i) { return int(i.npcNum); }, [](MapItem &i, int v) { i.npcNum = uint8_t(v); }, 0, 254,
@@ -639,9 +676,12 @@ void ItemPanel::buildEditor()
 			[](MapItem &i, int v) { i.npcNum = uint8_t((i.npcNum & 0xf8) | v); }, 0, 7,
 			tr("Shares its bits with the y range"));
 		add(special, tr("Probability"), [](const MapItem &i) { return EggInfo::monsterProb(i); },
-			[](MapItem &i, int v) { i.quality = uint16_t((i.quality & 0x7ff) | v << 11); }, 0, 31);
+			[](MapItem &i, int v) { i.quality = uint16_t((i.quality & 0x7ff) | v << 11); }, 0, 7,
+			tr("The chance it hatches when its usecode egg asks: 5, 10, 20, 35, 50, 65, 80 or 100 percent "
+				"(MonsterEgg::hatch; higher numbers read past the game's table)"));
 		add(special, tr("Activity"), [](const MapItem &i) { return EggInfo::monsterActivity(i); },
-			[](MapItem &i, int v) { i.mapNum = uint8_t((i.mapNum & 0xf8) | v); }, 0, 7);
+			[](MapItem &i, int v) { i.mapNum = uint8_t((i.mapNum & 0xf8) | v); }, 0, 2,
+			tr("What the monsters do: 0 loiter, 1 fight, 2 stand (Npc::cSetActivity halts the game on any other value)"));
 		add(special, tr("Monster id"), [](const MapItem &i) { return EggInfo::monsterId(i); },
 			[](MapItem &i, int v) { i.mapNum = uint8_t((i.mapNum & 7) | v << 3); }, 0, 31);
 		ranges();
@@ -733,6 +773,8 @@ void ItemPanel::buildEditor()
 			w->setEnabled(editable);
 			w->setToolTip(f.tip);
 			form->addRow(f.label, w);
+			if (QWidget *label = form->labelForField(w))
+				label->setToolTip(f.tip);
 		}
 		editLayout_->addWidget(box);
 		for (Field &f : list)

@@ -307,7 +307,7 @@ void SearchPanel::search()
 				continue;
 			auto *row = new ResultRow;
 			row->setText(NameColumn, Names::itemName(*world_, map, it));
-			row->setToolTip(NameColumn, world_->describe(it));
+			row->setToolTip(NameColumn, Names::itemTooltip(*world_, map, int(i)));
 			row->setData(NameColumn, MapRole, map);
 			row->setData(NameColumn, ItemRole, int(i));
 			row->setText(MapColumn, Names::mapShort(map));

@@ -53,9 +53,45 @@ be shipped with a program.
 Point CMake at Qt with `-DCMAKE_PREFIX_PATH=C:\Qt\6.x\msvc2022_64` and run `windeployqt` on
 the result to ship it.
 
-`-DU8EDIT_TESTS=ON` also builds `u8edit-tests`, which works on a copy of the game data:
+### Linux
 
-    U8_DATA=<game folder> build/editor/u8edit-tests
+Qt 6.2 or newer from the distribution, with a C++17 compiler, CMake 3.19 or newer and Ninja.
+On Ubuntu 22.04 or newer, Debian 12 or newer, and in WSL (Ubuntu) on Windows:
+
+    sudo apt install build-essential cmake ninja-build qt6-base-dev libgl1-mesa-dev
+
+`libgl1-mesa-dev` is there because Qt's CMake files look for OpenGL headers even for a Widgets
+program. On Fedora the packages are `gcc-c++ cmake ninja-build qt6-qtbase-devel`, on Arch
+`base-devel cmake ninja qt6-base`. Then, from the repository's top folder:
+
+    cmake -S ultima8-portable/editor -B build/editor -G Ninja -DCMAKE_BUILD_TYPE=Release
+    cmake --build build/editor
+    ./build/editor/u8edit --data ~/games/ultima8
+
+The program uses the system's Qt, so it runs where it was built. In WSL it opens its window
+through WSLg (Windows 11, or Windows 10 with a recent WSL); a game folder on the Windows side is
+under `/mnt/c/...`.
+
+### Running the tests
+
+`-DU8EDIT_TESTS=ON` also builds `u8edit-tests` (Qt Test comes with the packages above). It
+copies the game folder given in `U8_DATA` to a temporary folder and works on the copy, so the
+game folder is left alone; without `U8_DATA` it skips everything. `QT_QPA_PLATFORM=offscreen`
+runs it without opening windows:
+
+    cmake -S ultima8-portable/editor -B build/editor -G Ninja -DCMAKE_BUILD_TYPE=Release -DU8EDIT_TESTS=ON
+    cmake --build build/editor
+    U8_DATA=~/games/ultima8 QT_QPA_PLATFORM=offscreen ./build/editor/u8edit-tests
+
+On Windows (MSYS2 UCRT64), the build folder holds only the plug-ins `windeployqt6` copied, which
+do not include *offscreen*; point Qt at MSYS2's own plug-ins, and give the paths as Windows
+paths:
+
+    export QT_PLUGIN_PATH=C:/msys64/ucrt64/share/qt6/plugins
+    U8_DATA='C:\path\to\Ultima8\ENGLISH' QT_QPA_PLATFORM=offscreen ./build/editor/u8edit-tests -o results.txt,txt
+
+The program is a Windows program, so in MSYS2 its output goes to the file given with `-o` rather
+than to the terminal. [TESTING.md](TESTING.md) has what the tests cover and the plan for more.
 
 ## Running
 
@@ -107,7 +143,8 @@ when they differ from the original ones.
 - Weapons: a hit does strength / 5 + base damage + 0 to the random bonus; dexterity bonuses for
   attack and defence, an armour class bonus, and damage type bits (normal, blade, blunt, fire,
   undead, magic, slayer, pierce, falling).
-- Armour: the armour class each piece adds, by its frame (frames 0 and 1 use the first number).
+- Armour: the armour class each piece adds, by its frame: the game reads the number at frame / 2,
+  so frames 2n and 2n+1 share one.
 - Monsters: what monster eggs and the like make: hit points, dexterity and damage between a
   minimum and a maximum, armour class, alignment, damage type and the damage types it defends
   against.
@@ -198,6 +235,10 @@ when they differ from the original ones.
   text. The Brazilian Portuguese table comes with the editor (`languages/` beside it); see
   `tools/lang/README.md`.
 - **Edit > Undo/Redo** take back any change; **File > Save** (Ctrl+S) writes them.
+- **Help > Manual** (F1) explains the editor and what every field means in the game, from the
+  decompiled sources; what is inferred rather than read plainly from the code is brown, with a
+  tooltip saying why. The map's tooltip, the right-click list and the search results describe
+  each item in plain words, and every field in the Item window has a tooltip.
 - **File > Test in the Port** (F5) saves, then starts the port (`Ultima8` beside `u8edit` or one
   level up, or the one chosen with File > Choose the Port Program) on a home folder of its own
   holding only the edited saved game, so it begins a new game from what was saved.

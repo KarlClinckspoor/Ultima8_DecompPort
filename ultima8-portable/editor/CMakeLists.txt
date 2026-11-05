@@ -53,6 +53,8 @@ add_library(u8edit_core STATIC
 	src/ui/itempanel.h
 	src/ui/mainwindow.cpp
 	src/ui/mainwindow.h
+	src/ui/manualview.cpp
+	src/ui/manualview.h
 	src/ui/maprender.cpp
 	src/ui/maprender.h
 	src/ui/mapview.cpp
@@ -69,6 +71,8 @@ add_library(u8edit_core STATIC
 	src/ui/translatedialog.h
 )
 target_include_directories(u8edit_core PUBLIC src)
+# The manual (Help > Manual), built into the program.
+qt_add_resources(u8edit_core manual PREFIX /manual BASE manual FILES manual/manual.html)
 target_link_libraries(u8edit_core PUBLIC Qt6::Widgets)
 
 add_executable(u8edit WIN32 MACOSX_BUNDLE src/main.cpp)

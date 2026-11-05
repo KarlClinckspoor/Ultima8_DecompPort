@@ -23,6 +23,10 @@
 #include "ui/translatedialog.h"
 #include "ui/mapview.h"
 #include "ui/searchpanel.h"
+#include "ui/manualview.h"
+
+#include <QTextBlock>
+#include <QTextBrowser>
 
 namespace
 {
@@ -90,6 +94,7 @@ private slots:
 	void groupEdits();
 	void doorsAndKeys();
 	void picking();
+	void manual();
 
 private:
 	QTemporaryDir temp_;
@@ -480,6 +485,38 @@ void Tests::picking()
 			break;
 	}
 	QVERIFY(tested > 0);
+}
+
+// The manual is built in, its sections are where Help leads, and every passage marked as
+// inferred (brown) says so in a tooltip.
+void Tests::manual()
+{
+	ManualView view;
+	QTextDocument *doc = view.browser()->document();
+	QVERIFY(doc->toPlainText().size() > 2000);
+	const QString html = ManualView::html();
+	for (const char *anchor : {"contents", "keys", "fields"})
+		QVERIFY2(html.contains(QStringLiteral("name=\"%1\"").arg(QLatin1String(anchor))), anchor);
+	const QColor brown(QStringLiteral("#b0702c"));
+	int inferred = 0;
+	for (QTextBlock b = doc->begin(); b.isValid(); b = b.next())
+		for (auto it = b.begin(); !it.atEnd(); ++it)
+		{
+			const QTextCharFormat f = it.fragment().charFormat();
+			if (f.foreground().color() == brown)
+			{
+				inferred++;
+				QVERIFY2(!f.toolTip().isEmpty(), qPrintable(it.fragment().text()));
+			}
+		}
+	QVERIFY(inferred > 0);
+	// Links inside the manual lead to anchors that are there.
+	static const QRegularExpression link(QStringLiteral("href=\"#([^\"]+)\""));
+	for (auto m = link.globalMatch(html); m.hasNext();)
+	{
+		const QString target = m.next().captured(1);
+		QVERIFY2(html.contains(QStringLiteral("name=\"%1\"").arg(target)), qPrintable(target));
+	}
 }
 
 QTEST_MAIN(Tests)

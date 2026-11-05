@@ -1,0 +1,446 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>U8 Editor Manual</title>
+</head>
+<body>
+<a name="top"></a>
+<h1>U8 Editor Manual</h1>
+<p>u8edit edits Ultima VIII's world: where every item is, what it is, what eggs do, the
+characters' numbers, the story's flags, and the weapon, armour and monster tables. It reads and
+writes the game's own files the way the game does, so what it saves plays in DOS U8.EXE as well
+as in the port.</p>
+<p>What this manual says about the game comes from the decompiled game (<code>source/</code> and
+<code>ultima8-portable/game/</code>). Where it is an inference rather than something the code
+plainly does, it is <span style="color:#b0702c" title="Inferred: this is how inferred passages look. Point at one to see why it is not certain.">written in brown</span>; point at
+a brown passage for why it is not certain.</p>
+
+<a name="contents"></a>
+<h2>Contents</h2>
+<ol>
+<li><a href="#start">Getting started</a></li>
+<li><a href="#window">The window</a></li>
+<li><a href="#keys">Keys and mouse on the map</a></li>
+<li><a href="#selecting">Selecting: piles, boxes and lists</a></li>
+<li><a href="#moving">Moving items exactly</a></li>
+<li><a href="#seeing">Seeing inside: roof, opacity, X-ray, heights</a></li>
+<li><a href="#names">Names</a></li>
+<li><a href="#search">Searching</a></li>
+<li><a href="#teleports">Teleport eggs and the ways between maps</a></li>
+<li><a href="#doors">Doors and keys</a></li>
+<li><a href="#itemwindow">The Item window</a></li>
+<li><a href="#fields">Fields and what they mean</a></li>
+<li><a href="#typeflags">Shape type flags</a></li>
+<li><a href="#families">Families</a></li>
+<li><a href="#eggs">Eggs</a></li>
+<li><a href="#drawing">How the game draws the world</a></li>
+<li><a href="#npcs">Characters</a></li>
+<li><a href="#tables">Weapons, armour and monsters</a></li>
+<li><a href="#files">Files and saving</a></li>
+</ol>
+
+<a name="start"></a>
+<h2>1. Getting started</h2>
+<p><b>Work on a copy of the game folder.</b> Saving writes into the folder that is open; the
+first time a file is written, its original is kept beside it as <code>name.orig</code>.</p>
+<p>File &gt; Open Game Folder opens a folder holding <code>STATIC</code> and <code>USECODE</code>
+(for the GOG release, the <code>ENGLISH</code> folder). The editor opens the starting saved game,
+<code>SAVEGAME/U8SAVE.000</code>, which every new game starts from; File &gt; Open Saved Game
+opens another, and File &gt; Open the Game in Progress opens <code>GAMEDAT</code>, the game the
+DOS version continues.</p>
+<p>Pick a map in the Maps list. File &gt; Save (Ctrl+S) writes what changed, Edit &gt; Undo and
+Redo take changes back, and File &gt; Test in the Port (F5) saves and starts the port on a new
+game made from what was saved.</p>
+
+<a name="window"></a>
+<h2>2. The window</h2>
+<ul>
+<li><b>Maps</b> (left): every map with items, how many, how many teleport eggs lead out, and
+the named people standing on it. Double-click a name, or press F2, to name a map.</li>
+<li><b>Minimap</b> (left): the whole map with the part the view shows; teleport eggs in orange
+(sending) and green (receiving). Click or drag to move there.</li>
+<li><b>Map</b> (middle): the map drawn as the game draws it.</li>
+<li><b>Transitions</b>: the maps as a graph of the ways between them.</li>
+<li><b>Game Data</b>: weapons, armour, monsters and the characters' numbers.</li>
+<li><b>Flags</b>: the story's global flags.</li>
+<li><b>Shapes</b> and <b>Search</b> (right): every shape, to place; and the search.</li>
+<li><b>Item</b> window (Ctrl+I): everything about the selected item; its Edit tab changes it.</li>
+</ul>
+<p>The toolbars: Save, Undo and Redo; the layers (Fixed, Globs, Movable, NPCs, Eggs, Egg Ranges,
+Labels, Invisible, Heights); Roof below; Snap; Opacity; and X-ray with its height, radius and
+Fade.</p>
+
+<a name="keys"></a>
+<h2>3. Keys and mouse on the map</h2>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th>Do</th><th>To</th></tr>
+<tr><td>Drag on empty ground; arrow keys</td><td>move the view</td></tr>
+<tr><td>Wheel; <code>+</code> and <code>-</code>; <code>1</code>; <code>0</code></td><td>zoom; actual size; the whole map</td></tr>
+<tr><td>Click</td><td>select an item (and show it in the Item window)</td></tr>
+<tr><td>Ctrl+click</td><td>add an item to the selection, or take it away</td></tr>
+<tr><td>Ctrl+drag</td><td>select what a box holds (added to the selection)</td></tr>
+<tr><td>Ctrl+A</td><td>select everything in the view</td></tr>
+<tr><td>Right-click</td><td>list everything at and around the pointer, to pick from</td></tr>
+<tr><td>Esc</td><td>select nothing; stop placing</td></tr>
+<tr><td>Drag the selection</td><td>move it along x and y, by the snap</td></tr>
+<tr><td>Shift+drag the selection</td><td>move it up and down</td></tr>
+<tr><td>Alt+drag the selection</td><td>move it without the snap</td></tr>
+<tr><td>Ctrl+arrows</td><td>move the selection along the world's x and y by the snap</td></tr>
+<tr><td>Alt+arrows</td><td>move it by 1 unit</td></tr>
+<tr><td>Page Up, Page Down</td><td>raise, lower it by 8 (with Shift or Alt: by 1)</td></tr>
+<tr><td>Delete</td><td>delete the selection, with what it holds</td></tr>
+<tr><td>Ctrl+D</td><td>copy the selection beside itself</td></tr>
+<tr><td>F</td><td>flip</td></tr>
+<tr><td><code>[</code> and <code>]</code></td><td>the previous and next frame</td></tr>
+<tr><td>P</td><td>place the shape picked in Shapes (click to put it down; right-click or Esc to stop)</td></tr>
+<tr><td>I</td><td>pick the selected item's shape in Shapes</td></tr>
+<tr><td>H</td><td>show heights</td></tr>
+<tr><td>X</td><td>X-ray around the pointer</td></tr>
+<tr><td>Ctrl+F</td><td>search</td></tr>
+<tr><td>F1</td><td>this manual</td></tr>
+</table>
+<p>On some Linux desktops Alt+drag moves the window rather than the item; Alt+arrows and the
+Item window's Nudge buttons always work.</p>
+
+<a name="selecting"></a>
+<h2>4. Selecting: piles, boxes and lists</h2>
+<p>A click takes the topmost item drawn under the pointer. Items buried in a pile, or hidden
+behind a wall, are easier to reach with a <b>right-click</b>: it lists every item drawn at the
+pointer, the topmost first, then those drawn within a few pixels of it, each with its picture,
+name, shape and frame and position. Pointing at an entry highlights the item on the map in
+magenta (with its bottom and top); choosing it selects it, and choosing it with Ctrl held adds it
+to the selection. <i>Select All of These</i> takes the whole list. The tooltip of each entry
+says what the item is.</p>
+<p>Several items can be selected at once (Ctrl+click, Ctrl+drag, Ctrl+A, or the list). The
+primary one, outlined in yellow, is the one the Item window shows; the others are outlined in
+amber. Moving, Delete, Ctrl+D, F and <code>[</code> <code>]</code> then apply to all of them,
+each as one step to undo. Items the editor cannot change (glob items, for example) are left as
+they are, and the status bar says why.</p>
+
+<a name="moving"></a>
+<h2>5. Moving items exactly</h2>
+<p>Positions are in world units. On the ground a footpad step is 32 units in x and y; heights go
+in units of 8 for a shape's size. The Snap box sets the step for dragging, Ctrl+arrows and
+placing (a floor tile is 128 or 256).</p>
+<p>For small moves: Alt+arrows (1 unit in x or y), Shift or Alt with Page Up/Down (1 unit in z),
+Alt+drag (no snap), or the Item window's <b>Nudge</b> box, whose buttons move by the step chosen
+(1 to 64) and repeat while held. All of these move every selected item.</p>
+<p>The world's x grows down and to the right on the screen, y down and to the left, z up. An
+item's position is the corner of its footpad nearest the viewer, at its bottom.</p>
+
+<a name="seeing"></a>
+<h2>6. Seeing inside: roof, opacity, X-ray, heights</h2>
+<ul>
+<li><b>Layers</b>: Fixed, Globs, Movable and NPCs show and hide items by where they come from;
+Eggs shows the eggs and the other shapes only an editor shows; Invisible shows items with the
+invisible flag, faintly.</li>
+<li><b>Roof below</b> hides what is at or above a height, except shapes marked to be always drawn,
+as the game does when the Avatar is inside a building (see <a href="#drawing">How the game draws
+the world</a>). Try 40 or so inside houses.</li>
+<li><b>Opacity</b> has a slider for each layer, to see through walls and roofs everywhere.</li>
+<li><b>X-ray</b> (X) works in a circle around the pointer: what is at or above the height set
+beside it is faded there. <b>Fade</b> sets how much of each layer still shows inside the circle,
+as Opacity does for the whole map; at the left, a layer is left out. A click inside the circle
+passes over what is faded, so what is underneath can be picked.</li>
+<li><b>Heights</b> (H) draws the bottom (blue) and top (orange) of the selected items and of the
+item under the pointer, labelled with their heights. The top is z plus the shape's height.</li>
+</ul>
+
+<a name="names"></a>
+<h2>7. Names</h2>
+<p>An item's name is what the game says when the Avatar looks at it: the editor runs the item's
+look routine from the usecode in a small copy of the game's usecode interpreter, against the
+item's quality and frame and the saved game's flags. So a key says which door it opens, and a
+person is named by what the story so far lets the Avatar know.</p>
+<p><b>View &gt; Full Names</b> (on by default) runs the routine with every flag set instead, so
+Devon is "Devon" from the start rather than "man".
+<span style="color:#b0702c" title="Inferred: setting every flag is a guess at 'far enough in the story'. A routine that tests a flag for a particular value (2 rather than not 0) or for being clear can then choose another branch. When Full Names gives no name, the editor falls back to the save's flags.">With every flag set, a routine
+that looks for one particular value of a flag may take a different branch</span>; the tooltip and the
+Item window also give the name in the open saved game when it differs.</p>
+<p>Items whose usecode has no look routine (most scenery) go by the name given to their shape
+in the Item window's Name box, else by their usecode class made readable ("DOOR_NS" is "door ns").
+Map and shape names are kept in the editor's settings; File &gt; Export Names and Import Names
+write and read them as a text file of <code>map 5 = name</code> and <code>shape 82 = name</code>
+lines, to share with a mod.</p>
+
+<a name="search"></a>
+<h2>8. Searching</h2>
+<p>The Search dock (Ctrl+F) finds items on this map or in every map, and with <i>Inside
+containers</i> also what containers and characters hold. Double-click a result to show it.
+Every term must match:</p>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th>Term</th><th>Matches</th></tr>
+<tr><td><code>word</code>, <code>"two words"</code></td><td>names, save names, shape names, usecode classes and families containing it</td></tr>
+<tr><td><code>82</code></td><td>a number alone: shape 82</td></tr>
+<tr><td><code>shape:N</code>, <code>frame:N</code></td><td>shape, frame</td></tr>
+<tr><td><code>q:N</code></td><td>quality (numbers may be written <code>0x...</code>)</td></tr>
+<tr><td><code>npc:N</code>, <code>mapnum:N</code></td><td>the npcNum and mapNum bytes</td></tr>
+<tr><td><code>id:N</code></td><td>a teleport egg's teleport id, a usecode egg's egg id, a monster egg's monster id</td></tr>
+<tr><td><code>key:N</code></td><td>keys of number N and the doors they open</td></tr>
+<tr><td><code>family:word</code>, <code>class:word</code></td><td>the shape's family, the usecode class</td></tr>
+<tr><td><code>is:door</code>, <code>key</code>, <code>locked</code>, <code>egg</code>, <code>npc</code>, <code>invisible</code>, <code>contained</code>, <code>fixed</code>, <code>movable</code></td><td>items of that kind</td></tr>
+</table>
+<p>Examples: <code>is:locked</code> lists every locked door; <code>key:9</code> the key 9 and its
+doors; <code>is:egg id:3</code> the teleport egg pair number 3 and other eggs with id 3;
+<code>reagent is:contained</code> every reagent in a container.</p>
+
+<a name="teleports"></a>
+<h2>9. Teleport eggs and the ways between maps</h2>
+<p>A teleport egg of frame 0 sends the Avatar; one of frame 1 receives. A sender sends to the
+receiving egg with the same teleport id on the map its mapNum names (see <a href="#eggs">Eggs</a>).
+Egg labels on the map say where each leads ("→ here #3", or "→ 5 · Name #3"). Hovering over a
+teleport egg, or selecting it, draws an orange arrow to where it leads on the same map, or from
+the eggs that lead to it; the same holds for usecode that teleports to an egg with constant
+arguments.</p>
+<p>In the Item window a sending egg has <i>Go to destination</i>; a receiving egg has <i>Go to
+sender</i>, a menu when several eggs or scripts lead to it. The Transitions tab draws all the ways
+between maps.</p>
+
+<a name="doors"></a>
+<h2>10. Doors and keys</h2>
+<p>The keyring's use routine (usecode class KEYRING, 79, which KEY 82 also runs) decides what a
+key opens: a key opens a door (DOOR_NS 68, DOOR_EW 69, TDOOR_NS 340, TDOOR_EW 342) when the low
+byte of the door's quality is the key's quality. In the door's quality, bit 0x400 is the lock, and
+bit 0x100 is tested as "it's open". A key of quality 0 is a blank.</p>
+<p><span style="color:#b0702c" title="Inferred: read from the keyring routine's code. It toggles 0x400 when the key fits and plays sound 113; other door scripts (LOCKDOOR, for example) may set these bits too.">Using a fitting key turns the lock bit on or
+off.</span> A key's Item window lists the doors it opens anywhere in the game; a door's lists its keys
+(and who or what holds them), and its Edit tab has its key number, Locked and Open. On the map,
+selecting a key outlines its doors in cyan, and selecting a door outlines its keys or what holds
+them. <i>Find key N</i> searches for both.</p>
+
+<a name="itemwindow"></a>
+<h2>11. The Item window</h2>
+<p>The <b>Edit</b> tab changes the selected item. Its groups depend on the item: what it does as
+an egg, a door or a key; its Name; its record (position, shape, frame, quality, npcNum, mapNum,
+flags); Nudge; and for a character, its numbers. Every field has a tooltip. When several items are
+selected, the note at the top says so: moves, Copy, Delete and flipping apply to all of them, the
+fields only to this one.</p>
+<p>The <b>Details</b> tab shows everything about the item, with links (double-click) to its
+container, glob egg, contents, transitions, doors and keys.</p>
+
+<a name="fields"></a>
+<h2>12. Fields and what they mean</h2>
+<p>Every item on a map is a 16-byte record (<code>OneItem</code>, item/glob.h): the same in
+FIXED.DAT, NONFIXED.DAT and the saved game's item cache.</p>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th>Field</th><th>Meaning</th></tr>
+<tr><td>x, y</td><td>World units: 32 to a footpad cell, 512 to a region, 64 by 64 regions to a map.
+The position is the item's <i>far corner</i> in x and y and its bottom in z: it covers x&minus;size+1 to x,
+y&minus;size+1 to y, z to z+height&minus;1. On the screen that corner is the lowest point of the item.
+A negative value (as a signed 16-bit number) makes the game skip the item when it loads.</td></tr>
+<tr><td>z</td><td>Height, 0 to 250. 251 (0xFB) and up means out of play, and the game skips such an
+item when it loads; 254 marks a free slot.</td></tr>
+<tr><td>shape, frame</td><td>The shape (below 2048) and which of its pictures. The shape decides the
+type flags and the usecode class. Usecode often keeps an item's state in its frame.</td></tr>
+<tr><td>flags</td><td>The status bits (below).</td></tr>
+<tr><td>quality</td><td>What it means depends on the family (<a href="#families">Families</a>): a
+quantity, a key number, a glob number, an egg's settings.</td></tr>
+<tr><td>npcNum, mapNum</td><td>Eggs keep their hatch range and id here (<a href="#eggs">Eggs</a>). An NPC's
+mapNum is the map it is on. On other maps an item with npcNum 255 is refused as bad.
+<span style="color:#b0702c" title="Inferred: the engine does not read them for ordinary items, but usecode can read and write them (Item::getNpcArray, getMapArray), so a script may give them a meaning.">For ordinary items the
+engine ignores both, and they are normally 0.</span></td></tr>
+<tr><td>next</td><td>A link the game keeps in memory, written as it is and ignored when loading.</td></tr>
+</table>
+<p><b>Contained items</b> follow their container in the file. Their x is how deep they are (1 is directly
+inside), their y the place in the container's window (low byte x, at most 127; high byte y; 0,0 picks a
+place at random), and z the equipment slot when the item is equipped by a character, else 0.</p>
+
+<h3>Status flags</h3>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th>Bit</th><th>Name</th><th>What it does</th></tr>
+<tr><td>0x0002</td><td>disposable</td><td>never saved; items put down by glob eggs have it</td></tr>
+<tr><td>0x0004</td><td>owned</td><td>moving an item <i>without</i> it tells every character within 640 units that the
+Avatar stole something (usecode event 19); it is set once the item is in the Avatar's inventory</td></tr>
+<tr><td>0x0008</td><td>contained</td><td>inside a container or a character</td></tr>
+<tr><td>0x0010</td><td>invisible</td><td>not drawn in the game (except the Avatar); takes no room in a container;
+monsters cannot target it</td></tr>
+<tr><td>0x0020</td><td>flipped</td><td>drawn mirrored, its x and y sizes swapped</td></tr>
+<tr><td>0x0040</td><td>in NPC list</td><td>a character kept off the map</td></tr>
+<tr><td>0x0080</td><td>fast only</td><td>destroyed when its region leaves the area the game keeps running; on a
+character it marks a temporary one, whose usecode class is its shape (monster eggs' monsters)</td></tr>
+<tr><td>0x0200</td><td>equipped</td><td>worn or wielded; its z is the slot</td></tr>
+<tr><td>0x1000</td><td></td><td>hanging: it does not fall</td></tr>
+</table>
+<p>The other bits (0x0001, 0x0100, 0x0400, 0x2000, 0x8000) are the game's bookkeeping while it runs,
+cleared when it saves or loads.
+<span style="color:#b0702c" title="Inferred: 0x0800 (ethereal) is set while an item is between being taken off the map and put back; it should not be in a saved file, but this was not checked against every save.">0x0800 (ethereal) marks an item being moved and
+should not appear in files.</span></p>
+
+<a name="typeflags"></a>
+<h2>13. Shape type flags</h2>
+<p>TYPEFLAG.DAT holds 8 bytes for each shape (item/type.h). The Details tab lists them.</p>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th>Flag</th><th>What the game does with it</th></tr>
+<tr><td>size x, y, z</td><td>The footpad: x&times;32, y&times;32, z&times;8 world units. A shape that is not fixed and
+has height 0 counts as 1 unit high.</td></tr>
+<tr><td>fixed</td><td>The item is kept in FIXED.DAT, not in the saved game. It cannot be picked up, does not fall, is
+not knocked about, and is not carried along on what moves under it. The game never writes fixed items back,
+so its changes to them are lost when the map unloads; the editor is how they are changed.</td></tr>
+<tr><td>solid</td><td>Blocks movement (with roof and damaging, the bits a mover is stopped by); path finding goes
+around it.</td></tr>
+<tr><td>land, sea</td><td>The surface it gives: something stands on an item only if it is solid and has a surface the
+mover may stand on. A jump must land on land.</td></tr>
+<tr><td>damaging</td><td>Touching it is recorded even when nothing blocks.
+<span style="color:#b0702c" title="Inferred: the contact is recorded by the movement check (motcheck.cpp); who reads that list was not traced.">This is how fire and the like hurt.</span></td></tr>
+<tr><td>occl</td><td>A fixed item with it hides what is wholly behind it, which is then not drawn: a speed-up only.</td></tr>
+<tr><td>bag</td><td>Its screen area is redrawn at once when it goes.
+<span style="color:#b0702c" title="Inferred: the name does not fit the use found (dlitem.cpp); there may be more to it.">Timing only.</span></td></tr>
+<tr><td>noisy</td><td>Only characters and noisy items get the usecode events for loading (4) and for entering and
+leaving the running area (15, 16).</td></tr>
+<tr><td>draw</td><td>Drawn even at or above the roof height.</td></tr>
+<tr><td>ignore</td><td>Clicks in the game pass through it.</td></tr>
+<tr><td>roof</td><td>The only thing the roof search looks for (<a href="#drawing">drawing</a>); also blocks movement.</td></tr>
+<tr><td>trans</td><td>Drawn translucent, through the transform tables (XFORMPAL.DAT). The editor draws such items faint.</td></tr>
+<tr><td>family</td><td><a href="#families">Families</a>.</td></tr>
+<tr><td>equipType</td><td>Where it is worn: 1 shield, 2 arms, 3 head, 4 body, 5 legs, 6 weapon (slot = equipType &minus; 1).</td></tr>
+<tr><td>animType, animData, animSpeed</td><td>How it animates on screen: 0 none; 1 fast; 2 random (a random frame half the
+time); 3 normal (one frame on; animData 0 cycles all frames, 1 moves only half the time, more loops in groups of that
+many); 4 bubble (rests on frame 0, now and then plays round); 5 the shape's usecode decides (event 2); 6 on/off (the
+first frame of each group is "off"). animSpeed sets how many 30 Hz ticks a step takes.</td></tr>
+<tr><td>editor</td><td>Shown only in editors: hidden on the map and in containers in the game.</td></tr>
+<tr><td>explode</td><td>Explodes when hit, if its usecode has nothing for being hit.</td></tr>
+<tr><td>unknown1</td><td>Breaks ties in the drawing order: drawn over an item it cannot otherwise be told from.</td></tr>
+<tr><td>unknown2</td><td>Destroying such an item stops the game from being saved.
+<span style="color:#b0702c" title="Inferred: the mechanism is certain (itemcach.cpp sets a flag the save menu checks); the reason is a guess.">Probably items the story needs, so that a
+game that cannot be won is not saved.</span></td></tr>
+<tr><td>weight</td><td>In tenths: an item weighs weight &times; 10, a quantity (weight &times; q + 9) / 10, a reagent weight &times; q.
+Weight 0 cannot be picked up and does not fall. A character carries strength &times; 40.</td></tr>
+<tr><td>volume</td><td>Room it takes in a container: volume; a quantity (volume &times; q + 99) / 100; a reagent (volume &times;
+q + 9) / 10; invisible items none. A container holds its own volume, or 32 when that is 0.</td></tr>
+</table>
+
+<a name="families"></a>
+<h2>14. Families</h2>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th>Family</th><th>Quality means</th><th>Notes</th></tr>
+<tr><td>0 generic</td><td>nothing to the engine</td><td></td></tr>
+<tr><td>1 quality</td><td>a number for usecode</td><td>the only family whose quality the usecode's getQuality returns; keys and
+doors are of it</td></tr>
+<tr><td>2 quantity</td><td>how many</td><td>piles of the same shape merge up to 666; a stored 0 is written as 1</td></tr>
+<tr><td>3 glob egg</td><td>the glob number</td><td><a href="#eggs">Eggs</a></td></tr>
+<tr><td>4 usecode egg</td><td>the egg type</td><td>runs usecode class 1151 + type</td></tr>
+<tr><td>5 breakable</td><td>nothing</td><td>destroyed when hit, if its usecode has nothing for being hit</td></tr>
+<tr><td>6 container</td><td>nothing in the files (0)</td><td>only containers hold items</td></tr>
+<tr><td>7 monster egg</td><td>monster shape and probability</td><td><a href="#eggs">Eggs</a></td></tr>
+<tr><td>8 teleport egg</td><td>teleport id, and the fade</td><td><a href="#eggs">Eggs</a></td></tr>
+<tr><td>9 reagent</td><td>how many</td><td>as quantity; two reagent shapes merge only within a size group of frames</td></tr>
+</table>
+
+<a name="eggs"></a>
+<h2>15. Eggs</h2>
+<p><b>Hatching.</b> An egg's npcNum holds its range: the high nibble in x, the low in y, each in steps of 32
+units on each side of the egg. The Avatar is inside when his footpad meets that box and his height is within
+48 of the egg's. The egg hatches when he comes in, and again only after he has left. Only usecode eggs and
+sending teleport eggs hatch by themselves; their watcher starts when their region starts running, so an egg
+the Avatar stands in when it loads hatches at once. The editor draws the ranges (Egg Ranges).</p>
+<p><b>Teleport eggs</b> (family 8). Frame 0 sends: to the map its mapNum names, to the egg whose teleport id
+(quality's low byte) is the same, fading the screen when the quality's high byte is not 0. The game looks
+over the whole destination map for a frame-1 teleport egg with that id, puts the Avatar there and lets him
+fall; with no such egg he stays where he was. Frame-1 eggs only receive.</p>
+<p><b>Monster eggs</b> (family 7, shape 500). Quality bits 0&ndash;10 are the monster's shape, bits 11 and up the
+probability; npcNum bits 0&ndash;2 the count; mapNum bits 0&ndash;2 the activity and bits 3&ndash;7 the monster id.</p>
+<ul>
+<li>A monster egg never hatches by itself: a usecode egg hatches it. MONEGG (class 1155, egg type 4) hatches,
+when it hatches, the monster eggs near it whose monster id is its own egg id, and removes those whose frame
+is not 0 (they hatch once). MONFAST (class 1213, egg type 62) does the same when its area starts running.
+Both fire once a visit.
+<span style="color:#b0702c" title="Inferred: the disassembled usecode gives the search radius as 112; that it is world units (as the area search takes) was not checked against the raw operand.">They look within about 112 units.</span></li>
+<li>The probability picks the chance it hatches: 0 to 7 are 5, 10, 20, 35, 50, 65, 80 and 100 percent.
+Higher values read past the game's table, so the editor allows only 0 to 7.</li>
+<li>The count is how many come (0: none). The first stands on the egg, with no check for room; the others on
+the first free places of a 4 by 4 grid around it, 64 units apart.</li>
+<li>The activity is what they do: 0 loiter, 1 fight, 2 stand. Any other value halts the game, so the editor
+allows only 0 to 2.</li>
+<li>Their numbers are rolled from the monster table (<a href="#tables">tables</a>); a shape not in the table
+gets record 0, which has no hit points.</li>
+</ul>
+<p><b>Usecode eggs</b> (family 4, shape 73). They run usecode class 1151 + quality: event 7 when they hatch, and
+15 and 16 when their area starts and stops running.
+<span style="color:#b0702c" title="Inferred: events 15 and 16 go only to shapes with the noisy flag; that shape 73 has it was not read from TYPEFLAG.DAT.">(Shape 73 must then be marked noisy.)</span>
+Their egg id (mapNum) is for the script to read. LOCKDOOR (1210), for example, locks or unlocks the doors near
+it by its egg id and the story's flags; MAPTELE (1152) teleports when conditions are met.</p>
+<p><b>Glob eggs</b> (family 3). Their quality is a record of GLOB.FLX: a list of items (x, y, z, shape,
+frame). Only the 512 by 512 region holding the egg counts: each item goes at the region's corner + 1 + 2
+&times; its x (and y), and at its z + the egg's z. The items are put down each time the region starts
+running and taken away when it stops; they are never saved. To change them, change, move or delete the egg,
+or pick another glob.</p>
+
+<a name="drawing"></a>
+<h2>16. How the game draws the world</h2>
+<p><b>Projection.</b> A point at x, y, z is drawn at screen x = x/4 &minus; y/4, screen y = x/8 + y/8 &minus; z: 32 units
+in x is 8 pixels right and 4 down, one unit of height one pixel up. An item's position is the lowest point of
+its box on the screen.</p>
+<p><b>Order.</b> Of two overlapping items, the game draws over the other the one that is wholly beyond it in
+x, else in y, else wholly above it; then one with the unknown1 flag; then the one with the larger (x &minus; size
+x) + (y &minus; size y) + 2z (<code>DL_ItemNode::compare</code>). The editor sorts the same way.</p>
+<p><b>Roof.</b> When the Avatar moves, the game sweeps his footpad straight up and takes the height of the
+first item with the roof flag it meets (250 when there is none). Items at or above that height are not drawn
+unless they have the draw flag. The editor's Roof below does the same with a height you choose.</p>
+<p><b>Running area.</b> The game loads a whole map at once (up to about 8960 items, globs put down included;
+more halts it), but runs only the 512-unit regions in a diamond around the camera: 49 regions. Only there are
+eggs watched, globs put down, items animated and drawn, and fast-only items kept.
+<span style="color:#b0702c" title="Inferred: worked out from the region diamond and the projection, not measured in the game.">On the screen that is about 384 pixels each side
+and 448 up and down.</span></p>
+
+<a name="npcs"></a>
+<h2>17. Characters</h2>
+<p>NPCDATA.DAT in the saved game holds 49 bytes for each of 256 characters; the Item window and Game Data
+show them.</p>
+<ul>
+<li><b>Strength, dexterity, intelligence</b>, <b>hit points</b> and <b>mana</b>. Most hit points are 2 &times; strength and
+most mana 2 &times; intelligence, worked out rather than stored. Strength &times; 40 is what a character carries.</li>
+<li><b>Alignment</b>: the low nibble is the character's own, the high nibble the alignments it treats as
+enemies (one is an enemy of another when its high nibble shares a bit with the other's low nibble).
+Monsters take theirs from the monster table.</li>
+<li><b>Invincible</b> and <b>immortal</b>: either keeps hit points from going down. Usecode can set only immortal;
+invincible is set only by a debugging key.
+<span style="color:#b0702c" title="Inferred: no other difference between the two was found in the code; one may exist in usecode.">No other difference was found.</span></li>
+<li><b>Withstands death</b>: a blow that would kill restores hit points to 2 &times; strength once, then the flag
+clears. Skeletons not killed by fire get it again when they die, and get up.</li>
+<li><b>Dead</b>: the character does nothing when its area starts running, keeps no schedule, and using it opens
+what it carries.</li>
+<li><b>Poisoned</b>: nothing in the game sets it.</li>
+</ul>
+<p>A character's mapNum is the map it is on; map 0's records are the characters in their slots (1 to 255).
+Their usecode class is 1024 + their number, except temporary ones (fast only), whose class is their shape.</p>
+
+<a name="tables"></a>
+<h2>18. Weapons, armour and monsters</h2>
+<p>These are not in any data file but in tables inside U8.EXE; the editor changes only their bytes, so DOS
+U8.EXE plays with the new numbers, and the port reads the same tables from U8.EXE.</p>
+<ul>
+<li><b>Weapons</b>: a hit by the Avatar does strength / 5 + base damage + a random 0 to the modifier. The
+dexterity bonuses are added to attack and defence, and the armour class bonus counts when the weapon is
+held. Damage type bits: 1 normal, 2 blade, 4 blunt, 8 fire, 0x10 undead, 0x20 magic, 0x40 slayer, 0x80
+pierce, 0x100 falling.</li>
+<li><b>Armour</b>: the Avatar's armour class is the sum over what he wears. Each piece adds the number at
+index frame / 2 of its shape's list, so frames 2n and 2n+1 share a number. Wearing any other shape in those
+slots, or a frame past the end of its list, halts the game.</li>
+<li><b>Monsters</b>: 13 bytes each: least and most hit points, dexterity and damage; armour class; alignment
+(own and enemies); a flag byte (bit 0: wanders one time in ten in combat); the damage types it deals and those
+it defends against. Hit points and dexterity are rolled once when the monster is made; each blow's damage
+between its least and most. Record 0 is for shapes not in the table.</li>
+</ul>
+
+<a name="files"></a>
+<h2>19. Files and saving</h2>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th>File</th><th>What</th></tr>
+<tr><td><code>STATIC/FIXED.DAT</code></td><td>fixed items, one record a map; shared by every game</td></tr>
+<tr><td><code>NONFIXED.DAT</code> (in the save)</td><td>movable items; map 0 holds the characters</td></tr>
+<tr><td><code>ITEMCACH.DAT</code> (in the save)</td><td>the items of the map the save was made on, and which map that was</td></tr>
+<tr><td><code>NPCDATA.DAT</code> (in the save)</td><td>the characters' numbers</td></tr>
+<tr><td><code>FLAG.DAT</code> (in the save)</td><td>the story's flags; the starting save has none, so a new game starts with all 0</td></tr>
+<tr><td><code>STATIC/GLOB.FLX</code></td><td>what glob eggs put down</td></tr>
+<tr><td><code>STATIC/TYPEFLAG.DAT</code></td><td>the shapes' type flags</td></tr>
+<tr><td><code>U8.EXE</code></td><td>weapon, armour and monster tables</td></tr>
+</table>
+<p>The starting save, <code>U8SAVE.000</code>, has map 3 in its item cache, and the game takes a map from the
+cache, not from the .DAT files, when the cache holds that map.
+<span style="color:#b0702c" title="Inferred: why Origin's starting save holds map 3 is a guess (the game starts there).">It was made with map 3 loaded, where the game
+starts.</span> So when map 3 changes, the editor loads it into the cache again from the files it has just
+written, and marks no region as loaded, so the game puts the regions around the Avatar down itself.</p>
+<p>Writing a map back gives the same bytes it was read from, so a save changes only what was changed.</p>
+
+</body>
+</html>

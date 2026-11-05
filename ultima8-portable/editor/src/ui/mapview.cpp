@@ -519,14 +519,7 @@ bool MapView::event(QEvent *e)
 		e->ignore();
 		return true;
 	}
-	const MapItem &it = world->map(render_.mapNumber()).items[item];
-	const QString name = Names::itemName(*world, render_.mapNumber(), it);
-	QString what = world->describe(it).toHtmlEscaped();
-	// The name the saved game's flags give, when it is not the full one.
-	const QString now = world->itemName(render_.mapNumber(), it, false);
-	if (Names::fullNames() && !now.isEmpty() && now != name)
-		what += QStringLiteral("<br>") + tr("in this saved game: %1").arg(now.toHtmlEscaped());
-	QToolTip::showText(help->globalPos(), QStringLiteral("<b>%1</b><br>%2").arg(name.toHtmlEscaped(), what), this);
+	QToolTip::showText(help->globalPos(), Names::itemTooltip(*world, render_.mapNumber(), item), this);
 	return true;
 }
 
@@ -539,6 +532,7 @@ void MapView::showPickMenu(QPoint widget)
 	std::vector<int> items = render_.pickAll(toMap(QPointF(widget)).toPoint(), radius, options_);
 	const auto &all = world->map(render_.mapNumber()).items;
 	QMenu menu(this);
+	menu.setToolTipsVisible(true);
 	if (items.empty())
 	{
 		menu.addAction(tr("Nothing here"))->setEnabled(false);
@@ -570,6 +564,7 @@ void MapView::showPickMenu(QPoint widget)
 			ip.end();
 			a->setIcon(QIcon(QPixmap::fromImage(icon)));
 		}
+		a->setToolTip(Names::itemTooltip(*world, render_.mapNumber(), item));
 		connect(a, &QAction::hovered, this, [this, item] { setHighlight(item); });
 		connect(a, &QAction::triggered, this, [this, item] {
 			if (QApplication::keyboardModifiers() & Qt::ControlModifier)

@@ -21,6 +21,7 @@ class FlagsView;
 class GameDataView;
 class ItemPanel;
 class MapView;
+class ManualView;
 class Minimap;
 class SearchPanel;
 class ShapeBrowser;
@@ -46,6 +47,8 @@ public:
 	Editor *editor() const { return editor_; }
 	QTabWidget *tabs() const { return tabs_; }
 	void showDetails(int map, int item);
+	// The manual, at the section with this anchor (empty: the top).
+	void showManual(const QString &anchor);
 	void setRoof(int z);
 	const World *world() const { return world_.get(); }
 	// Writes the changes; false (after saying why) when that failed.
@@ -97,6 +100,7 @@ private:
 	QTreeWidget *maps_;
 	ItemPanel *panel_;
 	SearchPanel *search_;
+	ManualView *manual_ = nullptr;
 	QDockWidget *searchDock_;
 	QDialog *details_;
 	QLabel *status_;

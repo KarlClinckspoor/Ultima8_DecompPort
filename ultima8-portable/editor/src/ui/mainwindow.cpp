@@ -36,6 +36,7 @@
 #include "ui/gamedata.h"
 #include "ui/graphview.h"
 #include "ui/itempanel.h"
+#include "ui/manualview.h"
 #include "ui/mapview.h"
 #include "ui/minimap.h"
 #include "ui/names.h"
@@ -547,6 +548,10 @@ void MainWindow::buildMenus()
 		viewMenu->addAction(d->toggleViewAction());
 
 	QMenu *help = menuBar()->addMenu(tr("&Help"));
+	entry(help, tr("&Manual"), this, [this] { showManual(QString()); }, QKeySequence::HelpContents);
+	entry(help, tr("Manual: &Keys and Mouse"), this, [this] { showManual(QStringLiteral("keys")); });
+	entry(help, tr("Manual: &Fields and What They Mean"), this, [this] { showManual(QStringLiteral("fields")); });
+	help->addSeparator();
 	entry(help, tr("&About"), this, [this] {
 		QMessageBox::about(this, tr("U8 Editor"),
 			tr("<p><b>U8 Editor</b>: an editor for Ultima VIII's world.</p>"
@@ -558,6 +563,16 @@ void MainWindow::buildMenus()
 				"and game/u8.</p>"));
 	});
 	applyOptions();
+}
+
+void MainWindow::showManual(const QString &anchor)
+{
+	if (!manual_)
+		manual_ = new ManualView(this);
+	manual_->show();
+	manual_->raise();
+	manual_->activateWindow();
+	manual_->showSection(anchor);
 }
 
 void MainWindow::setRoof(int z)
