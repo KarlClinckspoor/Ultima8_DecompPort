@@ -182,6 +182,7 @@ QVector<int> World::mapNumbers() const
 bool World::load(const QString &dataDir, const QString &savePath, QString *error)
 {
 	names_.reset();
+	fullNames_.reset();
 	dataDir_ = dataDir;
 	staticDir_ = findEntry(dataDir, "STATIC");
 	QString usecodeDir = findEntry(dataDir, "USECODE");
@@ -470,11 +471,12 @@ QString World::describe(const MapItem &item) const
 	return QStringLiteral("%1 (shape %2:%3)").arg(name).arg(item.shape).arg(item.frame);
 }
 
-QString World::itemName(int map, const MapItem &item) const
+QString World::itemName(int map, const MapItem &item, bool full) const
 {
-	if (!names_)
-		names_ = std::make_unique<ItemNames>(*this);
-	return names_->name(map, item);
+	std::unique_ptr<ItemNames> &names = full ? fullNames_ : names_;
+	if (!names)
+		names = std::make_unique<ItemNames>(*this, full);
+	return names->name(map, item);
 }
 
 const QVector<Transition> &World::transitions() const
@@ -699,6 +701,8 @@ void World::setNpcStats(int npc, const NpcStats &s)
 	npcDataDirty_ = true;
 	if (names_)
 		names_->clear();
+	if (fullNames_)
+		fullNames_->clear();
 }
 
 bool World::dirty() const
@@ -730,6 +734,8 @@ void World::setFlag(int bit, int width, int value)
 	flagsDirty_ = true;
 	if (names_)
 		names_->clear();
+	if (fullNames_)
+		fullNames_->clear();
 }
 
 QStringList World::pendingFiles() const

@@ -7,21 +7,27 @@
 #include <QDialog>
 #include <QDir>
 #include <QDockWidget>
+#include <QFormLayout>
 #include <QFileDialog>
 #include <QHeaderView>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QProcess>
+#include <QPushButton>
 #include <QSettings>
+#include <QSlider>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTextStream>
 #include <QToolBar>
+#include <QToolButton>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+#include <QWidgetAction>
 
 #include <functional>
 
@@ -32,10 +38,12 @@
 #include "ui/itempanel.h"
 #include "ui/mapview.h"
 #include "ui/minimap.h"
+#include "ui/names.h"
+#include "ui/searchpanel.h"
 #include "ui/shapebrowser.h"
 #include "ui/translatedialog.h"
 
-enum { MapColumn, NameColumn, ItemsColumn, ExitsColumn };
+enum { MapColumn, NameColumn, ItemsColumn, ExitsColumn, PeopleColumn };
 
 QString MainWindow::portHome()
 {
@@ -101,12 +109,17 @@ MainWindow::MainWindow()
 		if (item >= 0)
 			showDetails(view_->mapNumber(), item);
 	});
+	connect(view_, &MapView::selectionChanged, this, [this] {
+		panel_->setSelectionCount(panel_->map() == view_->mapNumber() && view_->selection().contains(panel_->item())
+			? int(view_->selection().size()) : 1);
+		updateRelated();
+	});
 	connect(view_, &MapView::status, status_, &QLabel::setText);
 	connect(view_, &MapView::viewChanged, this, [this] {
 		zoomLabel_->setText(tr("Zoom %1%").arg(qRound(view_->zoom() * 100)));
 	});
-	connect(view_, &MapView::moveRequested, this, [this](int item, int dx, int dy, int dz) {
-		editor_->moveItem(view_->mapNumber(), item, dx, dy, dz);
+	connect(view_, &MapView::moveRequested, this, [this](int dx, int dy, int dz) {
+		editor_->moveItems(view_->mapNumber(), view_->selection(), dx, dy, dz);
 	});
 	connect(view_, &MapView::placeRequested, this, [this](const MapItem &it) {
 		const int added = editor_->addItem(view_->mapNumber(), it, -1,
@@ -130,15 +143,28 @@ MainWindow::MainWindow()
 	});
 	connect(panel_, &ItemPanel::editNpc, editor_, &Editor::editNpc);
 	connect(panel_, &ItemPanel::deleteItem, this, [this](int map, int item) {
-		if (editor_->deleteItem(map, item))
+		if (editor_->deleteItems(map, selectionWith(map, item)))
 			panel_->showItem(world_.get(), map, -1);
 	});
 	connect(panel_, &ItemPanel::duplicateItem, this, [this](int map, int item) {
 		const int s = std::max(32, view_->snap());
-		const int added = editor_->duplicateItem(map, item, s, 0);
-		if (added >= 0)
-			goToItem(map, added, true);
+		const QVector<int> added = editor_->duplicateItems(map, selectionWith(map, item), s, 0);
+		if (added.size() == 1)
+			goToItem(map, added.first(), true);
+		else if (!added.isEmpty() && map == view_->mapNumber())
+			view_->setSelection(added, added.last());
 	});
+	connect(panel_, &ItemPanel::nudge, this, [this](int dx, int dy, int dz) {
+		if (panel_->item() >= 0)
+			editor_->moveItems(panel_->map(), selectionWith(panel_->map(), panel_->item()), dx, dy, dz);
+	});
+	connect(panel_, &ItemPanel::namesChanged, this, &MainWindow::namesChanged);
+	connect(panel_, &ItemPanel::find, this, [this](const QString &query) {
+		searchDock_->show();
+		searchDock_->raise();
+		search_->run(query, true);
+	});
+	connect(search_, &SearchPanel::goToItem, this, [this](int map, int item) { goToItem(map, item, true); });
 	connect(graph_, &TransitionGraph::openMap, this, [this](int map) {
 		openMap(map);
 		tabs_->setCurrentWidget(view_);
@@ -182,6 +208,7 @@ MainWindow::MainWindow()
 	// Names can follow flags (a person's name once the Avatar has met them).
 	connect(editor_, &Editor::flagChanged, this, [this] {
 		panel_->refresh();
+		view_->update();
 		updateTitle();
 	});
 	connect(editor_, &Editor::refused, this, [this](const QString &why) {
@@ -226,8 +253,8 @@ void MainWindow::closeEvent(QCloseEvent *e)
 void MainWindow::buildDocks()
 {
 	maps_ = new QTreeWidget;
-	maps_->setColumnCount(4);
-	maps_->setHeaderLabels({tr("Map"), tr("Name"), tr("Items"), tr("Exits")});
+	maps_->setColumnCount(5);
+	maps_->setHeaderLabels({tr("Map"), tr("Name"), tr("Items"), tr("Exits"), tr("People")});
 	maps_->setRootIsDecorated(false);
 	maps_->setAlternatingRowColors(true);
 	maps_->setSortingEnabled(false);
@@ -242,14 +269,8 @@ void MainWindow::buildDocks()
 		if (fillingList_ || column != NameColumn)
 			return;
 		const int map = it->data(MapColumn, Qt::UserRole).toInt();
-		const QString name = it->text(NameColumn).trimmed();
-		QSettings s;
-		if (name.isEmpty())
-			s.remove(QStringLiteral("mapNames/%1").arg(map));
-		else
-			s.setValue(QStringLiteral("mapNames/%1").arg(map), name);
-		graph_->refreshNames();
-		updateTitle();
+		Names::setMapName(map, it->text(NameColumn));
+		namesChanged();
 	});
 	auto *mapsDock = new QDockWidget(tr("Maps"), this);
 	mapsDock->setObjectName("maps");
@@ -267,6 +288,14 @@ void MainWindow::buildDocks()
 	shapeDock->setObjectName("shapes");
 	shapeDock->setWidget(shapes_);
 	addDockWidget(Qt::RightDockWidgetArea, shapeDock);
+
+	search_ = new SearchPanel;
+	searchDock_ = new QDockWidget(tr("Search"), this);
+	searchDock_->setObjectName("search");
+	searchDock_->setWidget(search_);
+	addDockWidget(Qt::RightDockWidgetArea, searchDock_);
+	tabifyDockWidget(shapeDock, searchDock_);
+	shapeDock->raise();
 }
 
 // A menu entry; QMenu::addAction's own overloads for this changed between Qt 6 versions.
@@ -311,6 +340,8 @@ void MainWindow::buildMenus()
 			QSettings().setValue("portProgram", path);
 	});
 	file->addSeparator();
+	entry(file, tr("E&xport Names..."), this, [this] { exportNames(); });
+	entry(file, tr("I&mport Names..."), this, [this] { importNames(); });
 	entry(file, tr("&Apply a Translation..."), this, [this] { applyTranslation(); });
 	entry(file, tr("&Export View as Image..."), this, [this] { exportView(); });
 	file->addSeparator();
@@ -338,12 +369,26 @@ void MainWindow::buildMenus()
 			shapes_->showShape(it.shape, it.frame);
 		}
 	}, QKeySequence(Qt::Key_I));
+	entry(edit, tr("&Find..."), this, [this] {
+		searchDock_->show();
+		searchDock_->raise();
+		search_->setFocus();
+		if (auto *line = search_->findChild<QLineEdit *>())
+		{
+			line->setFocus();
+			line->selectAll();
+		}
+	}, QKeySequence::Find);
 	edit->addSeparator();
 	QMenu *keys = edit->addMenu(tr("On the Map"));
-	keys->addAction(tr("Drag the selected item to move it; Shift+drag moves it up and down"))->setEnabled(false);
-	keys->addAction(tr("Ctrl+arrows: move it along x and y; Page Up/Down: up and down (Shift: by 1)"))->setEnabled(false);
+	keys->addAction(tr("Click: select; Ctrl+click: add or take away; Ctrl+drag: select what a box holds; Ctrl+A: all in view"))->setEnabled(false);
+	keys->addAction(tr("Right-click: list everything at and around the pointer, to pick from"))->setEnabled(false);
+	keys->addAction(tr("Drag the selection to move it; Shift+drag: up and down; Alt+drag: without the snap"))->setEnabled(false);
+	keys->addAction(tr("Ctrl+arrows: move along x and y by the snap; Alt+arrows: by 1"))->setEnabled(false);
+	keys->addAction(tr("Page Up/Down: up and down by 8 (Shift or Alt: by 1)"))->setEnabled(false);
 	keys->addAction(tr("Delete: delete; Ctrl+D: copy; F: flip; [ and ]: frame"))->setEnabled(false);
 	keys->addAction(tr("P: place the shape picked in Shapes; I: pick the selected item's shape"))->setEnabled(false);
+	keys->addAction(tr("H: heights; X: see through around the pointer"))->setEnabled(false);
 
 	QToolBar *bar = addToolBar(tr("Layers"));
 	bar->setObjectName("layers");
@@ -373,6 +418,9 @@ void MainWindow::buildMenus()
 	ranges_ = toggle(tr("Egg Ranges"), d.eggRanges, tr("Where each egg hatches"));
 	labels_ = toggle(tr("Labels"), d.labels, tr("What each egg does, when zoomed in"));
 	invisible_ = toggle(tr("Invisible"), d.invisible, tr("Items with the invisible flag, drawn faintly"));
+	heights_ = toggle(tr("Heights"), d.heights, tr("The bottom (blue) and top (orange) of the selected items and the one "
+		"under the pointer, with their heights (H)"));
+	heights_->setShortcut(QKeySequence(Qt::Key_H));
 	bar->addSeparator();
 	bar->addWidget(new QLabel(tr(" Roof below ")));
 	roof_ = new QSpinBox;
@@ -396,6 +444,81 @@ void MainWindow::buildMenus()
 	view_->setSnap(snap_->currentData().toInt());
 	bar->addWidget(snap_);
 
+	// A menu of one slider for each layer (fixed, movable, globs, NPCs), as a toolbar button; the
+	// values are kept in the settings under key.
+	auto layerSliders = [this](const QString &title, const QString &button, const QString &tip, QSlider **out,
+		const QString &key, int initial, const QString &resetText, int resetValue) {
+		auto *menu = new QMenu(title, this);
+		auto *box = new QWidget;
+		auto *form = new QFormLayout(box);
+		const QString layerNames[4] = {tr("Fixed"), tr("Movable"), tr("Globs"), tr("NPCs")};
+		for (int i = 0; i < 4; i++)
+		{
+			out[i] = new QSlider(Qt::Horizontal);
+			out[i]->setRange(0, 100);
+			out[i]->setValue(key.isEmpty() ? initial : QSettings().value(QStringLiteral("%1%2").arg(key).arg(i), initial).toInt());
+			out[i]->setMinimumWidth(160);
+			connect(out[i], &QSlider::valueChanged, this, &MainWindow::applyOptions);
+			form->addRow(layerNames[i], out[i]);
+		}
+		auto *reset = new QPushButton(resetText);
+		connect(reset, &QPushButton::clicked, this, [out, resetValue] {
+			for (int i = 0; i < 4; i++)
+				out[i]->setValue(resetValue);
+		});
+		form->addRow(reset);
+		auto *action = new QWidgetAction(this);
+		action->setDefaultWidget(box);
+		menu->addAction(action);
+		auto *b = new QToolButton;
+		b->setText(button);
+		b->setToolTip(tip);
+		b->setMenu(menu);
+		b->setPopupMode(QToolButton::InstantPopup);
+		return std::make_pair(menu, b);
+	};
+
+	// How opaque each layer is drawn.
+	layers->addSeparator();
+	auto [opacityMenu, opacityButton] = layerSliders(tr("Layer &Opacity"), tr("Opacity"),
+		tr("How opaque each layer is drawn, to see through walls and roofs"), opacity_, QString(), 100,
+		tr("All Opaque"), 100);
+	layers->addMenu(opacityMenu);
+	bar->addSeparator();
+	bar->addWidget(opacityButton);
+
+	// Seeing through around the pointer.
+	QToolBar *xbar = addToolBar(tr("X-ray"));
+	xbar->setObjectName("xray");
+	xray_ = new QAction(tr("X-ray"), this);
+	xray_->setCheckable(true);
+	xray_->setShortcut(QKeySequence(Qt::Key_X));
+	xray_->setToolTip(tr("See through around the pointer: what is at or above the height is faded (X)"));
+	connect(xray_, &QAction::toggled, this, &MainWindow::applyOptions);
+	layers->addAction(xray_);
+	xbar->addAction(xray_);
+	xbar->addWidget(new QLabel(tr(" above ")));
+	xrayHeight_ = new QSpinBox;
+	xrayHeight_->setRange(0, 255);
+	xrayHeight_->setValue(QSettings().value("xray/height", 24).toInt());
+	xrayHeight_->setToolTip(tr("Items at or above this height are faded inside the circle (a storey is about 40)"));
+	connect(xrayHeight_, &QSpinBox::valueChanged, this, &MainWindow::applyOptions);
+	xbar->addWidget(xrayHeight_);
+	xbar->addWidget(new QLabel(tr(" radius ")));
+	xrayRadius_ = new QSpinBox;
+	xrayRadius_->setRange(16, 1024);
+	xrayRadius_->setSingleStep(16);
+	xrayRadius_->setValue(QSettings().value("xray/radius", 128).toInt());
+	xrayRadius_->setToolTip(tr("The circle's radius, in screen pixels of the map"));
+	connect(xrayRadius_, &QSpinBox::valueChanged, this, &MainWindow::applyOptions);
+	xbar->addWidget(xrayRadius_);
+	// How much of each layer still shows inside the circle.
+	auto [fadeMenu, fadeButton] = layerSliders(tr("X-ray &Fade"), tr("Fade"),
+		tr("How much of each layer still shows inside the circle, above the height; at the left it is left out"),
+		xrayOpacity_, QStringLiteral("xray/opacity"), 15, tr("All Left Out"), 0);
+	layers->addMenu(fadeMenu);
+	xbar->addWidget(fadeButton);
+
 	QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
 	entry(viewMenu, tr("Zoom &In"), this, [this] { view_->zoomBy(1.25); }, QKeySequence::ZoomIn);
 	entry(viewMenu, tr("Zoom &Out"), this, [this] { view_->zoomBy(0.8); }, QKeySequence::ZoomOut);
@@ -409,6 +532,17 @@ void MainWindow::buildMenus()
 	entry(viewMenu, tr("&Transitions"), this, [this] { tabs_->setCurrentWidget(graph_); }, QKeySequence(Qt::CTRL | Qt::Key_T));
 	entry(viewMenu, tr("&Game Data"), this, [this] { tabs_->setCurrentWidget(gameData_); }, QKeySequence(Qt::CTRL | Qt::Key_G));
 	entry(viewMenu, tr("&Flags"), this, [this] { tabs_->setCurrentWidget(flags_); }, QKeySequence(Qt::CTRL | Qt::Key_L));
+	viewMenu->addSeparator();
+	fullNames_ = viewMenu->addAction(tr("F&ull Names"));
+	fullNames_->setCheckable(true);
+	fullNames_->setChecked(Names::fullNames());
+	fullNames_->setToolTip(tr("Items go by the names they have once the story has got far enough, not by what the "
+		"saved game's flags make them say (a person not met yet is still named)"));
+	connect(fullNames_, &QAction::toggled, this, [this](bool on) {
+		Names::setFullNames(on);
+		namesChanged();
+	});
+	viewMenu->addSeparator();
 	for (QDockWidget *d : findChildren<QDockWidget *>())
 		viewMenu->addAction(d->toggleViewAction());
 
@@ -443,9 +577,24 @@ void MainWindow::applyOptions()
 	o.labels = labels_->isChecked();
 	o.invisible = invisible_->isChecked();
 	o.roof = roof_->value() == 0 ? 255 : roof_->value();
+	o.heights = heights_->isChecked();
+	for (int i = 0; i < 4; i++)
+		o.opacity[i] = opacity_[i]->value() / 100.0;
 	ranges_->setEnabled(o.editorItems);
 	labels_->setEnabled(o.editorItems);
 	view_->setOptions(o);
+	XRay x;
+	x.on = xray_->isChecked();
+	x.height = xrayHeight_->value();
+	x.radius = xrayRadius_->value();
+	for (int i = 0; i < 4; i++)
+		x.opacity[i] = xrayOpacity_[i]->value() / 100.0;
+	view_->setXRay(x);
+	QSettings s;
+	s.setValue("xray/height", x.height);
+	s.setValue("xray/radius", int(x.radius));
+	for (int i = 0; i < 4; i++)
+		s.setValue(QStringLiteral("xray/opacity%1").arg(i), xrayOpacity_[i]->value());
 }
 
 bool MainWindow::loadWorld(const QString &dataDir, const QString &savePath, QString *error)
@@ -467,6 +616,7 @@ bool MainWindow::loadWorld(const QString &dataDir, const QString &savePath, QStr
 	graph_->setWorld(world_.get());
 	graphStale_ = false;
 	shapes_->setWorld(world_.get());
+	search_->setWorld(world_.get());
 	gameData_->reload();
 	flags_->reload();
 	if (!world_->notes().isEmpty())
@@ -504,7 +654,10 @@ void MainWindow::fillMapList()
 		auto *it = new QTreeWidgetItem(maps_);
 		it->setData(MapColumn, Qt::UserRole, m);
 		it->setText(MapColumn, QString::number(m));
-		it->setText(NameColumn, s.value(QStringLiteral("mapNames/%1").arg(m)).toString());
+		it->setText(NameColumn, Names::mapName(m));
+		it->setText(PeopleColumn, peopleOn(m));
+		it->setToolTip(PeopleColumn, it->text(PeopleColumn));
+		it->setForeground(PeopleColumn, QColor(150, 150, 150));
 		it->setText(ItemsColumn, itemCount(d));
 		it->setText(ExitsColumn, exits.value(m) ? QString::number(exits.value(m)) : QString());
 		it->setTextAlignment(MapColumn, Qt::AlignRight | Qt::AlignVCenter);
@@ -516,6 +669,7 @@ void MainWindow::fillMapList()
 	}
 	for (int c : {MapColumn, ItemsColumn, ExitsColumn})
 		maps_->resizeColumnToContents(c);
+	maps_->header()->setSectionResizeMode(PeopleColumn, QHeaderView::Interactive);
 	fillingList_ = false;
 }
 
@@ -547,19 +701,15 @@ void MainWindow::mapChanged(int map, int item)
 	view_->refresh();
 	if (item >= 0)
 	{
-		view_->select(world_->map(map).root(item));
+		view_->setPrimary(world_->map(map).root(item));
 		if (panel_->map() != map || panel_->item() != item)
 			panel_->showItem(world_.get(), map, item);
 		else
 			panel_->refresh();
 	}
 	else
-	{
-		const int sel = view_->selected();
-		if (sel >= 0 && (sel >= int(world_->map(map).items.size()) || world_->map(map).items[sel].deleted))
-			view_->select(-1);
 		panel_->refresh();
-	}
+	updateRelated();
 	updateMapRow(map);
 	if (tabs_->currentWidget() == graph_)
 		graph_->setWorld(world_.get());
@@ -572,13 +722,14 @@ void MainWindow::editAction(int action)
 {
 	const int map = view_->mapNumber();
 	const int item = view_->selected();
-	if (!world_ || item < 0)
+	const QVector<int> items = view_->selection();
+	if (!world_ || item < 0 || items.isEmpty())
 		return;
-	MapItem f = world_->map(map).items[item];
+	const MapItem &f = world_->map(map).items[item];
 	switch (action)
 	{
 	case MapView::Delete:
-		if (editor_->deleteItem(map, item))
+		if (editor_->deleteItems(map, items))
 		{
 			view_->select(-1);
 			panel_->showItem(world_.get(), map, -1);
@@ -587,27 +738,136 @@ void MainWindow::editAction(int action)
 	case MapView::Duplicate:
 	{
 		const int s = std::max(32, view_->snap());
-		const int added = editor_->duplicateItem(map, item, s, 0);
-		if (added >= 0)
+		const QVector<int> added = editor_->duplicateItems(map, items, s, 0);
+		if (!added.isEmpty())
 		{
-			view_->select(added);
-			panel_->showItem(world_.get(), map, added);
+			view_->setSelection(added, added.last());
+			panel_->showItem(world_.get(), map, added.last());
 		}
 		break;
 	}
 	case MapView::Flip:
-		f.flags ^= FlagFlipped;
-		editor_->editItem(map, item, f, tr("Flip %1").arg(world_->describe(f)));
+		editor_->editItems(map, items, [](MapItem &i) { i.flags ^= FlagFlipped; },
+			items.size() == 1 ? tr("Flip %1").arg(world_->describe(f)) : tr("Flip %n items", nullptr, int(items.size())));
 		break;
 	case MapView::NextFrame:
 	case MapView::PrevFrame:
 	{
-		const int frames = std::max(1, world_->shapes().frameCount(f.shape));
-		f.frame = uint8_t((f.frame + (action == MapView::NextFrame ? 1 : frames - 1)) % frames);
-		editor_->editItem(map, item, f, tr("Change the frame of %1").arg(world_->describe(f)));
+		const Shapes &shapes = world_->shapes();
+		const bool next = action == MapView::NextFrame;
+		editor_->editItems(map, items, [&shapes, next](MapItem &i) {
+			const int frames = std::max(1, shapes.frameCount(i.shape));
+			i.frame = uint8_t((i.frame + (next ? 1 : frames - 1)) % frames);
+		}, items.size() == 1 ? tr("Change the frame of %1").arg(world_->describe(f))
+			: tr("Change the frame of %n items", nullptr, int(items.size())));
 		break;
 	}
 	}
+}
+
+QVector<int> MainWindow::selectionWith(int map, int item) const
+{
+	if (map == view_->mapNumber() && view_->selection().contains(item))
+		return view_->selection();
+	return {item};
+}
+
+void MainWindow::updateRelated()
+{
+	QVector<int> related;
+	const int map = view_->mapNumber();
+	const int sel = view_->selected();
+	if (world_ && map >= 0 && sel >= 0)
+	{
+		const MapData &m = world_->map(map);
+		const MapItem &it = m.items[sel];
+		QVector<int> keys;	// key numbers whose doors to show
+		if (DoorInfo::isKey(it.shape) && it.quality)
+			keys << it.quality;
+		for (int k : it.contents)	// a keyring, or anything holding keys
+			if (!m.items[k].deleted && DoorInfo::isKey(m.items[k].shape) && m.items[k].quality)
+				keys << m.items[k].quality;
+		for (size_t i = 0; i < m.items.size(); i++)
+		{
+			const MapItem &o = m.items[i];
+			if (o.deleted || int(i) == sel)
+				continue;
+			if (DoorInfo::isDoor(o.shape) && keys.contains(DoorInfo::keyOf(o)) && o.onMap())
+				related << int(i);
+			// A door's keys, or what holds them.
+			if (DoorInfo::isDoor(it.shape) && DoorInfo::isKey(o.shape) && o.quality == DoorInfo::keyOf(it))
+			{
+				const int root = m.root(int(i));
+				if (root >= 0 && m.items[root].onMap() && !related.contains(root))
+					related << root;
+			}
+		}
+		for (const auto &l : view_->render().links(sel))
+			related << (l.first == sel ? l.second : l.first);
+	}
+	view_->setRelated(related);
+}
+
+QString MainWindow::peopleOn(int map) const
+{
+	QStringList names;
+	const MapData &m = world_->map(map);
+	for (const MapItem &it : m.items)
+		if (!it.deleted && it.source == MapItem::Npc && !it.contained() && it.z < 0xfb)
+		{
+			const QString n = world_->itemName(map, it, true);
+			if (!n.isEmpty() && n[0].isUpper() && !names.contains(n))
+				names << n;
+		}
+	if (names.size() > 6)
+		return QStringLiteral("%1, ...").arg(names.mid(0, 6).join(QStringLiteral(", ")));
+	return names.join(QStringLiteral(", "));
+}
+
+void MainWindow::namesChanged()
+{
+	graph_->refreshNames();
+	panel_->refresh();
+	view_->update();
+	if (world_)
+	{
+		fillingList_ = true;
+		for (int i = 0; i < maps_->topLevelItemCount(); i++)
+		{
+			QTreeWidgetItem *row = maps_->topLevelItem(i);
+			row->setText(NameColumn, Names::mapName(row->data(MapColumn, Qt::UserRole).toInt()));
+		}
+		fillingList_ = false;
+	}
+	updateTitle();
+}
+
+void MainWindow::exportNames()
+{
+	const QString start = world_ ? QDir(world_->dataDir()).filePath("u8edit-names.txt") : QStringLiteral("u8edit-names.txt");
+	const QString path = QFileDialog::getSaveFileName(this, tr("Export Names"), start, tr("Text files (*.txt);;All files (*)"));
+	if (path.isEmpty())
+		return;
+	QString error;
+	if (!Names::write(path, &error))
+		QMessageBox::warning(this, tr("U8 Editor"), tr("Could not write %1: %2").arg(path, error));
+	else
+		statusBar()->showMessage(tr("Wrote the map and shape names to %1.").arg(path), 8000);
+}
+
+void MainWindow::importNames()
+{
+	const QString start = world_ ? world_->dataDir() : QString();
+	const QString path = QFileDialog::getOpenFileName(this, tr("Import Names"), start, tr("Text files (*.txt);;All files (*)"));
+	if (path.isEmpty())
+		return;
+	QString error;
+	int count = 0;
+	if (!Names::read(path, &count, &error))
+		QMessageBox::warning(this, tr("U8 Editor"), tr("Could not read %1: %2").arg(path, error));
+	else
+		statusBar()->showMessage(tr("Read %n name(s) from %1.", nullptr, count).arg(path), 8000);
+	namesChanged();
 }
 
 bool MainWindow::openMap(int map)
@@ -628,6 +888,7 @@ bool MainWindow::openMap(int map)
 			maps_->setCurrentItem(maps_->topLevelItem(i));
 	fillingList_ = false;
 	graph_->setCurrentMap(map);
+	search_->setCurrentMap(map);
 	updateTitle();
 	return true;
 }

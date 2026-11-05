@@ -1,7 +1,12 @@
 #include "ui/itempanel.h"
 
 #include <QCheckBox>
+#include <QComboBox>
 #include <QFormLayout>
+#include <QGridLayout>
+#include <QLineEdit>
+#include <QMenu>
+#include <QSettings>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -17,6 +22,8 @@
 
 #include <algorithm>
 #include <functional>
+
+#include "ui/names.h"
 
 enum { MapRole = Qt::UserRole, ItemRole };
 
@@ -61,10 +68,21 @@ ItemPanel::ItemPanel(QWidget *parent) : QWidget(parent)
 	tabs_->addTab(scroll, tr("Edit"));
 	tabs_->addTab(tree_, tr("Details"));
 
+	selectionNote_ = new QLabel;
+	selectionNote_->setWordWrap(true);
+	selectionNote_->setStyleSheet("color: #e8c860;");
+	selectionNote_->hide();
+
 	center_ = new QPushButton(tr("Show on map"));
 	connect(center_, &QPushButton::clicked, this, [this] { emit goToItem(map_, item_); });
 	follow_ = new QPushButton;
-	connect(follow_, &QPushButton::clicked, this, [this] { emit goToItem(followMap_, followItem_); });
+	connect(follow_, &QPushButton::clicked, this, [this] {
+		if (followMap_ >= 0 && !follow_->menu())
+			emit goToItem(followMap_, followItem_);
+	});
+	findButton_ = new QPushButton;
+	findButton_->hide();
+	connect(findButton_, &QPushButton::clicked, this, [this] { emit find(findQuery_); });
 	duplicate_ = new QPushButton(tr("Copy"));
 	duplicate_->setToolTip(tr("A copy beside it (Ctrl+D on the map)"));
 	connect(duplicate_, &QPushButton::clicked, this, [this] { emit duplicateItem(map_, item_); });
@@ -78,11 +96,13 @@ ItemPanel::ItemPanel(QWidget *parent) : QWidget(parent)
 	auto *buttons = new QHBoxLayout;
 	buttons->addWidget(center_);
 	buttons->addWidget(follow_);
+	buttons->addWidget(findButton_);
 	buttons->addStretch();
 	buttons->addWidget(duplicate_);
 	buttons->addWidget(delete_);
 	auto *v = new QVBoxLayout(this);
 	v->addLayout(head);
+	v->addWidget(selectionNote_);
 	v->addWidget(tabs_, 1);
 	v->addLayout(buttons);
 	showItem(nullptr, -1, -1);
@@ -144,6 +164,7 @@ void ItemPanel::showItem(const World *world, int map, int item)
 		picture_->clear();
 		title_->setText(tr("Click an item on the map."));
 		follow_->hide();
+		findButton_->hide();
 		duplicate_->setEnabled(false);
 		delete_->setEnabled(false);
 		fields_.clear();
@@ -157,9 +178,50 @@ void ItemPanel::showItem(const World *world, int map, int item)
 
 QString ItemPanel::titleOf(const MapItem &it) const
 {
-	const QString name = world_->itemName(map_, it);
-	const QString what = world_->describe(it);
-	return name.isEmpty() ? what : tr("%1 \u2014 %2").arg(name, what);
+	return Names::itemLabel(*world_, map_, it);
+}
+
+void ItemPanel::setSelectionCount(int n)
+{
+	selectionCount_ = n;
+	selectionNote_->setVisible(n > 1);
+	selectionNote_->setText(tr("%1 items are selected: moves, Copy, Delete and flipping apply to them all; "
+		"the fields below change only this one.").arg(n));
+}
+
+void ItemPanel::setFollow(const QString &text, const QVector<QPair<int, int>> &targets)
+{
+	if (QMenu *old = follow_->menu())
+	{
+		follow_->setMenu(nullptr);
+		old->deleteLater();
+	}
+	followMap_ = followItem_ = -1;
+	if (targets.isEmpty())
+	{
+		follow_->hide();
+		return;
+	}
+	follow_->setText(text);
+	follow_->show();
+	if (targets.size() == 1)
+	{
+		followMap_ = targets.first().first;
+		followItem_ = targets.first().second;
+		follow_->setToolTip(Names::mapLabel(followMap_));
+		return;
+	}
+	auto *menu = new QMenu(follow_);
+	for (const auto &t : targets)
+	{
+		const MapItem &it = world_->map(t.first).items[t.second];
+		QAction *a = menu->addAction(tr("%1: %2 at %3, %4, %5").arg(Names::mapLabel(t.first),
+			Names::itemName(*world_, t.first, it)).arg(it.x).arg(it.y).arg(it.z));
+		const int m = t.first, i = t.second;
+		connect(a, &QAction::triggered, this, [this, m, i] { emit goToItem(m, i); });
+	}
+	follow_->setMenu(menu);
+	follow_->setToolTip(QString());
 }
 
 void ItemPanel::refresh()
@@ -206,8 +268,8 @@ void ItemPanel::fillDetails()
 	const World *world = world_;
 	const int map = map_, item = item_;
 	tree_->clear();
-	followMap_ = followItem_ = -1;
-	follow_->hide();
+	setFollow(QString(), {});
+	findButton_->hide();
 	const MapData &m = world->map(map);
 	const MapItem &it = m.items[item];
 	const Shapes &shapes = world->shapes();
@@ -229,13 +291,13 @@ void ItemPanel::fillDetails()
 	picture_->setPixmap(pic);
 
 	QTreeWidgetItem *s = section(tr("Item"));
-	row(s, tr("Map"), QString::number(map));
+	row(s, tr("Map"), Names::mapLabel(map));
 	row(s, tr("Index"), QString::number(item));
 	row(s, tr("From"), sourceName(it));
 	if (it.contained())
 		row(s, tr("Depth"), QString::number(it.x));
 	else
-		row(s, tr("Position"), tr("x %1, y %2, z %3").arg(it.x).arg(it.y).arg(it.z));
+		row(s, tr("Position"), tr("x %1, y %2, z %3 (top %4)").arg(it.x).arg(it.y).arg(it.z).arg(it.z + t.zSize * 8));
 	row(s, tr("Shape"), QString::number(it.shape));
 	row(s, tr("Frame"), QString::number(it.frame));
 	row(s, tr("Status"), QStringLiteral("0x%1: %2").arg(it.flags, 4, 16, QLatin1Char('0')).arg(flagNames(it.flags)));
@@ -283,18 +345,23 @@ void ItemPanel::fillDetails()
 			row(s, tr("Fade"), (it.quality >> 8) ? tr("yes") : tr("no"));
 			const int dm = EggInfo::destMap(it);
 			const int de = world->map(dm).receivingEgg(shapes, EggInfo::teleportId(it));
-			row(s, tr("Goes to"), de >= 0 ? tr("map %1, egg #%2").arg(dm).arg(EggInfo::teleportId(it))
-				: tr("map %1, egg #%2 (not found!)").arg(dm).arg(EggInfo::teleportId(it)), de >= 0 ? dm : -1, de);
+			row(s, tr("Goes to"), de >= 0 ? tr("%1, egg #%2").arg(Names::mapLabel(dm)).arg(EggInfo::teleportId(it))
+				: tr("%1, egg #%2 (not found!)").arg(Names::mapLabel(dm)).arg(EggInfo::teleportId(it)), de >= 0 ? dm : -1, de);
 			if (de >= 0)
-			{
-				followMap_ = dm;
-				followItem_ = de;
-				follow_->setText(tr("Go to destination"));
-				follow_->show();
-			}
+				setFollow(dm == map ? tr("Go to destination (this map)") : tr("Go to destination"), {qMakePair(dm, de)});
 		}
 		else
+		{
 			row(s, tr("Role"), tr("receives the avatar (frame 1)"));
+			// Every egg (or script) that sends the avatar here.
+			QVector<QPair<int, int>> from;
+			for (const Transition &tr : world->transitions())
+				if (tr.toMap == map && tr.toItem == item && tr.fromMap >= 0 && tr.fromItem >= 0 &&
+					!from.contains(qMakePair(tr.fromMap, tr.fromItem)))
+					from << qMakePair(tr.fromMap, tr.fromItem);
+			row(s, tr("Senders"), from.isEmpty() ? tr("none found") : QString::number(from.size()));
+			setFollow(from.size() == 1 ? tr("Go to sender") : tr("Go to sender (%1)").arg(from.size()), from);
+		}
 		break;
 	case FamilyMonsterEgg:
 	{
@@ -328,6 +395,8 @@ void ItemPanel::fillDetails()
 	}
 	}
 
+	fillLocks(it);
+
 	// Ways in and out that involve this item.
 	QTreeWidgetItem *ways = nullptr;
 	for (const Transition &tr : world->transitions())
@@ -343,13 +412,13 @@ void ItemPanel::fillDetails()
 				tr.kind == Transition::UsecodeToEgg ? QStringLiteral("teleportToEgg") : QStringLiteral("Npc::teleport"));
 		if (out)
 		{
-			QString where = tr.toEgg >= 0 ? QObject::tr("map %1, egg #%2").arg(tr.toMap).arg(tr.toEgg)
-				: QObject::tr("map %1 at %2, %3, %4").arg(tr.toMap).arg(tr.x).arg(tr.y).arg(tr.z);
+			QString where = tr.toEgg >= 0 ? QObject::tr("%1, egg #%2").arg(Names::mapLabel(tr.toMap)).arg(tr.toEgg)
+				: QObject::tr("%1 at %2, %3, %4").arg(Names::mapLabel(tr.toMap)).arg(tr.x).arg(tr.y).arg(tr.z);
 			row(ways, QObject::tr("To"), QStringLiteral("%1 by %2").arg(where, how), tr.toItem >= 0 ? tr.toMap : -1, tr.toItem);
 		}
 		if (in)
 		{
-			QString from = tr.fromMap >= 0 ? QObject::tr("map %1").arg(tr.fromMap) : QObject::tr("usecode anywhere");
+			QString from = tr.fromMap >= 0 ? Names::mapLabel(tr.fromMap) : QObject::tr("usecode anywhere");
 			row(ways, QObject::tr("From"), QStringLiteral("%1 by %2").arg(from, how), tr.fromMap, tr.fromItem);
 		}
 	}
@@ -376,6 +445,88 @@ void ItemPanel::fillDetails()
 	tree_->resizeColumnToContents(0);
 }
 
+void ItemPanel::fillLocks(const MapItem &it)
+{
+	const World *world = world_;
+	auto where = [&](int m, int i) {
+		const MapData &d = world->map(m);
+		const MapItem &x = d.items[i];
+		const int root = d.root(i);
+		const MapItem &r = d.items[root];
+		QString text = tr("%1 at %2, %3, %4").arg(Names::mapLabel(m)).arg(r.x).arg(r.y).arg(r.z);
+		if (x.contained())
+			text += tr(", in %1").arg(Names::itemName(*world, m, d.items[x.parent]));
+		return text;
+	};
+	// Every item anywhere for which want says yes.
+	auto findAll = [&](const std::function<bool(const MapItem &)> &want) {
+		QVector<QPair<int, int>> out;
+		for (int m : world->mapNumbers())
+		{
+			const MapData &d = world->map(m);
+			for (size_t i = 0; i < d.items.size(); i++)
+				if (!d.items[i].deleted && want(d.items[i]))
+					out << qMakePair(m, int(i));
+		}
+		return out;
+	};
+	auto listDoors = [&](QTreeWidgetItem *s, int key) {
+		const auto doors = findAll([key](const MapItem &d) { return DoorInfo::isDoor(d.shape) && DoorInfo::keyOf(d) == key; });
+		for (const auto &d : doors)
+		{
+			const MapItem &door = world->map(d.first).items[d.second];
+			row(s, DoorInfo::locked(door) ? tr("Locked door") : tr("Door"), where(d.first, d.second), d.first, d.second);
+		}
+		if (doors.isEmpty())
+			row(s, tr("Doors"), tr("none with key number %1").arg(key));
+	};
+	if (DoorInfo::isKey(it.shape))
+	{
+		QTreeWidgetItem *s = section(tr("Key"));
+		row(s, tr("Key number"), it.quality ? QString::number(it.quality) : tr("0 (a blank)"));
+		if (it.quality)
+		{
+			listDoors(s, it.quality);
+			findQuery_ = QStringLiteral("key:%1").arg(it.quality);
+			findButton_->setText(tr("Find key %1").arg(it.quality));
+			findButton_->setToolTip(tr("Search every map for this key number's keys and doors"));
+			findButton_->show();
+		}
+	}
+	else if (it.shape == DoorInfo::KeyringShape)
+	{
+		QTreeWidgetItem *s = section(tr("Keyring"));
+		const MapData &m = world->map(map_);
+		bool any = false;
+		for (int k : it.contents)
+			if (!m.items[k].deleted && DoorInfo::isKey(m.items[k].shape) && m.items[k].quality)
+			{
+				any = true;
+				row(s, tr("Key %1").arg(m.items[k].quality), Names::itemName(*world, map_, m.items[k]), map_, k);
+				listDoors(s, m.items[k].quality);
+			}
+		if (!any)
+			row(s, tr("Keys"), tr("none"));
+	}
+	else if (DoorInfo::isDoor(it.shape))
+	{
+		QTreeWidgetItem *s = section(tr("Door"));
+		const int key = DoorInfo::keyOf(it);
+		row(s, tr("Locked"), DoorInfo::locked(it) ? tr("yes") : tr("no"));
+		row(s, tr("Open"), DoorInfo::open(it) ? tr("yes") : tr("no"));
+		row(s, tr("Key number"), QString::number(key));
+		const auto keys = findAll([key](const MapItem &k) { return DoorInfo::isKey(k.shape) && k.quality == key; });
+		for (const auto &k : keys)
+			row(s, tr("Key"), where(k.first, k.second), k.first, k.second);
+		if (keys.isEmpty())
+			row(s, tr("Keys"), key ? tr("none with number %1").arg(key) : tr("none (key number 0)"));
+		findQuery_ = QStringLiteral("key:%1").arg(key);
+		findButton_->setText(tr("Find key %1").arg(key));
+		findButton_->setToolTip(tr("Search every map for this key number's keys and doors"));
+		findButton_->show();
+	}
+}
+
 // ---- The editor ----
 
 static void clearLayout(QLayout *layout)
@@ -399,6 +550,8 @@ void ItemPanel::buildEditor()
 	clearLayout(editLayout_);
 	fields_.clear();
 	npcFields_.clear();
+	shapeName_ = nullptr;
+	nudgeStep_ = nullptr;
 	if (!world_ || item_ < 0)
 	{
 		auto *hint = new QLabel(tr("Click an item on the map to change it, or pick a shape in the Shapes panel to place one."));
@@ -509,6 +662,53 @@ void ItemPanel::buildEditor()
 			tr("The group of items in GLOB.FLX it puts down, placed from the corner of its 512-unit region"));
 		break;
 	}
+	if (DoorInfo::isDoor(it.shape))
+	{
+		specialTitle = tr("Door");
+		add(special, tr("Key number"), [](const MapItem &i) { return DoorInfo::keyOf(i); },
+			[](MapItem &i, int v) { i.quality = uint16_t((i.quality & 0xff00) | v); }, 0, 255,
+			tr("The key whose quality is this number opens it (the quality's low byte)"));
+		add(special, tr("Locked"), [](const MapItem &i) { return DoorInfo::locked(i) ? 1 : 0; },
+			[](MapItem &i, int v) { i.quality = uint16_t(v ? (i.quality | DoorInfo::Locked) : (i.quality & ~DoorInfo::Locked)); },
+			0, 1, tr("Quality bit 0x400"));
+		add(special, tr("Open"), [](const MapItem &i) { return DoorInfo::open(i) ? 1 : 0; },
+			[](MapItem &i, int v) { i.quality = uint16_t(v ? (i.quality | DoorInfo::Open) : (i.quality & ~DoorInfo::Open)); },
+			0, 1, tr("Quality bit 0x100; the frame shows it open or shut"));
+	}
+	else if (DoorInfo::isKey(it.shape))
+	{
+		specialTitle = tr("Key");
+		add(special, tr("Key number"), [](const MapItem &i) { return int(i.quality); },
+			[](MapItem &i, int v) { i.quality = uint16_t(v); }, 0, 255,
+			tr("It opens the doors whose quality's low byte is this number; 0 is a blank"));
+	}
+
+	// A name for the shape, for items that have none of their own.
+	{
+		auto *box = new QGroupBox(tr("Name"));
+		auto *form = new QFormLayout(box);
+		const QString look = world_->itemName(map_, it, Names::fullNames());
+		auto *game = new QLabel(look.isEmpty() ? tr("(none: it has no look routine, or it needs more than the editor knows)")
+			: look);
+		game->setWordWrap(true);
+		game->setTextInteractionFlags(Qt::TextSelectableByMouse);
+		form->addRow(tr("In the game"), game);
+		const QString now = world_->itemName(map_, it, false);
+		if (Names::fullNames() && now != look)
+			form->addRow(tr("In this save"), new QLabel(now.isEmpty() ? tr("(none)") : now));
+		shapeName_ = new QLineEdit(Names::shapeName(it.shape));
+		shapeName_->setPlaceholderText(tr("a name for every item of shape %1").arg(it.shape));
+		shapeName_->setToolTip(tr("Kept in the editor's settings; File > Export Names shares it"));
+		form->addRow(tr("Shape name"), shapeName_);
+		const int shape = it.shape;
+		connect(shapeName_, &QLineEdit::editingFinished, this, [this, shape] {
+			if (!shapeName_ || shapeName_->text().trimmed() == Names::shapeName(shape))
+				return;
+			Names::setShapeName(shape, shapeName_->text());
+			emit namesChanged();
+		});
+		editLayout_->addWidget(box);
+	}
 
 	auto makeGroup = [&](const QString &title, std::vector<Field> &list) {
 		auto *box = new QGroupBox(title);
@@ -541,6 +741,42 @@ void ItemPanel::buildEditor()
 	if (!special.empty())
 		makeGroup(specialTitle, special);
 	makeGroup(tr("Item"), item);
+
+	// Small moves along x, y and z, for this item and those selected with it.
+	if (!contained)
+	{
+		auto *box = new QGroupBox(tr("Nudge"));
+		auto *grid = new QGridLayout(box);
+		nudgeStep_ = new QComboBox;
+		for (int s : {1, 2, 4, 8, 16, 32, 64})
+			nudgeStep_->addItem(QString::number(s), s);
+		nudgeStep_->setCurrentIndex(std::max(0, nudgeStep_->findData(QSettings().value("nudgeStep", 1).toInt())));
+		nudgeStep_->setToolTip(tr("World units a press moves (Alt+arrows on the map move by 1)"));
+		connect(nudgeStep_, &QComboBox::currentIndexChanged, this, [this] {
+			QSettings().setValue("nudgeStep", nudgeStep_->currentData().toInt());
+		});
+		grid->addWidget(new QLabel(tr("Step")), 0, 0);
+		grid->addWidget(nudgeStep_, 0, 1, 1, 2);
+		const char *axes[3] = {"X", "Y", "Z"};
+		for (int a = 0; a < 3; a++)
+		{
+			grid->addWidget(new QLabel(QString::fromLatin1(axes[a])), a + 1, 0);
+			for (int sign : {-1, 1})
+			{
+				auto *b = new QPushButton(sign < 0 ? QStringLiteral("\u2212") : QStringLiteral("+"));
+				b->setAutoRepeat(true);
+				b->setEnabled(editable);
+				b->setToolTip(sign < 0 ? tr("Move it back along %1").arg(QString::fromLatin1(axes[a]))
+					: tr("Move it on along %1").arg(QString::fromLatin1(axes[a])));
+				connect(b, &QPushButton::clicked, this, [this, a, sign] {
+					const int s = sign * (nudgeStep_ ? nudgeStep_->currentData().toInt() : 1);
+					emit nudge(a == 0 ? s : 0, a == 1 ? s : 0, a == 2 ? s : 0);
+				});
+				grid->addWidget(b, a + 1, sign < 0 ? 1 : 2);
+			}
+		}
+		editLayout_->addWidget(box);
+	}
 
 	if (it.source == MapItem::Npc && it.parent < 0 && it.record > 0 && it.record < 256 && world_->hasNpcData())
 	{

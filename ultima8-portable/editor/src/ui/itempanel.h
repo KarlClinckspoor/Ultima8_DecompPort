@@ -10,6 +10,8 @@
 #include "data/world.h"
 
 class QCheckBox;
+class QComboBox;
+class QLineEdit;
 class QFormLayout;
 class QLabel;
 class QPushButton;
@@ -30,6 +32,8 @@ public:
 	void refresh();
 	int map() const { return map_; }
 	int item() const { return item_; }
+	// How many items the map has selected with this one; moves and the buttons apply to all.
+	void setSelectionCount(int n);
 
 signals:
 	// Show this item on the map view (opening its map if need be).
@@ -39,6 +43,12 @@ signals:
 	void deleteItem(int map, int item);
 	void duplicateItem(int map, int item);
 	void showShape(int shape, int frame);
+	// Move the item (and the others selected with it) by this much.
+	void nudge(int dx, int dy, int dz);
+	// A name was given to a shape.
+	void namesChanged();
+	// Search the whole game for this (SearchPanel).
+	void find(const QString &query);
 
 private:
 	// The item's name when it has one, then its class, shape and frame.
@@ -64,6 +74,10 @@ private:
 	};
 
 	void fillDetails();
+	// The doors a key opens, the keys that open a door, anywhere in the game.
+	void fillLocks(const MapItem &it);
+	// Where the follow button leads: one place, or a menu of several.
+	void setFollow(const QString &text, const QVector<QPair<int, int>> &targets);
 	void buildEditor();
 	void updateEditor();
 	void fieldChanged(Field &f, int value);
@@ -80,8 +94,14 @@ private:
 	QWidget *editPage_;
 	QVBoxLayout *editLayout_;
 	QLabel *readOnly_;
+	QLabel *selectionNote_;
+	QLineEdit *shapeName_ = nullptr;
+	QComboBox *nudgeStep_ = nullptr;
 	QPushButton *center_;
 	QPushButton *follow_;
+	QPushButton *findButton_;
+	QString findQuery_;
+	int selectionCount_ = 1;
 	QPushButton *duplicate_;
 	QPushButton *delete_;
 	int followMap_ = -1, followItem_ = -1;

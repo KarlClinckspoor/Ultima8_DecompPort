@@ -58,6 +58,10 @@ add_library(u8edit_core STATIC
 	src/ui/mapview.cpp
 	src/ui/mapview.h
 	src/ui/minimap.cpp
+	src/ui/names.cpp
+	src/ui/names.h
+	src/ui/searchpanel.cpp
+	src/ui/searchpanel.h
 	src/ui/minimap.h
 	src/ui/shapebrowser.cpp
 	src/ui/shapebrowser.h

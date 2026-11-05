@@ -115,18 +115,41 @@ when they differ from the original ones.
 ## Using it
 
 - **Maps** (left): every map with items, with counts and the number of teleport eggs leading out.
-  Double-click a name (or press F2) to name a map; names are kept in the editor's settings.
+  Double-click a name (or press F2) to name a map; names are kept in the editor's settings and
+  show wherever the map is named (egg labels, the Item window, search results, the graph).
+  People lists the named NPCs standing on the map, to tell maps apart. File > Export Names and
+  Import Names write and read the map and shape names as a text file (`map 5 = name`,
+  `shape 82 = name`), to share them with a mod.
 - **Map**: drawn in the game's own order (`DL_ItemNode::compare`). Drag to move the view, wheel
   to zoom, arrow keys to move, `+`/`-` to zoom, `1` for actual size, `0` for the whole map.
   Click an item to select it and see it in the Item window. Hover over an item for its name.
-  - Drag the selected item to move it; Shift+drag moves it up and down.
-  - Ctrl+arrows move it along the world's x and y, Page Up/Down raise and lower it (Shift: by 1).
+  - **Right-click** lists everything drawn at and around the pointer, the topmost first, with
+    pictures: pointing at an entry highlights it on the map, choosing it selects it (Ctrl: adds
+    it to the selection), and "Select All of These" takes them all. Items buried in a pile need
+    no layers hidden.
+  - Ctrl+click adds an item to the selection or takes it away, Ctrl+drag selects what a box
+    holds, Ctrl+A everything in the view. Moves, Delete, Ctrl+D, F and `[` `]` apply to all
+    selected items, each as one step to undo.
+  - Drag the selection to move it; Shift+drag moves it up and down, Alt+drag ignores the snap.
+  - Ctrl+arrows move it along the world's x and y by the snap, Alt+arrows by 1; Page Up/Down
+    raise and lower it by 8 (Shift or Alt: by 1). The Item window's Nudge buttons do the same in
+    steps of 1 to 64.
   - Delete deletes it (and what it holds), Ctrl+D copies it, F flips it, `[` and `]` change its
     frame.
   - Snap (toolbar) sets the step for moves and placing, in world units.
   - The layer buttons show and hide fixed, glob, movable and NPC items, eggs (with where each
     hatches and what it does), and invisible items. "Roof below" hides what is above a height,
-    as the game does inside buildings.
+    as the game does inside buildings. Opacity has a slider for each layer, to see through walls
+    and roofs.
+  - Heights (H) draws the bottom (blue) and top (orange) of the selected items and the one under
+    the pointer, with their heights.
+  - X-ray (X) fades what is at or above a height in a circle around the pointer (the toolbar sets
+    the height and the radius, and Fade how much of each layer still shows, as Opacity does; at
+    the left a layer is left out). A click inside the circle
+    passes over what is faded.
+  - Hovering over a teleport egg (or selecting it) draws an arrow to where it leads on the same
+    map, or from the eggs that lead to it. Selecting a key outlines the doors it opens in cyan;
+    selecting a door outlines its keys (or what holds them).
 - **Shapes** (right): every shape, filtered by number, usecode name or family. Pick one and a
   frame, then Place (or double-click, or press P over the map) and click on the map; a new item
   stands on what is under the mouse. Right-click or Esc stops placing. I picks the selected item's
@@ -134,15 +157,26 @@ when they differ from the original ones.
 - **Names**: an item's name is what the game shows when the Avatar looks at it: the editor runs
   the item's look routine from the usecode (in a small copy of the game's usecode interpreter)
   against the item's quality, frame and the saved game's flags, so a key says which door it
-  opens and Devon is "man" until the flags say the Avatar knows him. The name heads the Item
-  window and the map's tooltip. Items whose usecode has no look routine (most scenery) have
-  none, and show their usecode class.
+  opens and Devon is "man" until the flags say the Avatar knows him. With View > Full Names (on
+  by default) the routine runs with every flag set, so Devon is "Devon" from the start; the
+  tooltip and the Item window also give the name in the open saved game when it differs. Items
+  whose usecode has no look routine (most scenery) go by the name given to their shape (in the
+  Item window's Name box), else by their usecode class, made readable.
+- **Search** (right, Ctrl+F): finds items on this map or in every map, inside containers too.
+  Words match names, classes, families and shape names; a number alone is a shape; `shape:`,
+  `frame:`, `q:`, `npc:`, `mapnum:`, `id:` (teleport, usecode or monster egg id), `key:N` (the
+  keys of number N and the doors they open), `family:`, `class:` and `is:door`, `key`, `locked`,
+  `egg`, `npc`, `invisible`, `contained`, `fixed`, `movable` narrow it. Double-click a result to
+  show it.
 - **Item** window: the Edit tab changes the item: its position, shape, frame, quality, npcNum,
   mapNum and flags, and in plain terms what it does as an egg: a teleport egg's destination map,
   teleport id, fade and hatch range; a monster egg's monster, count, probability and activity; a
   usecode egg's type; a glob egg's glob. An NPC also shows its statistics. The Details tab shows
   everything about it, with links (double-click) to its container, glob egg, contents and the
-  transitions it is part of. A sending teleport egg has "Go to destination".
+  transitions it is part of. A sending teleport egg has "Go to destination"; a receiving one "Go
+  to sender" (a menu when there are several). A key lists the doors it opens and a door its
+  keys, anywhere in the game, with "Find key N" to search for them; a door's Edit tab has its key
+  number, lock and open state (quality's low byte, 0x400 and 0x100).
 - **Minimap**: the whole map with the view's area and the teleport eggs (orange sends, green
   receives). Click or drag to move.
 - **Transitions**: the maps as a graph. Solid arrows are teleport eggs; dashed ones usecode that

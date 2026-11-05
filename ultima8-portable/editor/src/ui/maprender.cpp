@@ -1,15 +1,20 @@
 #include "ui/maprender.h"
 
 #include <QFontMetrics>
+#include <QObject>
 #include <QPainterPath>
 
 #include <algorithm>
+#include <cmath>
+
+#include "ui/names.h"
 
 bool LayerOptions::operator==(const LayerOptions &o) const
 {
 	return fixed == o.fixed && nonFixed == o.nonFixed && globs == o.globs && npcs == o.npcs &&
 		editorItems == o.editorItems && invisible == o.invisible && eggRanges == o.eggRanges &&
-		labels == o.labels && roof == o.roof;
+		labels == o.labels && roof == o.roof && heights == o.heights &&
+		std::equal(std::begin(opacity), std::end(opacity), std::begin(o.opacity));
 }
 
 QPointF MapRender::toScreen(qreal x, qreal y, qreal z)
@@ -286,14 +291,37 @@ bool MapRender::shows(const Entry &e, const LayerOptions &o) const
 	return true;
 }
 
-static void drawEntry(QPainter &p, const MapRender::Entry &e)
+static bool inCircle(const XRay *x, QPointF pt)
 {
+	if (!x || !x->on)
+		return false;
+	const QPointF d = pt - x->center;
+	return d.x() * d.x() + d.y() * d.y() <= x->radius * x->radius;
+}
+
+qreal MapRender::opacityOf(const Entry &e, const LayerOptions &o, const XRay *xray, QPointF pt) const
+{
+	const MapItem &it = world_->map(map_).items[e.item];
+	qreal a = std::clamp<qreal>(o.opacity[it.source], 0, 1);
+	// The game recolours what is under these through tables (XFORMPAL.DAT); a faint image is the
+	// nearest thing here.
+	if (e.invisible)
+		a *= 0.35;
+	else if (e.trans)
+		a *= 0.6;
+	if (inCircle(xray, pt) && e.z >= xray->height)
+		a *= xray->opacity[it.source];
+	return a;
+}
+
+static void drawEntry(QPainter &p, const MapRender::Entry &e, qreal opacity)
+{
+	if (opacity <= 0.001)
+		return;
 	const QImage &img = e.flip ? e.frame->flipped : e.frame->image;
-	if (e.invisible || e.trans)
+	if (opacity < 0.999)
 	{
-		// The game recolours what is under these through tables (XFORMPAL.DAT); a faint
-		// image is the nearest thing here.
-		p.setOpacity(e.invisible ? 0.35 : 0.6);
+		p.setOpacity(opacity);
 		p.drawImage(e.rect.topLeft(), img);
 		p.setOpacity(1);
 	}
@@ -301,14 +329,40 @@ static void drawEntry(QPainter &p, const MapRender::Entry &e)
 		p.drawImage(e.rect.topLeft(), img);
 }
 
-void MapRender::paint(QPainter &p, const QRectF &area, const LayerOptions &o, int skipItem) const
+void MapRender::paint(QPainter &p, const QRectF &area, const LayerOptions &o, const QSet<int> &skip, const XRay *xray) const
 {
-	for (int i : candidates(area.toAlignedRect()))
+	const QRect a = area.toAlignedRect();
+	auto drawAll = [&](const QRect &where, bool faded) {
+		for (int i : candidates(where))
+		{
+			const Entry &e = entries_[i];
+			if (!e.rect.intersects(where) || !shows(e, o) || skip.contains(e.item))
+				continue;
+			qreal alpha = opacityOf(e, o);
+			if (faded && e.z >= xray->height)
+				alpha *= xray->opacity[world_->map(map_).items[e.item].source];
+			drawEntry(p, e, alpha);
+		}
+	};
+	if (!xray || !xray->on)
 	{
-		const Entry &e = entries_[i];
-		if (e.item != skipItem && shows(e, o) && e.rect.intersects(area.toAlignedRect()))
-			drawEntry(p, e);
+		drawAll(a, false);
+		return;
 	}
+	// Outside the circle as it is; inside it, again with what is above the height faded.
+	QPainterPath circle;
+	circle.addEllipse(xray->center, xray->radius, xray->radius);
+	QPainterPath everything;
+	everything.addRect(area);
+	p.save();
+	p.setClipPath(everything.subtracted(circle), Qt::IntersectClip);
+	drawAll(a, false);
+	p.restore();
+	p.save();
+	p.setClipPath(circle, Qt::IntersectClip);
+	p.fillPath(circle, QColor(12, 12, 16));
+	drawAll(circle.boundingRect().toAlignedRect().intersected(a), true);
+	p.restore();
 }
 
 // An entry for an item that is not (or not yet) in the list.
@@ -366,22 +420,73 @@ QImage MapRender::renderOverview(const LayerOptions &o, qreal scale) const
 	p.translate(-bounds_.topLeft());
 	for (const Entry &e : entries_)
 		if (shows(e, o))
-			drawEntry(p, e);
+			drawEntry(p, e, opacityOf(e, o));
 	return img;
 }
 
-int MapRender::pick(QPoint pt, const LayerOptions &o) const
+int MapRender::pick(QPoint pt, const LayerOptions &o, const XRay *xray) const
 {
 	std::vector<int> list = candidates(QRect(pt, QSize(1, 1)));
 	for (auto it = list.rbegin(); it != list.rend(); ++it)
 	{
 		const Entry &e = entries_[*it];
-		if (!shows(e, o) || !e.rect.contains(pt))
+		if (!shows(e, o) || !e.rect.contains(pt) || opacityOf(e, o, xray, pt) < 0.2)
 			continue;
 		if (e.frame->hit(pt.x() - e.sx, pt.y() - e.sy, e.flip))
 			return e.item;
 	}
 	return -1;
+}
+
+std::vector<int> MapRender::pickAll(QPoint pt, int radius, const LayerOptions &o) const
+{
+	std::vector<int> hits, nearby;
+	const QRect box(pt - QPoint(radius, radius), QSize(2 * radius + 1, 2 * radius + 1));
+	const std::vector<int> list = candidates(box);
+	// Points spread over the circle: an item drawn at any of them is near.
+	std::vector<QPoint> probes;
+	const int step = std::max(1, radius / 4);
+	for (int dy = -radius; dy <= radius; dy += step)
+		for (int dx = -radius; dx <= radius; dx += step)
+			if (dx * dx + dy * dy <= radius * radius && (dx || dy))
+				probes.push_back(pt + QPoint(dx, dy));
+	for (auto it = list.rbegin(); it != list.rend(); ++it)
+	{
+		const Entry &e = entries_[*it];
+		if (!shows(e, o) || !e.rect.intersects(box))
+			continue;
+		auto hitAt = [&](QPoint q) { return e.rect.contains(q) && e.frame->hit(q.x() - e.sx, q.y() - e.sy, e.flip); };
+		if (hitAt(pt))
+			hits.push_back(e.item);
+		else if (std::any_of(probes.begin(), probes.end(), hitAt))
+			nearby.push_back(e.item);
+	}
+	hits.insert(hits.end(), nearby.begin(), nearby.end());
+	return hits;
+}
+
+std::vector<int> MapRender::itemsIn(const QRectF &area, const LayerOptions &o) const
+{
+	std::vector<int> out;
+	for (int i : candidates(area.toAlignedRect()))
+	{
+		const Entry &e = entries_[i];
+		if (shows(e, o) && area.contains(QPointF(e.sx, e.sy)))
+			out.push_back(e.item);
+	}
+	return out;
+}
+
+QVector<QPair<int, int>> MapRender::links(int item) const
+{
+	QVector<QPair<int, int>> out;
+	if (!world_ || item < 0)
+		return out;
+	for (const Transition &t : world_->transitions())
+		if (t.fromMap == map_ && t.toMap == map_ && t.fromItem >= 0 && t.toItem >= 0 &&
+			(t.fromItem == item || t.toItem == item))
+			out << qMakePair(t.fromItem, t.toItem);
+	return out;
 }
 
 static QColor eggColor(const MapItem &it, int family)
@@ -416,7 +521,7 @@ static void outlineBox(QPainter &p, const MapRender::Entry &e)
 	p.drawLine(txy, tx);
 }
 
-void MapRender::paintOverlays(QPainter &p, const QRectF &area, const LayerOptions &o, qreal scale, int selectedItem) const
+void MapRender::paintOverlays(QPainter &p, const QRectF &area, const LayerOptions &o, qreal scale, const Overlay &ov) const
 {
 	const MapData &m = world_->map(map_);
 	const qreal pen = 1.0 / scale;
@@ -456,9 +561,12 @@ void MapRender::paintOverlays(QPainter &p, const QRectF &area, const LayerOption
 				switch (e.family)
 				{
 				case FamilyTeleportEgg:
-					text = EggInfo::sends(it)
-						? QStringLiteral("→ map %1 #%2").arg(EggInfo::destMap(it)).arg(EggInfo::teleportId(it))
-						: QStringLiteral("◎ #%1").arg(EggInfo::teleportId(it));
+					if (!EggInfo::sends(it))
+						text = QStringLiteral("◎ #%1").arg(EggInfo::teleportId(it));
+					else if (EggInfo::destMap(it) == map_)
+						text = QObject::tr("→ here #%1").arg(EggInfo::teleportId(it));
+					else
+						text = QStringLiteral("→ %1 #%2").arg(Names::mapShort(EggInfo::destMap(it))).arg(EggInfo::teleportId(it));
 					break;
 				case FamilyMonsterEgg:
 				{
@@ -487,14 +595,127 @@ void MapRender::paintOverlays(QPainter &p, const QRectF &area, const LayerOption
 			}
 		}
 	}
-	const int sel = entryOf(selectedItem);
-	if (sel >= 0)
+	p.setBrush(Qt::NoBrush);
+	for (int item : ov.related)
+		if (const int r = entryOf(item); r >= 0)
+		{
+			p.setPen(QPen(QColor(60, 230, 255), 2 * pen));
+			outlineBox(p, entries_[r]);
+			p.setPen(QPen(QColor(60, 230, 255, 140), pen, Qt::DashLine));
+			p.drawRect(QRectF(entries_[r].rect).adjusted(-1, -1, 1, 1));
+		}
+	for (int item : ov.selected)
 	{
+		const int sel = entryOf(item);
+		if (sel < 0)
+			continue;
 		const Entry &e = entries_[sel];
+		const bool primary = item == ov.primary;
 		p.setBrush(Qt::NoBrush);
-		p.setPen(QPen(QColor(255, 255, 0), 2 * pen));
+		p.setPen(QPen(primary ? QColor(255, 255, 0) : QColor(255, 200, 60), (primary ? 2 : 1.5) * pen));
 		outlineBox(p, e);
-		p.setPen(QPen(QColor(255, 255, 0, 160), pen, Qt::DashLine));
-		p.drawRect(QRectF(e.rect).adjusted(-1, -1, 1, 1));
+		if (primary)
+		{
+			p.setPen(QPen(QColor(255, 255, 0, 160), pen, Qt::DashLine));
+			p.drawRect(QRectF(e.rect).adjusted(-1, -1, 1, 1));
+		}
 	}
+	if (const int h = entryOf(ov.highlight); h >= 0)
+	{
+		const Entry &e = entries_[h];
+		p.setBrush(QColor(255, 80, 255, 50));
+		p.setPen(QPen(QColor(255, 80, 255), 1.5 * pen));
+		p.drawRect(QRectF(e.rect));
+		p.setBrush(Qt::NoBrush);
+		p.setPen(QPen(QColor(255, 80, 255), 2.5 * pen));
+		outlineBox(p, e);
+	}
+
+	// Bottom and top heights.
+	QVector<int> show;
+	if (o.heights)
+	{
+		show = ov.selected;
+		if (ov.hovered >= 0 && !show.contains(ov.hovered))
+			show << ov.hovered;
+	}
+	if (ov.highlight >= 0 && !show.contains(ov.highlight))
+		show << ov.highlight;
+	for (int item : show)
+		if (const int k = entryOf(item); k >= 0)
+			paintHeights(p, entries_[k], scale);
+
+	// Where teleport eggs (and usecode that teleports to an egg) lead on this map.
+	QVector<QPair<int, int>> lines;
+	for (int item : {ov.hovered, ov.primary})
+		for (const auto &l : links(item))
+			if (!lines.contains(l))
+				lines << l;
+	for (const auto &l : lines)
+	{
+		const int a = entryOf(l.first), b = entryOf(l.second);
+		if (a < 0 || b < 0)
+			continue;
+		const QPointF from(entries_[a].sx, entries_[a].sy), to(entries_[b].sx, entries_[b].sy);
+		const QColor c(255, 150, 30);
+		p.setBrush(Qt::NoBrush);
+		p.setPen(QPen(QColor(0, 0, 0, 160), 4 * pen, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(from, to);
+		p.setPen(QPen(c, 2 * pen, Qt::DashLine, Qt::RoundCap));
+		p.drawLine(from, to);
+		// An arrow head at the destination, and a ring around it.
+		const QLineF back(to, from);
+		if (back.length() > 0)
+		{
+			QLineF side1 = back, side2 = back;
+			side1.setLength(10 * pen);
+			side1.setAngle(back.angle() + 25);
+			side2.setLength(10 * pen);
+			side2.setAngle(back.angle() - 25);
+			p.setPen(QPen(c, 2 * pen));
+			p.setBrush(c);
+			p.drawPolygon(QPolygonF() << to << side1.p2() << side2.p2());
+		}
+		p.setBrush(Qt::NoBrush);
+		p.drawEllipse(to, 8 * pen, 8 * pen);
+	}
+}
+
+// An item's footpad with its bottom face (blue) and top face (orange), labelled with their heights.
+void MapRender::paintHeights(QPainter &p, const Entry &e, qreal scale) const
+{
+	const qreal pen = 1.0 / scale;
+	const QPointF s(e.sx, e.sy);
+	const qreal xd = e.xd, yd = e.yd, zd = e.zd;
+	auto at = [&](qreal dx, qreal dy, qreal dz) { return s + QPointF(dx, dy - dz); };
+	auto face = [&](qreal dz) {
+		return QPolygonF() << at(0, 0, dz) << at(-xd, -xd / 2, dz) << at(-xd + yd, -xd / 2 - yd / 2, dz)
+			<< at(yd, -yd / 2, dz);
+	};
+	p.setPen(QPen(QColor(80, 160, 255), 1.5 * pen));
+	p.setBrush(QColor(80, 160, 255, 70));
+	p.drawPolygon(face(0));
+	p.setPen(QPen(QColor(255, 170, 60), 1.5 * pen));
+	p.setBrush(QColor(255, 170, 60, 70));
+	p.drawPolygon(face(zd));
+	p.setPen(QPen(QColor(230, 230, 230, 200), pen, Qt::DotLine));
+	for (const QPointF &c : {at(0, 0, 0), at(-xd, -xd / 2, 0), at(yd, -yd / 2, 0), at(-xd + yd, -xd / 2 - yd / 2, 0)})
+		p.drawLine(c, c - QPointF(0, zd));
+	const MapItem &it = world_->map(map_).items[e.item];
+	const int top = it.z + world_->shapes().type(it.shape).zSize * 8;
+	QFont font = p.font();
+	font.setPixelSize(std::max(1, int(11 / scale)));
+	p.setFont(font);
+	const QFontMetricsF fm(font);
+	auto label = [&](QPointF where, const QString &text, const QColor &c) {
+		const QRectF box(where.x() + 3 * pen, where.y() - fm.height() / 2, fm.horizontalAdvance(text) + 4 * pen, fm.height());
+		p.setPen(Qt::NoPen);
+		p.setBrush(QColor(0, 0, 0, 180));
+		p.drawRect(box);
+		p.setPen(c);
+		p.drawText(box, Qt::AlignCenter, text);
+	};
+	label(at(yd, -yd / 2, 0), QObject::tr("z %1").arg(it.z), QColor(120, 190, 255));
+	label(at(yd, -yd / 2, zd), QObject::tr("top %1").arg(top), QColor(255, 190, 100));
+	p.setBrush(Qt::NoBrush);
 }

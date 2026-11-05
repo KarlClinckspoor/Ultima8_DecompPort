@@ -22,6 +22,7 @@
 #include "ui/mainwindow.h"
 #include "ui/translatedialog.h"
 #include "ui/mapview.h"
+#include "ui/searchpanel.h"
 
 namespace
 {
@@ -86,6 +87,9 @@ private slots:
 	void editInWindow();
 	void itemNames();
 	void flags();
+	void groupEdits();
+	void doorsAndKeys();
+	void picking();
 
 private:
 	QTemporaryDir temp_;
@@ -281,7 +285,7 @@ void Tests::itemNames()
 	World w;
 	QString error;
 	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
-	ItemNames names(w);
+	ItemNames names(w, false);
 	MapItem key;
 	key.shape = 82;	// KEY
 	key.quality = 59;
@@ -299,11 +303,13 @@ void Tests::itemNames()
 	QVERIFY(devon >= 0);
 	const MapItem &it = w.map(map).items[devon];
 	QCOMPARE(w.classOf(it), NpcClassBase + 2);
-	QCOMPARE(w.itemName(map, it), QStringLiteral("man"));
+	// The full name does not wait for the story.
+	QCOMPARE(w.itemName(map, it, true), QStringLiteral("Devon"));
+	QCOMPARE(w.itemName(map, it, false), QStringLiteral("man"));
 	w.setFlag(253, 2, 1);
-	QCOMPARE(w.itemName(map, it), QStringLiteral("fisherman"));
+	QCOMPARE(w.itemName(map, it, false), QStringLiteral("fisherman"));
 	w.setFlag(252, 1, 1);
-	QCOMPARE(w.itemName(map, it), QStringLiteral("Devon"));
+	QCOMPARE(w.itemName(map, it, false), QStringLiteral("Devon"));
 
 	// An item with no look event has no name.
 	MapItem plain;
@@ -339,6 +345,141 @@ void Tests::flags()
 	SaveFile save;
 	QVERIFY(save.load(again.saveSource(), &error));
 	QCOMPARE(save.file("FLAG.DAT").size(), int(World::FlagFileSize));
+}
+
+// Moving, flipping, copying and deleting several items are each one step to undo.
+void Tests::groupEdits()
+{
+	World w;
+	QString error;
+	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
+	Editor editor;
+	editor.setWorld(&w);
+	int heard = 0;
+	connect(&editor, &Editor::mapChanged, this, [&heard] { heard++; });
+	const int map = 3;
+	QVector<int> items;
+	const auto &list = w.map(map).items;
+	for (size_t i = 0; i < list.size() && items.size() < 5; i++)
+		if (list[i].onMap() && list[i].source == MapItem::NonFixed)
+			items << int(i);
+	QCOMPARE(items.size(), 5);
+	QVector<MapItem> before;
+	for (int i : items)
+		before << list[i];
+
+	QVERIFY(editor.moveItems(map, items, 16, -8, 1));
+	QCOMPARE(editor.undo()->count(), 1);
+	QCOMPARE(heard, 1);	// the views hear once
+	for (int k = 0; k < items.size(); k++)
+	{
+		QCOMPARE(int(list[items[k]].x), std::clamp(before[k].x + 16, 0, 0x7fff));
+		QCOMPARE(int(list[items[k]].y), std::clamp(before[k].y - 8, 0, 0x7fff));
+	}
+	QVERIFY(editor.editItems(map, items, [](MapItem &i) { i.flags ^= FlagFlipped; }, "flip"));
+	QCOMPARE(list[items[0]].flipped(), !before[0].flipped());
+	const QVector<int> copies = editor.duplicateItems(map, items, 32, 0);
+	QCOMPARE(copies.size(), items.size());
+	QVERIFY(editor.deleteItems(map, items));
+	for (int i : items)
+		QVERIFY(list[i].deleted);
+	QCOMPARE(editor.undo()->count(), 4);
+	for (int k = 0; k < 4; k++)
+		editor.undo()->undo();
+	for (int k = 0; k < items.size(); k++)
+	{
+		QVERIFY(!list[items[k]].deleted);
+		QVERIFY(list[items[k]].sameRecord(before[k]));
+	}
+	for (int c : copies)
+		QVERIFY(list[c].deleted);
+}
+
+// A key opens the doors whose quality's low byte is its quality (KEYRING's use routine), and
+// the search finds both by key:N.
+void Tests::doorsAndKeys()
+{
+	World w;
+	QString error;
+	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
+	int keys = 0, matched = 0;
+	for (int m : w.mapNumbers())
+	{
+		const auto &items = w.map(m).items;
+		for (size_t i = 0; i < items.size(); i++)
+		{
+			const MapItem &k = items[i];
+			if (k.deleted || !DoorInfo::isKey(k.shape) || !k.quality)
+				continue;
+			keys++;
+			QVERIFY(SearchPanel::matches(w, m, int(i), QStringLiteral("key:%1").arg(k.quality)));
+			bool found = false;
+			for (int m2 : w.mapNumbers())
+				for (size_t j = 0; j < w.map(m2).items.size() && !found; j++)
+				{
+					const MapItem &d = w.map(m2).items[j];
+					if (!d.deleted && DoorInfo::isDoor(d.shape) && DoorInfo::keyOf(d) == k.quality)
+					{
+						found = true;
+						QVERIFY(SearchPanel::matches(w, m2, int(j), QStringLiteral("key:%1 is:door").arg(k.quality)));
+					}
+				}
+			matched += found;
+		}
+	}
+	QVERIFY(keys > 0);
+	QVERIFY2(matched * 2 > keys, qPrintable(QStringLiteral("%1 of %2 keys open a door").arg(matched).arg(keys)));
+
+	// Words match names, a number alone is a shape, and a bad term says why.
+	const auto &items = w.map(3).items;
+	int devon = npcItem(w, 3, 2);
+	if (devon >= 0)
+		QVERIFY(SearchPanel::matches(w, 3, devon, QStringLiteral("devon")));
+	for (size_t i = 0; i < items.size(); i++)
+		if (items[i].onMap())
+		{
+			QVERIFY(SearchPanel::matches(w, 3, int(i), QString::number(items[i].shape)));
+			break;
+		}
+	QVERIFY(!SearchPanel::matches(w, 3, 0, QStringLiteral("shape:x"), &error));
+	QVERIFY(!error.isEmpty());
+}
+
+// The right-click list has what is drawn at the point first, then what is near it; X-ray
+// passes over what it fades.
+void Tests::picking()
+{
+	World w;
+	QString error;
+	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
+	MapRender r;
+	r.build(w, 3);
+	LayerOptions o;
+	int tested = 0;
+	for (const MapRender::Entry &e : r.entries())
+	{
+		if (e.rect.width() < 8 || e.rect.height() < 8 || !r.shows(e, o))
+			continue;
+		const QPoint pt(e.sx, e.sy - 2);
+		const int top = r.pick(pt, o);
+		if (top < 0)
+			continue;
+		const std::vector<int> all = r.pickAll(pt, 6, o);
+		QVERIFY(!all.empty());
+		QCOMPARE(all.front(), top);
+		QVERIFY(std::find(all.begin(), all.end(), top) != all.end());
+		// Fading everything at the point makes the pick pass over it.
+		XRay x;
+		x.on = true;
+		x.center = pt;
+		x.radius = 4;
+		x.height = 0;
+		std::fill(std::begin(x.opacity), std::end(x.opacity), 0);
+		QCOMPARE(r.pick(pt, o, &x), -1);
+		if (++tested == 20)
+			break;
+	}
+	QVERIFY(tested > 0);
 }
 
 QTEST_MAIN(Tests)

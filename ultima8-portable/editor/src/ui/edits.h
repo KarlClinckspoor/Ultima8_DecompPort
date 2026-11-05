@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QUndoStack>
 
+#include <functional>
+
 #include "data/world.h"
 
 struct TableSnapshot
@@ -29,14 +31,23 @@ public:
 	int addItem(int map, const MapItem &item, int parent, const QString &what);
 	bool deleteItem(int map, int item);
 	int duplicateItem(int map, int item, int dx, int dy);
+	// The same for several items, as one step to undo. Items that cannot be changed are left
+	// as they are (and said why); the others are changed.
+	bool moveItems(int map, const QVector<int> &items, int dx, int dy, int dz);
+	bool editItems(int map, const QVector<int> &items, const std::function<void(MapItem &)> &change, const QString &what);
+	bool deleteItems(int map, const QVector<int> &items);
+	// The copies' indices, in the order of items.
+	QVector<int> duplicateItems(int map, const QVector<int> &items, int dx, int dy);
 	void editNpc(int npc, const NpcStats &stats);
 	// A global flag's value (World::setFlag), width bits from bit.
 	void editFlag(int bit, int width, int value);
 	TableSnapshot tables() const;
 	void editTables(const TableSnapshot &after, const QString &what);
 
-	// Called by the commands.
-	void notifyMap(int map, int item) { emit mapChanged(map, item); }
+	// Called by the commands. While a group of commands runs, the views hear once, at the end.
+	void notifyMap(int map, int item);
+	void hold() { held_++; }
+	void release();
 	void notifyNpc(int npc) { emit npcChanged(npc); }
 	void notifyTables() { emit tablesChanged(); }
 	void notifyFlag(int bit) { emit flagChanged(bit); }
@@ -50,6 +61,11 @@ signals:
 	void refused(const QString &why);
 
 private:
+	QString whyNot(int map, int item, bool forDelete) const;
+
 	World *world_ = nullptr;
 	QUndoStack undo_;
+	int held_ = 0;
+	int heldMap_ = -1, heldItem_ = -1;
+	bool heldAny_ = false;
 };

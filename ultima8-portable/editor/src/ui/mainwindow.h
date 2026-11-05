@@ -10,7 +10,9 @@
 class QAction;
 class QComboBox;
 class QDialog;
+class QDockWidget;
 class QLabel;
+class QSlider;
 class QSpinBox;
 class QTabWidget;
 class QTreeWidget;
@@ -20,6 +22,7 @@ class GameDataView;
 class ItemPanel;
 class MapView;
 class Minimap;
+class SearchPanel;
 class ShapeBrowser;
 class TransitionGraph;
 
@@ -70,6 +73,17 @@ private:
 	void mapChanged(int map, int item);
 	void editAction(int action);
 	void testInPort();
+	// The map's selection when it holds item on map, else just item.
+	QVector<int> selectionWith(int map, int item) const;
+	// The items on this map that go with the selected one: the doors a key opens, a door's keys,
+	// a teleport egg's partner.
+	void updateRelated();
+	// Names changed (given, read from a file, full or not): show them again.
+	void namesChanged();
+	void exportNames();
+	void importNames();
+	// Who stands on the map, by name, to tell maps apart.
+	QString peopleOn(int map) const;
 
 	std::unique_ptr<World> world_;
 	Editor *editor_;
@@ -82,12 +96,18 @@ private:
 	QTabWidget *tabs_;
 	QTreeWidget *maps_;
 	ItemPanel *panel_;
+	SearchPanel *search_;
+	QDockWidget *searchDock_;
 	QDialog *details_;
 	QLabel *status_;
 	QLabel *zoomLabel_;
 	QSpinBox *roof_;
 	QComboBox *snap_;
-	QAction *fixed_, *nonFixed_, *globs_, *npcs_, *eggs_, *invisible_, *ranges_, *labels_;
+	QAction *fixed_, *nonFixed_, *globs_, *npcs_, *eggs_, *invisible_, *ranges_, *labels_, *heights_;
+	QAction *xray_, *fullNames_;
+	QSpinBox *xrayHeight_, *xrayRadius_;
+	QSlider *xrayOpacity_[4];
+	QSlider *opacity_[4];
 	bool fillingList_ = false;
 	bool graphStale_ = false;
 };

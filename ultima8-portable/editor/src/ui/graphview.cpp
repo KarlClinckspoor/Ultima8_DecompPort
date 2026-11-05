@@ -19,15 +19,13 @@
 #include <cmath>
 
 #include "data/world.h"
+#include "ui/names.h"
 
 static const qreal NodeRadius = 24;
 
 QString TransitionGraph::mapLabel(int map)
 {
-	if (map < 0)
-		return QObject::tr("Usecode (any map)");
-	const QString name = QSettings().value(QStringLiteral("mapNames/%1").arg(map)).toString();
-	return name.isEmpty() ? QObject::tr("Map %1").arg(map) : QStringLiteral("%1 · %2").arg(map).arg(name);
+	return Names::mapLabel(map);
 }
 
 class GraphEdge : public QGraphicsPathItem
@@ -101,7 +99,7 @@ protected:
 		p->setFont(f);
 		p->drawText(QRectF(-NodeRadius, -NodeRadius, NodeRadius * 2, NodeRadius * 2), Qt::AlignCenter,
 			map_ < 0 ? QStringLiteral("UC") : QString::number(map_));
-		const QString name = QSettings().value(QStringLiteral("mapNames/%1").arg(map_)).toString();
+		const QString name = Names::mapName(map_);
 		const QString label = map_ < 0 ? QObject::tr("usecode, any map") : name;
 		if (!label.isEmpty())
 		{

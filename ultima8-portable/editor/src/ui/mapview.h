@@ -1,5 +1,7 @@
-// The map: drag to pan, wheel to zoom, click an item for its details. The selected item can be
-// dragged to move it (with Shift, up and down), and a shape from the browser can be placed.
+// The map: drag to pan, wheel to zoom, click an item for its details. The selected items can be
+// dragged to move them (with Shift, up and down), Ctrl+click and Ctrl+drag select several, a
+// right-click lists everything at and around the pointer, and a shape from the browser can be
+// placed.
 #pragma once
 
 #include <QImage>
@@ -25,6 +27,9 @@ public:
 
 	void setOptions(const LayerOptions &o);
 	const LayerOptions &options() const { return options_; }
+	// Seeing through what is above a height around the pointer; its center follows the mouse.
+	void setXRay(const XRay &x);
+	const XRay &xray() const { return xray_; }
 	// Moves go in steps of this many world units (1 for none).
 	void setSnap(int units) { snap_ = std::max(1, units); }
 	int snap() const { return snap_; }
@@ -42,8 +47,20 @@ public:
 	QPointF center() const { return center_; }
 	void centerOn(QPointF screen);
 	void showItem(int item, bool select);
+
+	// The selection: the primary item (shown in the Item window) and any others with it.
 	int selected() const { return selected_; }
+	const QVector<int> &selection() const { return selection_; }
+	// Selects one item (or none, with -1).
 	void select(int item);
+	// Makes item the primary one, keeping the others when it is one of them.
+	void setPrimary(int item);
+	void setSelection(const QVector<int> &items, int primary);
+	void toggleSelected(int item);
+	// Items drawn as related to the selection (outlined in cyan).
+	void setRelated(const QVector<int> &items);
+	// An item named in a list being looked at, drawn highlighted.
+	void setHighlight(int item);
 	QRectF visibleArea() const;
 
 	// The whole map, small, as the overview and minimap use it.
@@ -55,8 +72,11 @@ public:
 	QSize sizeHint() const override { return QSize(800, 600); }
 
 signals:
+	// The user made item the primary one (or cleared the selection, with -1).
 	void itemClicked(int item);
-	void moveRequested(int item, int dx, int dy, int dz);
+	void selectionChanged();
+	// Move the selection by this much.
+	void moveRequested(int dx, int dy, int dz);
 	void placeRequested(const MapItem &item);
 	void placingStopped();
 	void actionRequested(int action);
@@ -73,7 +93,7 @@ protected:
 	void keyPressEvent(QKeyEvent *) override;
 	void resizeEvent(QResizeEvent *) override;
 	void leaveEvent(QEvent *) override;
-	// The tooltip: what the item under the pointer calls itself (World::itemName).
+	// The tooltip: what the item under the pointer goes by (Names::itemName).
 	bool event(QEvent *) override;
 
 private:
@@ -81,25 +101,37 @@ private:
 	QPointF toMap(QPointF widget) const;
 	void remakeOverview();
 	// The move a drag of the mouse by delta (widget pixels) stands for, in world units.
-	void dragMove(QPointF delta, bool vertical, int &dx, int &dy, int &dz) const;
+	void dragMove(QPointF delta, bool vertical, bool fine, int &dx, int &dy, int &dz) const;
 	void updatePlacement(QPointF widget);
 	int snapped(int v) const;
+	int pickAt(QPointF widget) const;
+	// The list of what is at and around the pointer, to choose from.
+	void showPickMenu(QPoint widget);
+	const XRay *activeXRay() const { return xray_.on && xrayInside_ ? &xray_ : nullptr; }
 
 	MapRender render_;
 	LayerOptions options_;
+	XRay xray_;
+	bool xrayInside_ = false;
 	QImage overview_;
 	qreal overviewScale_ = 0.25;
 	QPointF center_;
 	qreal zoom_ = 1;
 	int selected_ = -1;
+	QVector<int> selection_;
+	QVector<int> related_;
+	int hovered_ = -1;
+	int highlight_ = -1;
 	int snap_ = 32;
 
-	enum Drag { None, Pan, MoveItem };
+	enum Drag { None, Pan, MoveItem, Band };
 	Drag drag_ = None;
 	bool moved_ = false;
 	QPoint pressAt_;
 	QPointF pressCenter_;
+	Qt::MouseButton pressButton_ = Qt::NoButton;
 	int dragDx_ = 0, dragDy_ = 0, dragDz_ = 0;
+	QRectF band_;	// screen pixels of the map
 
 	bool placing_ = false;
 	bool placeValid_ = false;

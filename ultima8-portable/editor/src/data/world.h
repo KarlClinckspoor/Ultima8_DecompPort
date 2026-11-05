@@ -86,6 +86,20 @@ struct EggInfo
 	static int monsterId(const MapItem &i) { return i.mapNum >> 3; }
 };
 
+// Doors and keys, as the keyring's use routine (usecode class KEYRING 79) reads them: a key
+// (KEY 82) opens a door (DOOR_NS 68, DOOR_EW 69, TDOOR_NS 340, TDOOR_EW 342) when the door's
+// quality's low byte is the key's quality. In the door's quality, 0x400 is the lock and 0x100
+// says it is open. A key of quality 0 is a blank; a keyring (79) holds keys.
+struct DoorInfo
+{
+	enum { KeyShape = 82, KeyringShape = 79, Locked = 0x400, Open = 0x100 };
+	static bool isDoor(int shape) { return shape == 68 || shape == 69 || shape == 340 || shape == 342; }
+	static bool isKey(int shape) { return shape == KeyShape; }
+	static int keyOf(const MapItem &door) { return door.quality & 0xff; }
+	static bool locked(const MapItem &door) { return door.quality & Locked; }
+	static bool open(const MapItem &door) { return door.quality & Open; }
+};
+
 struct MapData
 {
 	int number = 0;
@@ -143,8 +157,9 @@ public:
 	// The usecode class an item runs (spawnUnk): its NPC class, usecode egg class or shape.
 	int classOf(const MapItem &item) const;
 	QString describe(const MapItem &item) const;
-	// What the item calls itself when the Avatar looks at it (ItemNames), or empty.
-	QString itemName(int map, const MapItem &item) const;
+	// What the item calls itself when the Avatar looks at it (ItemNames), or empty: its full
+	// name, or the one the saved game's flags give.
+	QString itemName(int map, const MapItem &item, bool full = true) const;
 
 	// ---- Changing it ----
 
@@ -214,6 +229,7 @@ private:
 	mutable QVector<Transition> transitions_;
 	mutable bool transitionsStale_ = true;
 	mutable std::unique_ptr<ItemNames> names_;	// made when first asked, forgotten when flags change
+	mutable std::unique_ptr<ItemNames> fullNames_;
 	QSet<int> fixedDirty_;
 	QSet<int> nonFixedDirty_;
 	bool cacheDirty_ = false;

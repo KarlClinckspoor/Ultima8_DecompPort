@@ -221,7 +221,7 @@ QString ItemNames::look(int map, const MapItem &item, QString *why) const
 	const bool npc = classId >= NpcClassBase && classId < UsecodeEggClassBase;
 	const uint16_t referent = npc ? uint16_t(classId - NpcClassBase) : uint16_t(ItemReferent);
 	UcVm vm(usecode);
-	vm.setFlags(world_.flagBytes());
+	vm.setFlags(full_ ? QByteArray(World::FlagFileSize, char(0xff)) : world_.flagBytes());
 	NameHost host(world_, map, item, referent);
 	QString reason;
 	const bool finished = vm.runEvent(referent, classId, Ucode::EventLook, 0, host, &reason, 20000);
@@ -240,7 +240,9 @@ QString ItemNames::name(int map, const MapItem &item) const
 	auto it = cache_.constFind(key);
 	if (it != cache_.constEnd())
 		return *it;
-	const QString n = look(map, item, nullptr);
+	QString n = look(map, item, nullptr);
+	if (n.isEmpty() && full_)
+		n = world_.itemName(map, item, false);
 	cache_.insert(key, n);
 	return n;
 }

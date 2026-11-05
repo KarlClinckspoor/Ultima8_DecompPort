@@ -9,8 +9,9 @@ namespace
 class EditItem : public QUndoCommand
 {
 public:
-	EditItem(Editor *e, int map, int item, const MapItem &before, const MapItem &after, const QString &text)
-		: QUndoCommand(text), e_(e), map_(map), item_(item), before_(before), after_(after) {}
+	EditItem(Editor *e, int map, int item, const MapItem &before, const MapItem &after, const QString &text,
+		QUndoCommand *parent = nullptr)
+		: QUndoCommand(text, parent), e_(e), map_(map), item_(item), before_(before), after_(after) {}
 	void redo() override { apply(after_); }
 	void undo() override { apply(before_); }
 
@@ -28,8 +29,8 @@ private:
 class AddItem : public QUndoCommand
 {
 public:
-	AddItem(Editor *e, int map, const MapItem &item, int parent, const QString &text)
-		: QUndoCommand(text), e_(e), map_(map), item_(item), parent_(parent) {}
+	AddItem(Editor *e, int map, const MapItem &item, int parent, const QString &text, QUndoCommand *group = nullptr)
+		: QUndoCommand(text, group), e_(e), map_(map), item_(item), parent_(parent) {}
 	void redo() override
 	{
 		if (index_ < 0)
@@ -56,8 +57,8 @@ private:
 class DeleteItem : public QUndoCommand
 {
 public:
-	DeleteItem(Editor *e, int map, int item, const QString &text)
-		: QUndoCommand(text), e_(e), map_(map), item_(item) {}
+	DeleteItem(Editor *e, int map, int item, const QString &text, QUndoCommand *parent = nullptr)
+		: QUndoCommand(text, parent), e_(e), map_(map), item_(item) {}
 	void redo() override
 	{
 		e_->world()->setDeleted(map_, item_, true);
@@ -72,6 +73,28 @@ public:
 private:
 	Editor *e_;
 	int map_, item_;
+};
+
+// Several commands as one step; the views hear once, after the last.
+class Group : public QUndoCommand
+{
+public:
+	Group(Editor *e, const QString &text) : QUndoCommand(text), e_(e) {}
+	void redo() override
+	{
+		e_->hold();
+		QUndoCommand::redo();
+		e_->release();
+	}
+	void undo() override
+	{
+		e_->hold();
+		QUndoCommand::undo();
+		e_->release();
+	}
+
+private:
+	Editor *e_;
 };
 
 class EditNpc : public QUndoCommand
@@ -134,6 +157,167 @@ void Editor::setWorld(World *world)
 {
 	world_ = world;
 	undo_.clear();
+}
+
+void Editor::notifyMap(int map, int item)
+{
+	if (!held_)
+	{
+		emit mapChanged(map, item);
+		return;
+	}
+	// Remembers the last item that is still there, else just the map.
+	heldAny_ = true;
+	heldMap_ = map;
+	if (item >= 0)
+		heldItem_ = item;
+}
+
+void Editor::release()
+{
+	if (--held_ > 0 || !heldAny_)
+		return;
+	heldAny_ = false;
+	const int map = heldMap_;
+	int item = heldItem_;
+	heldItem_ = -1;
+	if (item >= 0 && (item >= int(world_->map(map).items.size()) || world_->map(map).items[item].deleted))
+		item = -1;
+	emit mapChanged(map, item);
+}
+
+QString Editor::whyNot(int map, int item, bool forDelete) const
+{
+	const QString why = world_->readOnlyReason(map, item);
+	if (!why.isEmpty())
+		return why;
+	if (forDelete && world_->map(map).items[item].source == MapItem::Npc)
+		return tr("NPCs cannot be deleted or copied; move them off the map (z 251) or to another map instead.");
+	return QString();
+}
+
+bool Editor::moveItems(int map, const QVector<int> &items, int dx, int dy, int dz)
+{
+	if (items.size() == 1)
+		return moveItem(map, items.first(), dx, dy, dz);
+	return editItems(map, items, [&](MapItem &f) {
+		f.x = uint16_t(std::clamp(int(f.x) + dx, 0, 0x7fff));
+		f.y = uint16_t(std::clamp(int(f.y) + dy, 0, 0x7fff));
+		f.z = uint8_t(std::clamp(int(f.z) + dz, 0, 0xfa));
+	}, tr("Move %n items", nullptr, int(items.size())));
+}
+
+bool Editor::editItems(int map, const QVector<int> &items, const std::function<void(MapItem &)> &change, const QString &what)
+{
+	if (!world_ || items.isEmpty())
+		return false;
+	auto *group = new Group(this, what);
+	QString refusal;
+	for (int item : items)
+	{
+		const QString why = whyNot(map, item, false);
+		if (!why.isEmpty())
+		{
+			refusal = why;
+			continue;
+		}
+		const MapItem &now = world_->map(map).items[item];
+		MapItem next = now;
+		change(next);
+		if (!now.sameRecord(next))
+			new EditItem(this, map, item, now, next, what, group);
+	}
+	if (!refusal.isEmpty())
+		emit refused(refusal);
+	if (group->childCount() == 0)
+	{
+		delete group;
+		return false;
+	}
+	undo_.push(group);
+	return true;
+}
+
+bool Editor::deleteItems(int map, const QVector<int> &items)
+{
+	if (!world_ || items.isEmpty())
+		return false;
+	if (items.size() == 1)
+		return deleteItem(map, items.first());
+	auto *group = new Group(this, tr("Delete %n items", nullptr, int(items.size())));
+	QString refusal;
+	const MapData &m = world_->map(map);
+	for (int item : items)
+	{
+		// What is inside a deleted container goes with it.
+		bool inside = false;
+		for (int p = m.items[item].parent; p >= 0 && !inside; p = m.items[p].parent)
+			inside = items.contains(p) && m.items[item].contained();
+		if (inside)
+			continue;
+		const QString why = whyNot(map, item, true);
+		if (!why.isEmpty())
+			refusal = why;
+		else
+			new DeleteItem(this, map, item, tr("Delete %1").arg(world_->describe(m.items[item])), group);
+	}
+	if (!refusal.isEmpty())
+		emit refused(refusal);
+	if (group->childCount() == 0)
+	{
+		delete group;
+		return false;
+	}
+	undo_.push(group);
+	return true;
+}
+
+QVector<int> Editor::duplicateItems(int map, const QVector<int> &items, int dx, int dy)
+{
+	QVector<int> out;
+	if (!world_ || items.isEmpty())
+		return out;
+	if (items.size() == 1)
+	{
+		const int added = duplicateItem(map, items.first(), dx, dy);
+		if (added >= 0)
+			out << added;
+		return out;
+	}
+	auto *group = new Group(this, tr("Copy %n items", nullptr, int(items.size())));
+	QVector<AddItem *> adds;
+	QString refusal;
+	for (int item : items)
+	{
+		const QString why = whyNot(map, item, true);
+		if (!why.isEmpty())
+		{
+			refusal = why;
+			continue;
+		}
+		MapItem copy = world_->map(map).items[item];
+		if (copy.contained())
+			continue;	// copied with its container, or not at all
+		if (world_->saveSource().isEmpty() && !world_->shapes().type(copy.shape).fixed)
+		{
+			refusal = tr("There is no saved game to put movable items in.");
+			continue;
+		}
+		copy.x = uint16_t(std::clamp(int(copy.x) + dx, 0, 0x7fff));
+		copy.y = uint16_t(std::clamp(int(copy.y) + dy, 0, 0x7fff));
+		adds << new AddItem(this, map, copy, -1, tr("Copy %1").arg(world_->describe(copy)), group);
+	}
+	if (!refusal.isEmpty())
+		emit refused(refusal);
+	if (adds.isEmpty())
+	{
+		delete group;
+		return out;
+	}
+	undo_.push(group);
+	for (AddItem *a : adds)
+		out << a->index();
+	return out;
 }
 
 bool Editor::editItem(int map, int item, const MapItem &fields, const QString &what)
