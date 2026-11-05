@@ -20,6 +20,8 @@ option(U8EDIT_TESTS "Build u8edit-tests" OFF)
 find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets)
 
 add_library(u8edit_core STATIC
+	src/data/disasm.cpp
+	src/data/disasm.h
 	src/data/flex.cpp
 	src/data/flex.h
 	src/data/gametables.cpp
@@ -69,6 +71,8 @@ add_library(u8edit_core STATIC
 	src/ui/shapebrowser.h
 	src/ui/translatedialog.cpp
 	src/ui/translatedialog.h
+	src/ui/usecodeview.cpp
+	src/ui/usecodeview.h
 )
 target_include_directories(u8edit_core PUBLIC src)
 # The manual (Help > Manual), built into the program.

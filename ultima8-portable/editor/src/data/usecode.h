@@ -62,6 +62,8 @@ public:
 
 	// Every read and write of a global flag, in class and offset order.
 	const QVector<FlagUse> &flagUses() const { return flagUses_; }
+	// Where the class's routines start: its events and the routines it calls itself, sorted.
+	QVector<int> routineStarts(int classId) const { return entries_.value(classId); }
 	// The routine an offset is in: the event's name ("use"), or "routine 1a2b".
 	QString routineAt(int classId, int offset) const;
 	// The strings the routine holding offset pushes, up to n before it and n after it.

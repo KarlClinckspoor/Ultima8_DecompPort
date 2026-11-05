@@ -21,6 +21,8 @@ public:
 	void reload();
 	// Shows only the flags this class uses.
 	void showClass(const QString &className);
+	// Shows only this flag.
+	void showFlag(int bit) { showClass(QString::number(bit)); }
 
 	// The name and notes kept for a flag, by this user (QSettings); the name falls back to
 	// one the editor knows.

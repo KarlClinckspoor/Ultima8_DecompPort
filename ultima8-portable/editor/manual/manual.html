@@ -37,6 +37,7 @@ a brown passage for why it is not certain.</p>
 <li><a href="#npcs">Characters</a></li>
 <li><a href="#tables">Weapons, armour and monsters</a></li>
 <li><a href="#files">Files and saving</a></li>
+<li><a href="#usecode">The usecode</a></li>
 </ol>
 
 <a name="start"></a>
@@ -64,8 +65,13 @@ the named people standing on it. Double-click a name, or press F2, to name a map
 <li><b>Game Data</b>: weapons, armour, monsters and the characters' numbers.</li>
 <li><b>Flags</b>: the story's global flags.</li>
 <li><b>Shapes</b> and <b>Search</b> (right): every shape, to place; and the search.</li>
-<li><b>Item</b> window (Ctrl+I): everything about the selected item; its Edit tab changes it.</li>
+<li><b>Item</b> (Ctrl+I): everything about the selected item; its Edit tab changes it. It is a
+dock like the others: drag its title bar to put it elsewhere, or out of the window; double-click
+the title bar to float it or dock it again.</li>
+<li><b>Usecode</b> (Ctrl+U): the game's scripts, class by class (<a href="#usecode">The usecode</a>).</li>
 </ul>
+<p>Where the docks are, and whether they float, is kept when the editor closes. View &gt; Reset the
+Layout puts them back where they start.</p>
 <p>The toolbars: Save, Undo and Redo; the layers (Fixed, Globs, Movable, NPCs, Eggs, Egg Ranges,
 Labels, Invisible, Heights); Roof below; Snap; Opacity; and X-ray with its height, radius and
 Fade.</p>
@@ -97,6 +103,8 @@ Fade.</p>
 <tr><td>H</td><td>show heights</td></tr>
 <tr><td>X</td><td>X-ray around the pointer</td></tr>
 <tr><td>Ctrl+F</td><td>search</td></tr>
+<tr><td>Ctrl+U</td><td>the Usecode tab</td></tr>
+<tr><td>Ctrl+I</td><td>the Item window</td></tr>
 <tr><td>F1</td><td>this manual</td></tr>
 </table>
 <p>On some Linux desktops Alt+drag moves the window rather than the item; Alt+arrows and the
@@ -216,7 +224,9 @@ flags); Nudge; and for a character, its numbers. Every field has a tooltip. When
 selected, the note at the top says so: moves, Copy, Delete and flipping apply to all of them, the
 fields only to this one.</p>
 <p>The <b>Details</b> tab shows everything about the item, with links (double-click) to its
-container, glob egg, contents, transitions, doors and keys.</p>
+container, glob egg, contents, transitions, doors and keys, and, under Usecode, to the routine of
+each event its class handles. <b>Usecode</b> (beside Show on map) opens the class the item runs in
+the Usecode tab; a monster egg's monster shape leads to the monster's class.</p>
 
 <a name="fields"></a>
 <h2>12. Fields and what they mean</h2>
@@ -441,6 +451,31 @@ cache, not from the .DAT files, when the cache holds that map.
 starts.</span> So when map 3 changes, the editor loads it into the cache again from the files it has just
 written, and marks no region as loaded, so the game puts the regions around the Avatar down itself.</p>
 <p>Writing a map back gives the same bytes it was read from, so a save changes only what was changed.</p>
+
+<a name="usecode"></a>
+<h2>20. The usecode</h2>
+<p>Most of the game is usecode: scripts in <code>USECODE/EUSECODE.FLX</code>, in classes. An item runs
+the class of its shape; a permanent character (NPC slot 1 to 255) runs class 1024 + its number; a
+usecode egg runs class 1151 + its quality. The engine sends a class events: 0 look, 1 use, 2 anim,
+4 cachein, 5 hit, 6 gotHit, 7 hatch, 8 schedule, 10 equip, 11 unequip, 12 combine, 15 and 16 when
+its area starts and stops running, 19 when the Avatar steals, and others.</p>
+<p>The <b>Usecode</b> tab lists every class with code: its number, name, the events it handles, and
+how many items on the maps run it (filter by number or name). A class's code is shown an
+instruction a line, the way the interpreter reads it (<code>u8/inter.cpp</code>):</p>
+<ul>
+<li>each routine starts with a yellow heading: the event it handles, or "routine" and its offset
+for one that is called (by the class itself or by others);</li>
+<li>each line has its offset, the instruction and its operands; intrinsic calls give the
+intrinsic's name (<code>Item::bark</code>, <code>teleportToEgg</code>...), strings are green;</li>
+<li>branches, calls and spawns are links: follow them to their target, in this class or another;</li>
+<li>a global flag read or written links to the Flags tab, showing that flag.</li>
+</ul>
+<p>Below the listing, <b>Items</b> lists every item on the maps that runs the class (double-click to
+show one), and <b>Called from</b> the other classes that call or spawn its routines.</p>
+<p>The usecode is a stack machine: values are pushed, operations take them off and push their
+result, <code>[bp-02]</code> is a local variable, and a call's result is read back with "push
+result" or "push temp". <span style="color:#b0702c" title="Inferred: the names of a few opcodes (give heap, set process info, exclusive) are read from what the interpreter does with them, which is not always plain.">The editor's names for a few rarely used
+instructions are its own reading of what the interpreter does.</span></p>
 
 </body>
 </html>

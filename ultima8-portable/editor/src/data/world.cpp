@@ -232,7 +232,7 @@ bool World::load(const QString &dataDir, const QString &savePath, QString *error
 		flags_ = save.file("FLAG.DAT");
 	}
 	flagsInSave_ = !flags_.isEmpty();
-	flags_.resize(FlagFileSize, '\0');	// GlobalFlag::load clears the rest
+	flags_ = flags_.leftJustified(FlagFileSize, '\0', true);	// GlobalFlag::load clears the rest
 	flagsDirty_ = false;
 	Flex nonFixed;
 	if (!nonFixedFile_.isEmpty())

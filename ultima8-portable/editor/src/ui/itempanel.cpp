@@ -23,9 +23,10 @@
 #include <algorithm>
 #include <functional>
 
+#include "data/ucode.h"
 #include "ui/names.h"
 
-enum { MapRole = Qt::UserRole, ItemRole };
+enum { MapRole = Qt::UserRole, ItemRole, ClassRole, EventRole };
 
 ItemPanel::ItemPanel(QWidget *parent) : QWidget(parent)
 {
@@ -52,6 +53,8 @@ ItemPanel::ItemPanel(QWidget *parent) : QWidget(parent)
 		const QVariant m = it->data(0, MapRole);
 		if (m.isValid())
 			emit goToItem(m.toInt(), it->data(0, ItemRole).toInt());
+		else if (it->data(0, ClassRole).isValid())
+			emit showUsecode(it->data(0, ClassRole).toInt(), it->data(0, EventRole).toInt());
 	});
 
 	editPage_ = new QWidget;
@@ -97,6 +100,13 @@ ItemPanel::ItemPanel(QWidget *parent) : QWidget(parent)
 	buttons->addWidget(center_);
 	buttons->addWidget(follow_);
 	buttons->addWidget(findButton_);
+	usecode_ = new QPushButton(tr("Usecode"));
+	usecode_->setToolTip(tr("The usecode class this item runs, in the Usecode tab"));
+	connect(usecode_, &QPushButton::clicked, this, [this] {
+		if (world_ && item_ >= 0)
+			emit showUsecode(world_->classOf(world_->map(map_).items[item_]), -1);
+	});
+	buttons->addWidget(usecode_);
 	buttons->addStretch();
 	buttons->addWidget(duplicate_);
 	buttons->addWidget(delete_);
@@ -192,6 +202,7 @@ void ItemPanel::showItem(const World *world, int map, int item)
 	const bool valid = world && item >= 0 && item < int(world->map(map).items.size()) &&
 		!world->map(map).items[item].deleted;
 	center_->setEnabled(valid);
+	usecode_->setEnabled(valid);
 	if (!valid)
 	{
 		item_ = -1;
@@ -350,6 +361,18 @@ void ItemPanel::fillDetails()
 	QString clsName = world->usecode().className(cls);
 	row(s, tr("Class"), clsName.isEmpty() ? QString::number(cls) : QStringLiteral("%1 (%2)").arg(clsName).arg(cls));
 	row(s, tr("Has code"), world->usecode().hasClass(cls) ? tr("yes") : tr("no"));
+	usecode_->setEnabled(world->usecode().hasClass(cls));
+	// Each event the class handles leads to its routine.
+	for (int e = 0; e < Ucode::EventCount; e++)
+		if (world->usecode().eventOffset(cls, e))
+		{
+			QTreeWidgetItem *r = row(s, tr("Event %1").arg(e),
+				Ucode::eventName(e).isEmpty() ? tr("(never sent)") : Ucode::eventName(e));
+			r->setData(0, ClassRole, cls);
+			r->setData(0, EventRole, e);
+			r->setForeground(1, QColor(110, 170, 255));
+			r->setToolTip(1, tr("Double-click for its routine in the Usecode tab"));
+		}
 
 	s = section(tr("Type"));
 	row(s, tr("Family"), familyName(t.family));
@@ -404,7 +427,14 @@ void ItemPanel::fillDetails()
 		row(s, tr("Hatch range"), tr("%1 x %2 (x32 units either side)").arg(EggInfo::xRange(it)).arg(EggInfo::yRange(it)));
 		const int ms = EggInfo::monsterShape(it);
 		QString mn = world->usecode().className(ms);
-		row(s, tr("Monster shape"), mn.isEmpty() ? QString::number(ms) : QStringLiteral("%1 (%2)").arg(mn).arg(ms));
+		QTreeWidgetItem *monster = row(s, tr("Monster shape"), mn.isEmpty() ? QString::number(ms) : QStringLiteral("%1 (%2)").arg(mn).arg(ms));
+		if (world->usecode().hasClass(ms))
+		{
+			monster->setData(0, ClassRole, ms);
+			monster->setData(0, EventRole, -1);
+			monster->setForeground(1, QColor(110, 170, 255));
+			monster->setToolTip(1, tr("Double-click for the monster's usecode"));
+		}
 		row(s, tr("Count"), QString::number(EggInfo::monsterCount(it)));
 		row(s, tr("Probability"), QString::number(EggInfo::monsterProb(it)));
 		row(s, tr("Activity"), QString::number(EggInfo::monsterActivity(it)));

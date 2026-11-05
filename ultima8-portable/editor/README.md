@@ -7,7 +7,8 @@ in the port.
 
 ## Building
 
-It needs Qt 6.2 or newer (Widgets only) and CMake. It is a project of its own, apart from the
+It needs Qt 6.2 or newer (Widgets only; built and tested with 6.2.4 on Ubuntu 22.04 and 6.12 on
+MSYS2) and CMake. It is a project of its own, apart from the
 game:
 
     cmake -S editor -B build/editor -DCMAKE_BUILD_TYPE=Release
@@ -205,7 +206,8 @@ when they differ from the original ones.
   keys of number N and the doors they open), `family:`, `class:` and `is:door`, `key`, `locked`,
   `egg`, `npc`, `invisible`, `contained`, `fixed`, `movable` narrow it. Double-click a result to
   show it.
-- **Item** window: the Edit tab changes the item: its position, shape, frame, quality, npcNum,
+- **Item** (a dock; drag it anywhere or float it, and the editor remembers; View > Reset the
+  Layout puts the docks back): the Edit tab changes the item: its position, shape, frame, quality, npcNum,
   mapNum and flags, and in plain terms what it does as an egg: a teleport egg's destination map,
   teleport id, fade and hatch range; a monster egg's monster, count, probability and activity; a
   usecode egg's type; a glob egg's glob. An NPC also shows its statistics. The Details tab shows
@@ -222,6 +224,11 @@ when they differ from the original ones.
   ways it stands for; double-click to go to the first. Double-click a map to open it. Drag maps
   to tidy the picture; the places are kept.
 - **Game Data**: the weapon, armour and monster tables and the NPCs' statistics, to type into.
+- **Usecode** (View > Usecode, Ctrl+U): every usecode class with its events and how many items
+  run it; a class's code disassembled an instruction a line (intrinsics by name, strings, flags),
+  with its branches, calls and spawns as links to follow and its flags linked to the Flags tab;
+  below it the items on the maps that run the class and the classes that call it. The Item
+  window's Usecode button, and its Details rows for each event, open an item's class there.
 - **Flags** (View > Flags, Ctrl+L): every global flag the usecode reads or writes (445 of
   them), with its value in the open saved game, the classes that read and write it, and a name
   and notes of your own (kept in the editor's settings, for you only; a few the editor knows

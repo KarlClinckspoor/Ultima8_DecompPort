@@ -60,8 +60,8 @@ UcVm::UcVm(const Usecode &usecode)
 
 void UcVm::setFlags(const QByteArray &flags)
 {
-	flags_ = flags;
-	flags_.resize(0x400, '\0');
+	// Padded or cut to 0x400 bytes (QByteArray::resize fills only from Qt 6.4).
+	flags_ = flags.leftJustified(0x400, '\0', true);
 }
 
 int16_t UcVm::word(const char *args, int at)

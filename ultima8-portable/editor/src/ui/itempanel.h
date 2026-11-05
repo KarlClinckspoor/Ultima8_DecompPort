@@ -49,6 +49,8 @@ signals:
 	void namesChanged();
 	// Search the whole game for this (SearchPanel).
 	void find(const QString &query);
+	// Show this usecode class, at an event's routine (-1: the top).
+	void showUsecode(int classId, int event);
 
 private:
 	// The item's name when it has one, then its class, shape and frame.
@@ -100,6 +102,7 @@ private:
 	QPushButton *center_;
 	QPushButton *follow_;
 	QPushButton *findButton_;
+	QPushButton *usecode_;
 	QString findQuery_;
 	int selectionCount_ = 1;
 	QPushButton *duplicate_;

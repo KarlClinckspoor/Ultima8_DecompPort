@@ -8,6 +8,7 @@
 // u8port.cfg), then asks. The switches after that are for testing and for pictures: they set up
 // a view, save it, and quit.
 
+#include <QAction>
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
@@ -23,6 +24,7 @@
 #include "ui/itempanel.h"
 #include "ui/mainwindow.h"
 #include "ui/mapview.h"
+#include "ui/usecodeview.h"
 
 static void darkPalette(QApplication &app)
 {
@@ -66,9 +68,10 @@ int main(int argc, char **argv)
 	QCommandLineOption size("size", "The window's size.", "wxh");
 	QCommandLineOption shot("shot", "Save the window to this PNG, then quit.", "file");
 	QCommandLineOption graph("graph", "Show the transitions tab.");
-	QCommandLineOption tab("tab", "Show a tab: map, transitions or data.", "name");
+	QCommandLineOption tab("tab", "Show a tab: map, transitions, data, flags or usecode.", "name");
+	QCommandLineOption usecodeClass("class", "Show this usecode class in the Usecode tab.", "n");
 	QCommandLineOption noEggs("no-eggs", "Start with eggs hidden.");
-	cl.addOptions({data, save, map, at, zoom, pick, roof, size, shot, graph, tab, noEggs});
+	cl.addOptions({data, save, map, at, zoom, pick, roof, size, shot, graph, tab, usecodeClass, noEggs});
 	cl.process(app);
 
 	QString dir = cl.value(data);
@@ -119,7 +122,17 @@ int main(int argc, char **argv)
 	if (cl.isSet(graph))
 		window.tabs()->setCurrentWidget(window.graph());
 	if (cl.isSet(tab))
-		window.tabs()->setCurrentIndex(QStringList{"map", "transitions", "data"}.indexOf(cl.value(tab).toLower()));
+	{
+		const QString want = cl.value(tab).toLower();
+		for (int i = 0; i < window.tabs()->count(); i++)
+			if (window.tabs()->tabText(i).toLower().startsWith(want == QLatin1String("data") ? QStringLiteral("game") : want))
+				window.tabs()->setCurrentIndex(i);
+	}
+	if (cl.isSet(usecodeClass))
+	{
+		window.tabs()->setCurrentWidget(window.usecodeView());
+		window.usecodeView()->showClass(cl.value(usecodeClass).toInt(0, 0));
+	}
 
 	// Positioning waits until the window has its size.
 	QTimer::singleShot(0, &window, [&] {

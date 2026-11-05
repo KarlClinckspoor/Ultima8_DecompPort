@@ -26,6 +26,7 @@ class Minimap;
 class SearchPanel;
 class ShapeBrowser;
 class TransitionGraph;
+class UsecodeView;
 
 class MainWindow : public QMainWindow
 {
@@ -46,6 +47,7 @@ public:
 	ShapeBrowser *shapeBrowser() const { return shapes_; }
 	Editor *editor() const { return editor_; }
 	QTabWidget *tabs() const { return tabs_; }
+	UsecodeView *usecodeView() const { return usecodeView_; }
 	void showDetails(int map, int item);
 	// The manual, at the section with this anchor (empty: the top).
 	void showManual(const QString &anchor);
@@ -101,8 +103,9 @@ private:
 	ItemPanel *panel_;
 	SearchPanel *search_;
 	ManualView *manual_ = nullptr;
+	UsecodeView *usecodeView_;
 	QDockWidget *searchDock_;
-	QDialog *details_;
+	QDockWidget *details_;
 	QLabel *status_;
 	QLabel *zoomLabel_;
 	QSpinBox *roof_;

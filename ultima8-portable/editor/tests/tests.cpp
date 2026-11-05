@@ -24,6 +24,11 @@
 #include "ui/mapview.h"
 #include "ui/searchpanel.h"
 #include "ui/manualview.h"
+#include "ui/usecodeview.h"
+#include "data/disasm.h"
+#include "data/ucode.h"
+
+#include <QTreeWidget>
 
 #include <QTextBlock>
 #include <QTextBrowser>
@@ -63,6 +68,14 @@ int npcItem(const World &w, int map, int npc)
 	return -1;
 }
 
+// A mouse move with buttons held, sent to the widget itself: QTest::mouseMove moves the cursor
+// instead in some Qt versions (6.2), which the offscreen platform never turns into an event.
+void mouseMove(QWidget *w, QPoint at, Qt::MouseButtons buttons = Qt::LeftButton)
+{
+	QMouseEvent e(QEvent::MouseMove, QPointF(at), QPointF(w->mapToGlobal(at)), Qt::NoButton, buttons, Qt::NoModifier);
+	QApplication::sendEvent(w, &e);
+}
+
 // A point in the view where the item is drawn, or (-1, -1).
 QPoint whereIs(MapView *view, int item)
 {
@@ -95,6 +108,7 @@ private slots:
 	void doorsAndKeys();
 	void picking();
 	void manual();
+	void usecodeListing();
 
 private:
 	QTemporaryDir temp_;
@@ -228,8 +242,8 @@ void Tests::editInWindow()
 	QCOMPARE(view->selected(), devon);
 	const MapItem before = w.map(3).items[devon];
 	QTest::mousePress(view, Qt::LeftButton, Qt::NoModifier, at);
-	QTest::mouseMove(view, at + QPoint(20, 10));
-	QTest::mouseMove(view, at + QPoint(40, 20));
+	mouseMove(view, at + QPoint(20, 10));
+	mouseMove(view, at + QPoint(40, 20));
 	QTest::mouseRelease(view, Qt::LeftButton, Qt::NoModifier, at + QPoint(40, 20));
 	const MapItem moved = w.map(3).items[devon];
 	QVERIFY(moved.x != before.x || moved.y != before.y);
@@ -517,6 +531,54 @@ void Tests::manual()
 		const QString target = m.next().captured(1);
 		QVERIFY2(html.contains(QStringLiteral("name=\"%1\"").arg(target)), qPrintable(target));
 	}
+}
+
+// Every class disassembles; KEY's look event names its keys with Item::bark, its use event spawns
+// KEYRING's routine, and the Usecode tab lists the keys on the maps as KEY's items.
+void Tests::usecodeListing()
+{
+	World w;
+	QString error;
+	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
+	const Usecode &u = w.usecode();
+	int classes = 0;
+	for (int k = 0; k < u.classCount(); k++)
+		if (u.hasClass(k))
+		{
+			QVector<Ucode::Line> lines;
+			QVERIFY2(Ucode::disassemble(u, k, &lines, &error), qPrintable(QStringLiteral("%1: %2").arg(k).arg(error)));
+			QVERIFY(!lines.isEmpty());
+			classes++;
+		}
+	QVERIFY(classes > 500);
+
+	QVector<Ucode::Line> key;
+	QVERIFY(Ucode::disassemble(u, DoorInfo::KeyShape, &key, &error));
+	bool lookHead = false, bark = false, blank = false, spawnsKeyring = false;
+	for (const Ucode::Line &l : key)
+	{
+		lookHead |= l.kind == Ucode::Line::Head && l.event == Ucode::EventLook;
+		bark |= l.note.startsWith(QLatin1String("Item::bark"));
+		blank |= l.note.contains(QLatin1String("key blank"));
+		spawnsKeyring |= l.op == QLatin1String("spawn") && l.callClass == DoorInfo::KeyringShape;
+	}
+	QVERIFY(lookHead);
+	QVERIFY(bark);
+	QVERIFY(blank);
+	QVERIFY(spawnsKeyring);
+	bool calledByKey = false;
+	for (const auto &c : Ucode::callers(u, DoorInfo::KeyringShape))
+		calledByKey |= c.first == DoorInfo::KeyShape;
+	QVERIFY(calledByKey);
+
+	UsecodeView view;
+	view.setWorld(&w);
+	view.showClass(DoorInfo::KeyShape, Ucode::EventUse);
+	QCOMPARE(view.currentClass(), int(DoorInfo::KeyShape));
+	QVERIFY(view.listing()->toPlainText().contains(QLatin1String("event 1: use")));
+	auto *items = view.findChildren<QTreeWidget *>().value(1);
+	QVERIFY(items);
+	QVERIFY(items->topLevelItemCount() > 0);
 }
 
 QTEST_MAIN(Tests)

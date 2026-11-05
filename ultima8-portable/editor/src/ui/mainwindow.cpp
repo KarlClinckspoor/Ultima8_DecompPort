@@ -43,6 +43,7 @@
 #include "ui/searchpanel.h"
 #include "ui/shapebrowser.h"
 #include "ui/translatedialog.h"
+#include "ui/usecodeview.h"
 
 enum { MapColumn, NameColumn, ItemsColumn, ExitsColumn, PeopleColumn };
 
@@ -87,16 +88,12 @@ MainWindow::MainWindow()
 	tabs_->addTab(gameData_, tr("Game Data"));
 	flags_ = new FlagsView(editor_);
 	tabs_->addTab(flags_, tr("Flags"));
+	usecodeView_ = new UsecodeView;
+	tabs_->addTab(usecodeView_, tr("Usecode"));
 	tabs_->setDocumentMode(true);
 	setCentralWidget(tabs_);
 
 	panel_ = new ItemPanel;
-	details_ = new QDialog(this, Qt::Tool);
-	details_->setWindowTitle(tr("Item"));
-	auto *dl = new QVBoxLayout(details_);
-	dl->setContentsMargins(4, 4, 4, 4);
-	dl->addWidget(panel_);
-	details_->resize(440, 720);
 
 	status_ = new QLabel;
 	zoomLabel_ = new QLabel;
@@ -166,6 +163,15 @@ MainWindow::MainWindow()
 		search_->run(query, true);
 	});
 	connect(search_, &SearchPanel::goToItem, this, [this](int map, int item) { goToItem(map, item, true); });
+	connect(panel_, &ItemPanel::showUsecode, this, [this](int classId, int event) {
+		tabs_->setCurrentWidget(usecodeView_);
+		usecodeView_->showClass(classId, event);
+	});
+	connect(usecodeView_, &UsecodeView::goToItem, this, [this](int map, int item) { goToItem(map, item, true); });
+	connect(usecodeView_, &UsecodeView::showFlag, this, [this](int bit) {
+		tabs_->setCurrentWidget(flags_);
+		flags_->showFlag(bit);
+	});
 	connect(graph_, &TransitionGraph::openMap, this, [this](int map) {
 		openMap(map);
 		tabs_->setCurrentWidget(view_);
@@ -297,6 +303,15 @@ void MainWindow::buildDocks()
 	addDockWidget(Qt::RightDockWidgetArea, searchDock_);
 	tabifyDockWidget(shapeDock, searchDock_);
 	shapeDock->raise();
+
+	// The Item window: a dock beside Shapes and Search, or floating where it was left (the
+	// window's state, docks included, is kept when the editor closes).
+	details_ = new QDockWidget(tr("Item"), this);
+	details_->setObjectName("item");
+	details_->setWidget(panel_);
+	details_->setMinimumWidth(320);
+	addDockWidget(Qt::RightDockWidgetArea, details_, Qt::Horizontal);
+	splitDockWidget(details_, shapeDock, Qt::Horizontal);
 }
 
 // A menu entry; QMenu::addAction's own overloads for this changed between Qt 6 versions.
@@ -530,9 +545,27 @@ void MainWindow::buildMenus()
 		details_->show();
 		details_->raise();
 	}, QKeySequence(Qt::CTRL | Qt::Key_I));
+	entry(viewMenu, tr("&Reset the Layout"), this, [this] {
+		// The docks back where they start: Maps and Minimap left, Item, then Shapes and Search right.
+		for (QDockWidget *d : findChildren<QDockWidget *>())
+		{
+			d->setFloating(false);
+			d->show();
+		}
+		QDockWidget *maps = findChild<QDockWidget *>("maps"), *mini = findChild<QDockWidget *>("minimap");
+		QDockWidget *shapes = findChild<QDockWidget *>("shapes");
+		addDockWidget(Qt::LeftDockWidgetArea, maps);
+		addDockWidget(Qt::LeftDockWidgetArea, mini);
+		addDockWidget(Qt::RightDockWidgetArea, details_);
+		addDockWidget(Qt::RightDockWidgetArea, shapes);
+		splitDockWidget(details_, shapes, Qt::Horizontal);
+		tabifyDockWidget(shapes, searchDock_);
+		shapes->raise();
+	});
 	entry(viewMenu, tr("&Transitions"), this, [this] { tabs_->setCurrentWidget(graph_); }, QKeySequence(Qt::CTRL | Qt::Key_T));
 	entry(viewMenu, tr("&Game Data"), this, [this] { tabs_->setCurrentWidget(gameData_); }, QKeySequence(Qt::CTRL | Qt::Key_G));
 	entry(viewMenu, tr("&Flags"), this, [this] { tabs_->setCurrentWidget(flags_); }, QKeySequence(Qt::CTRL | Qt::Key_L));
+	entry(viewMenu, tr("&Usecode"), this, [this] { tabs_->setCurrentWidget(usecodeView_); }, QKeySequence(Qt::CTRL | Qt::Key_U));
 	viewMenu->addSeparator();
 	fullNames_ = viewMenu->addAction(tr("F&ull Names"));
 	fullNames_->setCheckable(true);
@@ -632,6 +665,7 @@ bool MainWindow::loadWorld(const QString &dataDir, const QString &savePath, QStr
 	graphStale_ = false;
 	shapes_->setWorld(world_.get());
 	search_->setWorld(world_.get());
+	usecodeView_->setWorld(world_.get());
 	gameData_->reload();
 	flags_->reload();
 	if (!world_->notes().isEmpty())
@@ -724,6 +758,7 @@ void MainWindow::mapChanged(int map, int item)
 	}
 	else
 		panel_->refresh();
+	usecodeView_->itemsChanged();
 	updateRelated();
 	updateMapRow(map);
 	if (tabs_->currentWidget() == graph_)
@@ -927,13 +962,7 @@ void MainWindow::goToItem(int map, int item, bool details)
 void MainWindow::showDetails(int map, int item)
 {
 	panel_->showItem(world_.get(), map, item);
-	if (!details_->isVisible())
-	{
-		// First time: beside the window's right edge, over the map.
-		QPoint at = mapToGlobal(QPoint(width() - details_->width() - 24, 80));
-		details_->move(at);
-		details_->show();
-	}
+	details_->show();
 	details_->raise();
 }
 
