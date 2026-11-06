@@ -114,6 +114,7 @@ private slots:
 	void manual();
 	void usecodeListing();
 	void usecodeGraph();
+	void searchEveryMap();
 
 private:
 	QTemporaryDir temp_;
@@ -674,6 +675,40 @@ void Tests::usecodeGraph()
 		p.end();
 		img.save(png);
 	}
+}
+
+// A search of every map by a word: how long it takes, and the kind buttons leave items out.
+void Tests::searchEveryMap()
+{
+	World w;
+	QString error;
+	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
+	SearchPanel panel;
+	panel.setWorld(&w);
+	for (const char *query : {"door", "mushroom", "is:egg"})
+	{
+		QElapsedTimer t;
+		t.start();
+		panel.run(QString::fromLatin1(query), true);
+		QTRY_VERIFY_WITH_TIMEOUT(!panel.searching(), 300000);
+		qInfo("search \"%s\", every map: %d found in %lld ms", query, panel.found(), t.elapsed());
+		QVERIFY(panel.found() > 0);
+	}
+
+	// Leaving the glob items out finds fewer: the glob eggs' floors are on most maps.
+	panel.setKinds(SearchPanel::AllKinds);
+	panel.run(QStringLiteral("floor"), true);
+	QTRY_VERIFY_WITH_TIMEOUT(!panel.searching(), 300000);
+	const int all = panel.found();
+	QElapsedTimer t;
+	t.start();
+	panel.setKinds(SearchPanel::AllKinds & ~SearchPanel::Globs);
+	QTRY_VERIFY_WITH_TIMEOUT(!panel.searching(), 300000);
+	qInfo("search \"floor\": %d found, %d without globs (%lld ms)", all, panel.found(), t.elapsed());
+	QVERIFY(panel.found() < all);
+	panel.setKinds(SearchPanel::AllKinds);
+	QTRY_VERIFY_WITH_TIMEOUT(!panel.searching(), 300000);
+	QCOMPARE(panel.found(), all);
 }
 
 QTEST_MAIN(Tests)

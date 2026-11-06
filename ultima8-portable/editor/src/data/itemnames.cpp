@@ -200,10 +200,10 @@ private:
 	uint16_t referent_;
 };
 
-QString cacheKey(int map, const MapItem &item, int classId, uint16_t referent)
+QPair<quint64, quint64> cacheKey(int map, const MapItem &item, int classId, uint16_t referent)
 {
-	return QStringLiteral("%1/%2/%3/%4/%5/%6/%7/%8").arg(classId).arg(item.shape).arg(item.frame)
-		.arg(item.quality).arg(item.npcNum).arg(item.mapNum).arg(referent).arg(map);
+	return {quint64(uint16_t(classId)) << 48 | quint64(item.shape) << 32 | quint64(item.quality) << 16 | referent,
+		quint64(item.frame) << 48 | quint64(item.npcNum) << 40 | quint64(item.mapNum) << 32 | uint32_t(map)};
 }
 
 }
@@ -236,7 +236,7 @@ QString ItemNames::name(int map, const MapItem &item) const
 {
 	const int classId = world_.classOf(item);
 	const bool npc = classId >= NpcClassBase && classId < UsecodeEggClassBase;
-	const QString key = cacheKey(map, item, classId, npc ? uint16_t(classId - NpcClassBase) : uint16_t(ItemReferent));
+	const auto key = cacheKey(map, item, classId, npc ? uint16_t(classId - NpcClassBase) : uint16_t(ItemReferent));
 	auto it = cache_.constFind(key);
 	if (it != cache_.constEnd())
 		return *it;

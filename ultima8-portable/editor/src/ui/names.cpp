@@ -1,6 +1,7 @@
 #include "ui/names.h"
 
 #include <QFile>
+#include <QHash>
 #include <QObject>
 #include <QRegularExpression>
 #include <QSettings>
@@ -13,18 +14,66 @@
 namespace Names
 {
 
+namespace
+{
+
+// The names given, read from the settings once: a search asks for a name for every item in
+// the game, and on Windows each settings read is a registry read.
+struct Given
+{
+	QHash<int, QString> maps, shapes;
+	bool fullNames = true;
+};
+
+Given &given()
+{
+	static Given g = [] {
+		Given n;
+		QSettings s;
+		for (auto [group, names] : {std::pair{"mapNames", &n.maps}, std::pair{"shapeNames", &n.shapes}})
+		{
+			s.beginGroup(QLatin1String(group));
+			for (const QString &key : s.childKeys())
+			{
+				bool ok = false;
+				const int number = key.toInt(&ok);
+				if (ok)
+					names->insert(number, s.value(key).toString());
+			}
+			s.endGroup();
+		}
+		n.fullNames = s.value(QStringLiteral("fullNames"), true).toBool();
+		return n;
+	}();
+	return g;
+}
+
+void setGiven(QHash<int, QString> &names, const char *group, int number, const QString &name)
+{
+	QSettings s;
+	const QString key = QStringLiteral("%1/%2").arg(QLatin1String(group)).arg(number);
+	if (name.trimmed().isEmpty())
+	{
+		names.remove(number);
+		s.remove(key);
+	}
+	else
+	{
+		names.insert(number, name.trimmed());
+		s.setValue(key, name.trimmed());
+	}
+}
+
+}
+
 QString mapName(int map)
 {
-	return QSettings().value(QStringLiteral("mapNames/%1").arg(map)).toString();
+	return given().maps.value(map);
 }
 
 void setMapName(int map, const QString &name)
 {
-	QSettings s;
-	if (name.trimmed().isEmpty())
-		s.remove(QStringLiteral("mapNames/%1").arg(map));
-	else
-		s.setValue(QStringLiteral("mapNames/%1").arg(map), name.trimmed());
+	setGiven(given().maps, "mapNames", map, name);
 }
 
 QString mapLabel(int map)
@@ -43,25 +92,22 @@ QString mapShort(int map)
 
 QString shapeName(int shape)
 {
-	return QSettings().value(QStringLiteral("shapeNames/%1").arg(shape)).toString();
+	return given().shapes.value(shape);
 }
 
 void setShapeName(int shape, const QString &name)
 {
-	QSettings s;
-	if (name.trimmed().isEmpty())
-		s.remove(QStringLiteral("shapeNames/%1").arg(shape));
-	else
-		s.setValue(QStringLiteral("shapeNames/%1").arg(shape), name.trimmed());
+	setGiven(given().shapes, "shapeNames", shape, name);
 }
 
 bool fullNames()
 {
-	return QSettings().value(QStringLiteral("fullNames"), true).toBool();
+	return given().fullNames;
 }
 
 void setFullNames(bool full)
 {
+	given().fullNames = full;
 	QSettings().setValue(QStringLiteral("fullNames"), full);
 }
 

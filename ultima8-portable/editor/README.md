@@ -205,7 +205,9 @@ when they differ from the original ones.
   `frame:`, `q:`, `npc:`, `mapnum:`, `id:` (teleport, usecode or monster egg id), `key:N` (the
   keys of number N and the doors they open), `family:`, `class:` and `is:door`, `key`, `locked`,
   `egg`, `npc`, `invisible`, `contained`, `fixed`, `movable` narrow it. Double-click a result to
-  show it.
+  show it. The Look in buttons (Fixed, Globs, Movable, NPCs) leave kinds of item out: glob items
+  are most of the items on many maps. A long search runs in slices, so the window keeps
+  answering, and Find turns into Stop while it runs.
 - **Item** (a dock; drag it anywhere or float it, and the editor remembers; View > Reset the
   Layout puts the docks back): the Edit tab changes the item: its position, shape, frame, quality, npcNum,
   mapNum and flags, and in plain terms what it does as an egg: a teleport egg's destination map,

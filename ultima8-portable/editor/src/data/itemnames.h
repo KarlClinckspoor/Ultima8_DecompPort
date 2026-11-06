@@ -10,6 +10,7 @@
 #pragma once
 
 #include <QHash>
+#include <QPair>
 #include <QString>
 
 class World;
@@ -30,5 +31,6 @@ public:
 private:
 	const World &world_;
 	bool full_;
-	mutable QHash<QString, QString> cache_;
+	// By class, shape, frame, quality, npcNum, mapNum, referent and map.
+	mutable QHash<QPair<quint64, quint64>, QString> cache_;
 };
