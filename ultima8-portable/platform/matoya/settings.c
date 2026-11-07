@@ -17,7 +17,7 @@
 #include "vgafont8.h"
 
 #define PANEL_COLUMNS 56
-#define PANEL_ROWS 23
+#define PANEL_ROWS 28
 /* Pixels from one text row to the next at scale 1: the 8-pixel font and a gap. */
 #define LINE 10
 #define VALUE_COLUMN 26
@@ -31,7 +31,7 @@
 #define C_SELECT 0xF2C66Du
 #define C_DIM 0xB9A77Fu
 
-enum { R_MUSIC, R_ROMS, R_VOLUME, R_FULLSCREEN, R_SCALE, R_ASPECT, R_INTEGER, R_DATA, R_HOME,
+enum { R_MUSIC, R_ROMS, R_VOLUME, R_FULLSCREEN, R_SCALE, R_ASPECT, R_INTEGER, R_FOOTPADS, R_FOOTCOLORS, R_EGGS, R_REDRAW, R_DATA, R_HOME,
 	R_RECORD, R_AT_START, R_COUNT };
 
 enum { K_SWITCH, K_LIST, K_SLIDER, K_INFO };
@@ -61,6 +61,18 @@ static const row_def rows[R_COUNT] = {
 	[R_INTEGER] = {1, K_SWITCH, "Whole-number scaling", false,
 		"Scales by whole multiples only, so every pixel is the same size; off fills the "
 		"window. --no-integer for one run."},
+	[R_FOOTPADS] = {2, K_SWITCH, "Collision boxes", false,
+		"Draws every item's footpad (the box the game collides with) as a white wireframe, as "
+		"the cheat window's Footpads toggle did. Display only; close this screen to see it."},
+	[R_FOOTCOLORS] = {2, K_SWITCH, "Coloured faces", false,
+		"With Collision boxes on, draws each box's bottom face blue and its top face orange, "
+		"with the corner posts grey, as the editor does."},
+	[R_EGGS] = {2, K_SWITCH, "Egg areas", false,
+		"Draws the diamond each egg (trigger, monster, teleport...) reacts to, as the cheat "
+		"window's Egg Bounds toggle did. Display only."},
+	[R_REDRAW] = {2, K_SWITCH, "Redraw areas", false,
+		"Fills each part of the screen the game is about to redraw with a flat colour, as the "
+		"cheat window's U toggle did. For debugging the renderer. Display only."},
 	[R_DATA] = {2, K_INFO, "Game folder", true,
 		"The folder with STATIC and USECODE: --data, else U8_DATA, else data= in u8port.cfg, "
 		"else the folder the program is in."},
@@ -84,6 +96,8 @@ static int volume = 100;
 static int scale = 3;
 static bool aspect = true;
 static bool integer = true;
+static const char *const debug_keys[PLAT_DEBUG_COUNT] = {"footpads", "footpad-colors", "egg-areas", "redraw-areas"};
+static MTY_Atomic32 debug_view[PLAT_DEBUG_COUNT];   /* read on the game thread */
 static int cell;                /* the font's scale, as last drawn */
 static int origin_x, origin_y;  /* the panel's corner, in canvas pixels */
 static MTY_App *last_app;
@@ -104,6 +118,13 @@ void settings_init(void)
 	scale = o->scale >= 1 && o->scale <= 8 ? o->scale : setting_int("scale", 3, 1, 8);
 	aspect = o->no_aspect ? false : setting_bool("aspect", true);
 	integer = o->no_integer ? false : setting_bool("integer", true);
+	for (int i = 0; i < PLAT_DEBUG_COUNT; i++)
+		MTY_Atomic32Set(&debug_view[i], setting_bool(debug_keys[i], false));
+}
+
+bool plat_debug(int which)
+{
+	return which >= 0 && which < PLAT_DEBUG_COUNT && MTY_Atomic32Get(&debug_view[which]) != 0;
 }
 
 bool settings_open(void)
@@ -233,6 +254,12 @@ static void value_text(int r, char *out, size_t size)
 	case R_INTEGER:
 		snprintf(out, size, "%s", integer ? "On" : "Off");
 		break;
+	case R_FOOTPADS:
+	case R_FOOTCOLORS:
+	case R_EGGS:
+	case R_REDRAW:
+		snprintf(out, size, "%s", plat_debug(r - R_FOOTPADS) ? "On" : "Off");
+		break;
 	case R_DATA:
 		snprintf(out, size, "%s", files_root());
 		break;
@@ -298,6 +325,13 @@ static void change(int r, int way)
 	case R_INTEGER:
 		integer = !integer;
 		setting_set_bool("integer", integer);
+		break;
+	case R_FOOTPADS:
+	case R_FOOTCOLORS:
+	case R_EGGS:
+	case R_REDRAW:
+		MTY_Atomic32Set(&debug_view[r - R_FOOTPADS], !plat_debug(r - R_FOOTPADS));
+		setting_set_bool(debug_keys[r - R_FOOTPADS], plat_debug(r - R_FOOTPADS));
 		break;
 	case R_RECORD:
 		setting_set_bool("recording", !setting_bool("recording", true));

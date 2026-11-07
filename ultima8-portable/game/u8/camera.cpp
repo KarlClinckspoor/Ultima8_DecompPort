@@ -2,6 +2,7 @@
 // name: CAMERA.C
 
 #include "u8port.h"
+#include "plat.h"
 
 // #include <dos.h>  (DOS only)
 #include <stdlib.h>
@@ -18,6 +19,7 @@
 #include "cvport.h"
 #include "dispatch.h"
 #include "dlitem.h"
+#include "egg.h"
 #include "error.h"
 #include "irgump.h"
 #include "motrak.h"
@@ -943,6 +945,22 @@ void Camera::position(void)
 void Camera::show(void)
 {
 	position();
+	// The port's settings screen switches the debug views; the cheat window's keys still work.
+	static bool lastPlat[PLAT_DEBUG_COUNT];
+	for (int i = 0; i < PLAT_DEBUG_COUNT; i++)
+	{
+		if (plat_debug(i) == lastPlat[i])
+			continue;
+		lastPlat[i] = plat_debug(i);
+		switch (i)
+		{
+		case PLAT_DEBUG_FOOTPADS: DL_ItemNode::showFootpads = lastPlat[i]; break;
+		case PLAT_DEBUG_EGGS: EggHatcher::eggOutlineVisible = lastPlat[i]; break;
+		case PLAT_DEBUG_FOOTCOLORS: break;
+		case PLAT_DEBUG_REDRAW: drawUgliKolur = lastPlat[i]; break;
+		}
+		_drawn = 0;
+	}
 	if (DL_ItemNode::showFootpads != lastShowFootpads)
 	{
 		_drawn = 0;

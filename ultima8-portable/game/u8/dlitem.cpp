@@ -2,6 +2,7 @@
 // name: DLITEM.C
 
 #include "u8port.h"
+#include "plat.h"
 
 
 #include "item.h"
@@ -42,6 +43,26 @@ public:
 
 U8_INLINE Item itemOf(Referent r) { return NodeItem(r); }
 
+
+// The palette entry nearest an RGB colour (8-bit), as the DAC holds it now; looked up again
+// about twice a second, since the game fades and changes its palette.
+static uint8_t nearestColour(int r, int g, int b)
+{
+	uint8_t rgb[256 * 3];
+	int best = 15, bestDistance = 1 << 30;
+	plat_video_get_palette(0, 256, rgb);
+	for (int i = 0; i < 256; i++)
+	{
+		int dr = (rgb[i * 3] << 2) - r, dg = (rgb[i * 3 + 1] << 2) - g, db = (rgb[i * 3 + 2] << 2) - b;
+		int d = dr * dr + dg * dg + db * db;
+		if (d < bestDistance)
+		{
+			bestDistance = d;
+			best = i;
+		}
+	}
+	return (uint8_t)best;
+}
 
 uint8_t DL_ItemNode::showFootpads = 0;
 uint8_t DL_ItemNode::footpadTargetMode = 0;
@@ -134,6 +155,33 @@ void DL_ItemNode::draw(void)
 		DrawLine(&DisplayList::vport, sx, sy - zd, sx - xd, sy - (xd >> 1) - zd, 15);
 		DrawLine(&DisplayList::vport, sx - xd + yd, sy - (xd >> 1) - (yd >> 1) - zd, sx + yd, sy - (yd >> 1) - zd, 15);
 		DrawLine(&DisplayList::vport, sx - xd + yd, sy - (xd >> 1) - (yd >> 1) - zd, sx - xd, sy - (xd >> 1) - zd, 15);
+		if (plat_debug(PLAT_DEBUG_FOOTCOLORS))
+		{
+			// The editor's colours: bottom face blue, top face orange, the corner posts grey. The
+			// outline above is drawn again, and the edges it leaves out are added.
+			static uint8_t blue, orange, grey;
+			static uint32_t looked = 0;
+			if (!looked || plat_ticks() - looked > 30)
+			{
+				looked = plat_ticks() | 1;
+				blue = nearestColour(80, 160, 255);
+				orange = nearestColour(255, 170, 60);
+				grey = nearestColour(230, 230, 230);
+			}
+			int16_t fx = sx - xd + yd, fy = sy - (xd >> 1) - (yd >> 1);
+			DrawLine(&DisplayList::vport, sx, sy, sx + yd, sy - (yd >> 1), blue);
+			DrawLine(&DisplayList::vport, sx, sy, sx - xd, sy - (xd >> 1), blue);
+			DrawLine(&DisplayList::vport, fx, fy, sx + yd, sy - (yd >> 1), blue);
+			DrawLine(&DisplayList::vport, fx, fy, sx - xd, sy - (xd >> 1), blue);
+			DrawLine(&DisplayList::vport, sx, sy - zd, sx + yd, sy - (yd >> 1) - zd, orange);
+			DrawLine(&DisplayList::vport, sx, sy - zd, sx - xd, sy - (xd >> 1) - zd, orange);
+			DrawLine(&DisplayList::vport, fx, fy - zd, sx + yd, sy - (yd >> 1) - zd, orange);
+			DrawLine(&DisplayList::vport, fx, fy - zd, sx - xd, sy - (xd >> 1) - zd, orange);
+			DrawLine(&DisplayList::vport, sx, sy, sx, sy - zd, grey);
+			DrawLine(&DisplayList::vport, sx + yd, sy - (yd >> 1), sx + yd, sy - (yd >> 1) - zd, grey);
+			DrawLine(&DisplayList::vport, sx - xd, sy - (xd >> 1), sx - xd, sy - (xd >> 1) - zd, grey);
+			DrawLine(&DisplayList::vport, fx, fy, fx, fy - zd, grey);
+		}
 	}
 }
 

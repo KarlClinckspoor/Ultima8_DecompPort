@@ -55,6 +55,16 @@ int16_t plat_console_y(void);
 typedef uint64_t (*plat_digest_fn)(void);
 void plat_set_state_digest(plat_digest_fn fn);
 
+/* The settings screen's debug views, which the game polls from its main loop. Display only. */
+enum {
+	PLAT_DEBUG_FOOTPADS,    /* every item's footpad (collision box) as a wireframe */
+	PLAT_DEBUG_FOOTCOLORS,  /* ... with the bottom face blue, the top orange (needs footpads) */
+	PLAT_DEBUG_EGGS,        /* the area each egg reacts to */
+	PLAT_DEBUG_REDRAW,      /* the parts of the screen the game redraws, in a flat colour */
+	PLAT_DEBUG_COUNT
+};
+bool plat_debug(int which);
+
 /* ---- Time ---- */
 
 #define PLAT_TICKS_PER_SECOND 60
