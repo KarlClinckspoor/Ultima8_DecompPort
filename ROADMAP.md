@@ -209,6 +209,15 @@ compiler is not available); it only has to be correct, and tested semantically b
   labels for jump targets, far calls, string/data section, class header, event table, the debug
   unit opcode (0x5c) operands. Test: all classes of the shipped `EUSECODE.FLX` round trip
   byte for byte, and so does the Portuguese/other language packs the editor makes.
+- **W3b status (2026-11-09): decompiler in C++, `editor/src/data/ucdecomp.{h,cpp}`, test `usecodeDecompile`.**
+  **1562 of 1578 routines (99.0%)** of the shipped game decompile to C-like text; the rest stay as assembly
+  (12 `spawn_inline`, 2 stack-not-empty-at-branch, 1 `store_list_element`, 1 goto). It lifts expressions,
+  `if`/`else`, `while`, endless loops, `break`/`continue`/`return`, `foreach (x in list)`,
+  `foreach (item in search_...)`, `await` and `implies(A, B)`, list `^`/`-`/`in`/element. `U8_DECOMP_OUT=<dir>`
+  in the test run writes every class's text for reading. The comparison opcodes in `ucasm.cpp` were
+  named the wrong way round (0x28 is a<b by the interpreter): fixed. Not yet proven right: nothing
+  recompiles the text, so a lifted routine is only checked by reading it; W3c's recompile/compare is the proof.
+  Original description:
 - **W3b. Decompiler (L).** Stack-machine code to expressions (the stack temporaries are the hard
   part), control-flow structuring (`if/else`, `while`, `for`, `switch` if the original has jump
   tables, early `return`), typed locals and parameters (int, long, pointer, string, list), calls

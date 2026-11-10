@@ -20,6 +20,7 @@ namespace Ucasm
 namespace
 {
 
+// The comparisons follow the interpreter (u8/inter.cpp): 0x28 is a < b, with a pushed first.
 // Operand fields, one letter each, in the order the bytes come:
 //   b s8   B u8   w s16   W u16   l u32 (hex)
 //   r  a 16 bit branch distance from the instruction's end, written as a label
@@ -45,9 +46,9 @@ const OpDef defs[] = {
 	{0x17, "concat_lists", ""}, {0x18, "list_xor", "B"}, {0x19, "string_list_xor", "B"},
 	{0x1a, "string_list_subtract", "B"}, {0x1b, "list_subtract", "B"}, {0x1c, "sub", ""}, {0x1d, "sub_long", ""},
 	{0x1e, "mul", ""}, {0x1f, "mul_long", ""}, {0x20, "div", ""}, {0x21, "div_long", ""}, {0x22, "mod", ""},
-	{0x23, "mod_long", ""}, {0x24, "eq", ""}, {0x25, "eq_long", ""}, {0x26, "eq_strings", ""}, {0x28, "gt", ""},
-	{0x29, "gt_long", ""}, {0x2a, "ge", ""}, {0x2b, "ge_long", ""}, {0x2c, "lt", ""}, {0x2d, "lt_long", ""},
-	{0x2e, "le", ""}, {0x2f, "le_long", ""}, {0x30, "not", ""}, {0x31, "not_long", ""}, {0x32, "and", ""},
+	{0x23, "mod_long", ""}, {0x24, "eq", ""}, {0x25, "eq_long", ""}, {0x26, "eq_strings", ""}, {0x28, "lt", ""},
+	{0x29, "lt_long", ""}, {0x2a, "le", ""}, {0x2b, "le_long", ""}, {0x2c, "gt", ""}, {0x2d, "gt_long", ""},
+	{0x2e, "ge", ""}, {0x2f, "ge_long", ""}, {0x30, "not", ""}, {0x31, "not_long", ""}, {0x32, "and", ""},
 	{0x33, "and_long", ""}, {0x34, "or", ""}, {0x35, "or_long", ""}, {0x36, "ne", ""}, {0x37, "ne_long", ""},
 	{0x38, "in_list", "bb"}, {0x39, "bit_and", ""}, {0x3a, "bit_or", ""}, {0x3b, "bit_not", ""},
 	{0x3c, "shift_left", ""}, {0x3d, "shift_right", ""}, {0x3e, "push_byte_local", "b"}, {0x3f, "push_local", "b"},
@@ -167,7 +168,8 @@ QString mnemonic(uint8_t opcode)
 	return d ? QString::fromLatin1(d->name) : genericName(opcode);
 }
 
-QString print(const QByteArray &record, int classId, const Usecode *names, QString *error)
+static QString printImpl(const QByteArray &record, int classId, const Usecode *names, QString *error,
+	bool header, int from, int to)
 {
 	if (record.size() < 12 + 0x80)
 	{
@@ -240,9 +242,13 @@ QString print(const QByteArray &record, int classId, const Usecode *names, QStri
 		out += QChar('\n');
 	}
 	out += QStringLiteral("code\n");
+	if (!header)
+		out.clear();
 
 	for (const auto &i : ins)
 	{
+		if (i.at < from || i.at >= to)
+			continue;
 		if (labels.contains(i.at))
 			out += label(i.at) + QStringLiteral(":\n");
 		const OpDef *d = byOpcode(i.op);
@@ -322,9 +328,60 @@ QString print(const QByteArray &record, int classId, const Usecode *names, QStri
 		if (i.op == 0x79)
 			out += QChar('\n');
 	}
-	if (labels.contains(c.size()))
+	if (labels.contains(c.size()) && to >= c.size())
 		out += label(c.size()) + QStringLiteral(":\n");
 	return out;
+}
+
+QString print(const QByteArray &record, int classId, const Usecode *names, QString *error)
+{
+	return printImpl(record, classId, names, error, true, 0, 0x7fffffff);
+}
+
+QString printRange(const QByteArray &record, int classId, int from, int to)
+{
+	return printImpl(record, classId, nullptr, nullptr, false, from, to);
+}
+
+bool decodeInsns(const QByteArray &code, QVector<Insn> *out, QString *error)
+{
+	std::vector<Ucode::Instruction> ins;
+	if (!Ucode::decode(code, &ins, error))
+		return false;
+	out->clear();
+	for (const auto &i : ins)
+	{
+		Insn r;
+		r.at = i.at;
+		r.size = i.size;
+		r.op = i.op;
+		const OpDef *d = byOpcode(i.op);
+		r.name = d ? QString::fromLatin1(d->name) : genericName(i.op);
+		int p = i.at + 1;
+		if (!d)
+		{
+			for (; p < i.at + i.size; p++)
+				r.args << uint8_t(code[p]);
+		}
+		else
+		{
+			for (const char *f = d->fields; *f; f++)
+			{
+				switch (*f)
+				{
+				case 'b': r.args << int8_t(code[p]); p += 1; break;
+				case 'B': r.args << uint8_t(code[p]); p += 1; break;
+				case 'w': case 'r': case 'd': r.args << s16(code, p); p += 2; break;
+				case 'W': case 'h': case 'c': case 'o': case 'p': r.args << u16(code, p); p += 2; break;
+				case 'l': r.args << u32(code, p); p += 4; break;
+				case 's': r.text = code.mid(i.at + 3, i.size - 4); p = i.at + i.size; break;
+				case 'U': r.args << u16(code, p); r.text = code.mid(p + 2, 9); p += 11; break;
+				}
+			}
+		}
+		out->append(r);
+	}
+	return true;
 }
 
 namespace

@@ -25,6 +25,8 @@
 #include <QByteArray>
 #include <QString>
 
+#include <QVector>
+
 class Usecode;
 
 namespace Ucasm
@@ -36,6 +38,22 @@ QString print(const QByteArray &record, int classId, const Usecode *names, QStri
 
 // Text to a flex record. *classId is the class the text names.
 QByteArray assemble(const QString &text, int *classId, QString *error);
+
+// The instructions of a class's code (a record after its 12 byte header), with their operands in
+// field order: numbers as the assembly text gives them, a string's bytes in text.
+struct Insn
+{
+	int at = 0;
+	int size = 0;
+	uint8_t op = 0;
+	QString name;
+	QVector<int64_t> args;
+	QByteArray text;
+};
+bool decodeInsns(const QByteArray &code, QVector<Insn> *out, QString *error);
+
+// The instruction lines (and their labels) of the code between two offsets, as print gives them.
+QString printRange(const QByteArray &record, int classId, int from, int to);
 
 // The mnemonic of an opcode ("push_string", or "op_27" for one the game never uses).
 QString mnemonic(uint8_t opcode);

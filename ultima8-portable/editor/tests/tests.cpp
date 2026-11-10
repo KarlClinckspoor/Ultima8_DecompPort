@@ -27,6 +27,7 @@
 #include "ui/usecodeview.h"
 #include "ui/usecodegraph.h"
 #include "data/ucasm.h"
+#include "data/ucdecomp.h"
 
 #include <QGraphicsScene>
 #include <QPainter>
@@ -116,6 +117,7 @@ private slots:
 	void usecodeListing();
 	void usecodeGraph();
 	void usecodeAssembly();
+	void usecodeDecompile();
 	void searchEveryMap();
 
 private:
@@ -610,6 +612,62 @@ void Tests::usecodeAssembly()
 		}
 	QVERIFY(moved > 0);
 	QCOMPARE(Ucasm::assemble(Ucasm::print(longer, key, &u, &error), &id, &error), longer);
+}
+
+// The decompiler lifts most routines of the game to C-like text and leaves the rest as assembly;
+// the lifted text of a few known routines is what the code does.
+void Tests::usecodeDecompile()
+{
+	World w;
+	QString error;
+	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
+	const Usecode &u = w.usecode();
+	int lifted = 0, total = 0;
+	QHash<QString, int> why;
+	for (int k = 0; k < u.classCount(); k++)
+	{
+		if (!u.hasClass(k))
+			continue;
+		QVector<Ucdecomp::Routine> routines;
+		QVERIFY2(Ucdecomp::decompile(u.record(k), k, &routines, &error), qPrintable(error));
+		for (const auto &r : routines)
+		{
+			total++;
+			if (r.lifted)
+				lifted++;
+			else
+				why[r.why.section(QChar(' '), 0, 1)]++;
+		}
+	}
+	QStringList reasons;
+	for (auto it = why.cbegin(); it != why.cend(); ++it)
+		reasons << QStringLiteral("%1 %2").arg(it.value()).arg(it.key());
+	qInfo("%d of %d routines lifted; not lifted: %s", lifted, total, qPrintable(reasons.join(QStringLiteral(", "))));
+	QVERIFY(total > 1500);
+	QVERIFY(lifted * 100 / total >= 98);
+
+	// U8_DECOMP_OUT=<folder> writes every class's text there, to read.
+	const QString outDir = qEnvironmentVariable("U8_DECOMP_OUT");
+	if (!outDir.isEmpty())
+	{
+		QDir().mkpath(outDir);
+		for (int k = 0; k < u.classCount(); k++)
+			if (u.hasClass(k))
+			{
+				QFile f(QDir(outDir).filePath(QStringLiteral("%1_%2.uc").arg(k, 4, 10, QLatin1Char('0')).arg(u.className(k))));
+				if (f.open(QIODevice::WriteOnly))
+					f.write(Ucdecomp::classText(u.record(k), k, &u, &error).toUtf8());
+			}
+	}
+	const QString egg = Ucdecomp::classText(u.record(1181), 1181, &u, &error);
+	QVERIFY(egg.contains(QStringLiteral("if (Egg::getEggId(arg_6) == 1) {\n        return;\n    }")));
+	QVERIFY(egg.contains(QStringLiteral("await spawn 1409::1c19(0, 60);")));
+	QVERIFY(egg.contains(QStringLiteral("await Item::hurl(&local_2, 0, 0, 0, 4);")));
+	const QString stalag = Ucdecomp::classText(u.record(330), 330, &u, &error);
+	QVERIFY(stalag.contains(QStringLiteral("await Item::bark(arg_6, \"stalactite \");")));
+	QVERIFY(stalag.contains(QStringLiteral("while (local_2 <= 10) {")));
+	const QString keyring = Ucdecomp::classText(u.record(DoorInfo::KeyringShape), DoorInfo::KeyringShape, &u, &error);
+	QVERIFY(keyring.contains(QStringLiteral("foreach (local_2 in search_container(")));
 }
 
 // Every class disassembles; KEY's look event names its keys with Item::bark, its use event spawns
