@@ -34,6 +34,8 @@ add_library(u8edit_core STATIC
 	src/data/itemnames.h
 	src/data/shapes.cpp
 	src/data/shapes.h
+	src/data/ucasm.cpp
+	src/data/ucasm.h
 	src/data/ucode.cpp
 	src/data/ucode.h
 	src/data/ucvm.cpp

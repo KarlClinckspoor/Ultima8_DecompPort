@@ -26,6 +26,7 @@
 #include "ui/manualview.h"
 #include "ui/usecodeview.h"
 #include "ui/usecodegraph.h"
+#include "data/ucasm.h"
 
 #include <QGraphicsScene>
 #include <QPainter>
@@ -114,6 +115,7 @@ private slots:
 	void manual();
 	void usecodeListing();
 	void usecodeGraph();
+	void usecodeAssembly();
 	void searchEveryMap();
 
 private:
@@ -537,6 +539,77 @@ void Tests::manual()
 		const QString target = m.next().captured(1);
 		QVERIFY2(html.contains(QStringLiteral("name=\"%1\"").arg(target)), qPrintable(target));
 	}
+}
+
+// Every class prints as assembly text and assembles back to exactly its own bytes, and the whole
+// file made from those records is the original file, byte for byte.
+void Tests::usecodeAssembly()
+{
+	World w;
+	QString error;
+	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
+	const Usecode &u = w.usecode();
+	QHash<int, QByteArray> records;
+	int bad = 0;
+	qint64 textBytes = 0;
+	for (int k = 0; k < u.classCount(); k++)
+	{
+		if (!u.hasClass(k))
+			continue;
+		const QByteArray record = u.record(k);
+		const QString text = Ucasm::print(record, k, &u, &error);
+		if (text.isEmpty())
+		{
+			qWarning("class %d does not print: %s", k, qPrintable(error));
+			bad++;
+			continue;
+		}
+		textBytes += text.size();
+		int id = -1;
+		const QByteArray back = Ucasm::assemble(text, &id, &error);
+		if (back != record || id != k)
+		{
+			qWarning("class %d does not assemble back to its bytes (%s)", k, qPrintable(error));
+			if (!back.isEmpty())
+				for (int i = 12; i < qMin(back.size(), record.size()); i++)
+					if (back[i] != record[i])
+					{
+						qWarning("  first difference at record byte %d (code offset %x): %02x, was %02x; sizes %d, was %d",
+							i, i - 12, uint8_t(back[i]), uint8_t(record[i]), int(back.size()), int(record.size()));
+						break;
+					}
+			bad++;
+		}
+		records.insert(k, back);
+	}
+	QCOMPARE(bad, 0);
+	QVERIFY(records.size() > 500);
+	qInfo("%d classes, %lld characters of assembly", int(records.size()), textBytes);
+	const QByteArray file = Language::replaceUsecodeClasses(u.file(), records, &error);
+	QVERIFY2(!file.isEmpty(), qPrintable(error));
+	QVERIFY(file == u.file());
+
+	// A change moves what points into the class: a label's users follow it.
+	const int key = DoorInfo::KeyShape;
+	QString text = Ucasm::print(u.record(key), key, &u, &error);
+	const QString pad = QStringLiteral("    push_imm 0\n    pop_result\n");
+	text.replace(QStringLiteral("code\n"), QStringLiteral("code\n") + pad);
+	int id;
+	const QByteArray longer = Ucasm::assemble(text, &id, &error);
+	QVERIFY2(!longer.isEmpty(), qPrintable(error));
+	QCOMPARE(longer.size(), u.record(key).size() + 4);
+	QCOMPARE(int(uint8_t(longer[4])) | int(uint8_t(longer[5])) << 8, int(longer.size()));
+	// Its event table points further on, and printing it again assembles to the same bytes.
+	int moved = 0;
+	for (int e = 0; e < 32; e++)
+		if (u.eventOffset(key, e))
+		{
+			const int off = int(uint8_t(longer[12 + e * 4])) | int(uint8_t(longer[12 + e * 4 + 1])) << 8;
+			QVERIFY(off >= u.eventOffset(key, e));
+			moved++;
+		}
+	QVERIFY(moved > 0);
+	QCOMPARE(Ucasm::assemble(Ucasm::print(longer, key, &u, &error), &id, &error), longer);
 }
 
 // Every class disassembles; KEY's look event names its keys with Item::bark, its use event spawns

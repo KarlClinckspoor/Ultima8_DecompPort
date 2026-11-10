@@ -427,6 +427,23 @@ QByteArray rebuildUsecode(const QByteArray &usecode, const QHash<int, QVector<QB
 	return writeFlex(usecode, index, records);
 }
 
+QByteArray replaceUsecodeClasses(const QByteArray &usecode, const QHash<int, QByteArray> &replace, QString *error)
+{
+	std::vector<FlexIndex> index;
+	if (!flexIndex(usecode, &index, error))
+		return QByteArray();
+	QVector<QByteArray> records;
+	for (const FlexIndex &e : index)
+		records.append(usecode.mid(int(e.offset), int(e.size)));
+	for (auto it = replace.cbegin(); it != replace.cend(); ++it)
+	{
+		if (it.key() < 0 || it.key() + 2 >= records.size())
+			return fail(error, QObject::tr("class %1 is not in the file").arg(it.key())).toLatin1();
+		records[it.key() + 2] = it.value();
+	}
+	return writeFlex(usecode, index, records);
+}
+
 QString fromCp437(const QByteArray &bytes)
 {
 	static const char16_t high[128] = {0x00C7, 0x00FC, 0x00E9, 0x00E2, 0x00E4, 0x00E0, 0x00E5, 0x00E7,

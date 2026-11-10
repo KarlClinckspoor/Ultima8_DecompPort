@@ -89,6 +89,9 @@ QHash<int, QVector<QByteArray>> usecodeStrings(const QByteArray &usecode, QStrin
 // out keep theirs. Branches, calls, spawns and the event table are moved to match.
 QByteArray rebuildUsecode(const QByteArray &usecode, const QHash<int, QVector<QByteArray>> &strings,
 	QString *error);
+// The usecode with whole classes replaced: {class: its flex record, 12 byte header included}.
+// Records keep the original's order; the index and checksum are made again.
+QByteArray replaceUsecodeClasses(const QByteArray &usecode, const QHash<int, QByteArray> &records, QString *error);
 // The usecode's text as the game's fonts draw it: CP437.
 QString fromCp437(const QByteArray &bytes);
 // A translated string as bytes for the fonts: ASCII, and the characters of the font patch.

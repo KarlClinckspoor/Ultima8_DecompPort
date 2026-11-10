@@ -55,6 +55,8 @@ public:
 	int classCount() const { return names_.size(); }
 	// A class's code: its record after the 12-byte header (event offsets, then instructions).
 	QByteArray code(int classId) const;
+	// The whole flex record: 12 byte header, then what code() gives.
+	QByteArray record(int classId) const { return flex_.record(classId + 2); }
 	// The events the class handles: a bit each, from the overload table (usecode record 1).
 	uint32_t events(int classId) const;
 	// Where an event's routine starts in the class's code; 0 when it has none.
