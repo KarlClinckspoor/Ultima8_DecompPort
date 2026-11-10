@@ -539,6 +539,11 @@ void record_checkpoint(int64_t game_us)
 	}
 	checks++;
 	load_next();
+	if (options()->replay_until > 0 && game_us >= (int64_t) options()->replay_until * 1000000) {
+		fprintf(stderr, "u8: replay finished: stopped as asked at game time %.3f s; %u checkpoints "
+			"matched\n", (double) game_us / 1e6, checks);
+		stop_replay(0);
+	}
 }
 
 void record_game_exit(void)

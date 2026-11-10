@@ -78,6 +78,8 @@ static void parse(void)
 			o->replay = args[++i];
 		} else if (strcmp(a, "--replay-view") == 0) {
 			o->replay_view = true;
+		} else if (strcmp(a, "--replay-until") == 0 && next) {
+			o->replay_until = atoi(args[++i]);
 		} else if (strcmp(a, "--shots") == 0 && next) {
 			o->shots = args[++i];
 		} else if (strcmp(a, "--shot-every") == 0 && next) {
@@ -137,6 +139,8 @@ void options_show_help(void)
 		"  --replay-view    with --replay: in a window at the recorded speed, with sound\n"
 		"  --shots <dir>    save the game's screen to <dir> every so often, named by the game\n"
 		"                   second, so a recording's and its replay's can be compared\n"
+		"  --replay-until <s> with --replay: stop after the checkpoint at game second <s> (exit 0\n"
+		"                   if every checkpoint up to there matched)\n"
 		"  --shot-every <n> game seconds between them (default 60)\n"
 		"\n"
 		"  --help           this list\n"

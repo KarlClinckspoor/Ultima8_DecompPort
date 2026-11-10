@@ -29,6 +29,7 @@ typedef struct {
 	int shot_every;            /* --shot-every SECS (game seconds) */
 	bool replay_view;
 	bool no_recording;
+	int replay_until;          /* --replay-until SECS: stop a replay at this game second (0 = off) */
 	bool saves_in_data;
 	bool no_aspect;
 	bool no_integer;

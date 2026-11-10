@@ -2,6 +2,8 @@
 // name: FLICPLAY.C
 
 #include "u8port.h"
+#include "plat.h"
+#include "npc.h"
 
 #include <string.h>
 // #include <alloc.h>  (DOS only)
@@ -416,6 +418,8 @@ int16_t playIntro(uint8_t repeat, uint8_t menu, uint8_t flag)
 
 int16_t playEndgame(void)
 {
+	// Replays and tests look for this line to tell that a recording reached the ending.
+	plat_log(avatar.cheater ? "ENDGAME reached (the cheat window was used)" : "ENDGAME reached");
 	BaseFile file;
 	file.forceOpen(fileSpec(0, StaticDir, endGameFlagName, flagExtension), ReadWrite);
 	file.write(copyrightStatement, strlen(copyrightStatement) + 1);
