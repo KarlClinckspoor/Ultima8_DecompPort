@@ -15,9 +15,6 @@ class Usecode;
 namespace Ucdecomp
 {
 
-// The name a local (negative offset) or an argument has in the text.
-QString varNameOf(int64_t offset);
-
 struct Routine
 {
 	int start = 0;		// its first instruction's offset in the class's code

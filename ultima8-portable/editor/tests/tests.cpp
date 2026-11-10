@@ -28,6 +28,7 @@
 #include "ui/usecodegraph.h"
 #include "data/ucasm.h"
 #include "data/ucdecomp.h"
+#include "data/ucparse.h"
 
 #include <QGraphicsScene>
 #include <QPainter>
@@ -622,7 +623,7 @@ void Tests::usecodeDecompile()
 	QString error;
 	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
 	const Usecode &u = w.usecode();
-	int lifted = 0, total = 0;
+	int lifted = 0, total = 0, unparsed = 0, reprinted = 0;
 	QHash<QString, int> why;
 	for (int k = 0; k < u.classCount(); k++)
 	{
@@ -634,7 +635,24 @@ void Tests::usecodeDecompile()
 		{
 			total++;
 			if (r.lifted)
+			{
 				lifted++;
+				// The text parses, and prints again as the same text.
+				Ucast::Block block;
+				QString perr;
+				if (!Ucparse::parseBlock(r.text, &block, &perr))
+				{
+					if (unparsed++ < 5)
+						qWarning("class %d routine %04x does not parse: %s", k, r.start, qPrintable(perr));
+				}
+				else
+				{
+					QStringList lines;
+					Ucast::render(block, 1, &lines);
+					if (lines.join(QChar('\n')) != r.text && reprinted++ < 5)
+						qWarning("class %d routine %04x prints differently after parsing", k, r.start);
+				}
+			}
 			else
 				why[r.why.section(QChar(' '), 0, 1)]++;
 		}
@@ -645,6 +663,8 @@ void Tests::usecodeDecompile()
 	qInfo("%d of %d routines lifted; not lifted: %s", lifted, total, qPrintable(reasons.join(QStringLiteral(", "))));
 	QVERIFY(total > 1500);
 	QVERIFY(lifted * 100 / total >= 98);
+	QCOMPARE(unparsed, 0);
+	QCOMPARE(reprinted, 0);
 
 	// U8_DECOMP_OUT=<folder> writes every class's text there, to read.
 	const QString outDir = qEnvironmentVariable("U8_DECOMP_OUT");

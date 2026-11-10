@@ -217,6 +217,10 @@ compiler is not available); it only has to be correct, and tested semantically b
   in the test run writes every class's text for reading. The comparison opcodes in `ucasm.cpp` were
   named the wrong way round (0x28 is a<b by the interpreter): fixed. Not yet proven right: nothing
   recompiles the text, so a lifted routine is only checked by reading it; W3c's recompile/compare is the proof.
+  **Text parser (2026-11-09):** `ucast.{h,cpp}` (the shared expression/statement tree and its printer) and
+  `ucparse.{h,cpp}` (text back to the tree). Test `usecodeDecompile`: all 1562 lifted routines parse and print
+  again as the identical text. This proves the printed language is unambiguous; it does not yet carry what
+  code generation needs (see W3c).
   Original description:
 - **W3b. Decompiler (L).** Stack-machine code to expressions (the stack temporaries are the hard
   part), control-flow structuring (`if/else`, `while`, `for`, `switch` if the original has jump
@@ -228,6 +232,17 @@ compiler is not available); it only has to be correct, and tested semantically b
   recompile-by-cache is trivial; so also run **decompile, rebuild from the AST without the cache**
   and report the percentage of functions that come out byte-identical. That number measures
   decompiler quality and tells us how often a user edit disturbs code it did not touch.
+- **W3c plan (decided 2026-11-09).** Bytes come from the tree, not from the text directly, so the order is
+  (1) make the text carry what code needs: a `frame N;` line, types of locals and arguments (byte, int, long,
+  string, list), long constants marked (`0L`, today `push_long_imm 0` and `push_imm 0` both print `0`),
+  string pointer versus string handle, and the cleanup the decompiler hides (`free_string_sp k` after a
+  call, `free_*_local` before a store and at the end, `give_heap`); (2) code generation from the tree by
+  rules (operand opcode chosen by type and value range, args pushed last first, `add_sp -n` after calls,
+  frees for string and list temporaries, `locals` from the frame line); (3) the check: recompile every
+  lifted routine and count how many give the original bytes, listing the first differing instruction of
+  the rest, then run the differing ones in `ucvm` against the originals. An unchanged routine always
+  keeps its original bytes (the byte cache), so exactness here only measures how faithful the rules are.
+  Original description:
 - **W3c. Compiler (L).** Parser and checker for the language, code generator to bytecode, the
   relocations a changed function size forces (offsets inside the class, event table, class
   sizes, the FLX index), strings, and clear errors with line numbers. Semantic test by running a
