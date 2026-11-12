@@ -166,7 +166,7 @@ private:
 			const int save = i_;
 			i_++;
 			const QString w = word();
-			if ((w == QLatin1String("long") || w == QLatin1String("int")) && take(QStringLiteral(")")))
+			if ((w == QLatin1String("long") || w == QLatin1String("int") || w == QLatin1String("ptr")) && take(QStringLiteral(")")))
 				return make(Expr::Cast, w, {unary()});
 			i_ = save + 1;
 			E inner = binary(0);

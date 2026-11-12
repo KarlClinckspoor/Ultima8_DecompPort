@@ -10,6 +10,8 @@
 #include <QString>
 #include <QVector>
 
+#include "data/ucast.h"
+
 class Usecode;
 
 namespace Ucdecomp
@@ -23,6 +25,9 @@ struct Routine
 	bool lifted = false;	// text is C-like; otherwise it is assembly
 	QString why;		// when not lifted: what stopped it
 	QString text;
+	Ucast::Block tree;	// when lifted: what the text prints, with what the code generator needs
+	bool hasFrame = false;	// the routine starts with `locals`
+	int frame = 0;		// its operand
 };
 
 // A class's routines, from its flex record; false (with *error) if the code cannot be decoded.

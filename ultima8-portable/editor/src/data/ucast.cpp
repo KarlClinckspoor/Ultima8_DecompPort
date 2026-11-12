@@ -10,6 +10,13 @@ QString varNameOf(int64_t off)
 	return off < 0 ? QStringLiteral("local_%1").arg(-off) : QStringLiteral("arg_%1").arg(off);
 }
 
+std::shared_ptr<Expr> newExpr(Expr::Kind kind)
+{
+	auto e = std::make_shared<Expr>();
+	e->kind = kind;
+	return e;
+}
+
 E flag(int64_t bit, int width)
 {
 	auto e = std::make_shared<Expr>();
@@ -124,6 +131,8 @@ void render(const Block &block, int indent, QStringList *out)
 	const QString p(indent * 4, QChar(' '));
 	for (const S &s : block)
 	{
+		if (s->hidden)
+			continue;
 		switch (s->kind)
 		{
 		case Stmt::Assign:

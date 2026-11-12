@@ -242,6 +242,15 @@ compiler is not available); it only has to be correct, and tested semantically b
   lifted routine and count how many give the original bytes, listing the first differing instruction of
   the rest, then run the differing ones in `ucvm` against the originals. An unchanged routine always
   keeps its original bytes (the byte cache), so exactness here only measures how faithful the rules are.
+  **Code generation, first version (2026-11-09):** `ucgen.{h,cpp}`, test `usecodeGenerate`. It reads its choices from what
+  the decompiler recorded in the tree (the opcode that made each value, the frees and stack adjustments the
+  text hides, early returns that jump part way into the cleanup, pushes nobody used). **1545 of the 1562
+  lifted routines (98.9%) generate to the shipped bytes.** What is left is 17 routines with a jump a few bytes
+  off (an extra or missing 3-byte jump or push upstream), not yet looked at one by one. This proves the tree
+  keeps what the code needs; it does not yet compile new code: the choices still come from recorded hints.
+  The decompiler also stopped dropping `pop_temp` (a routine's return value), now `temp = expr;`, and `string_to_ptr`
+  prints `(ptr)`. Next: the rules that replace the hints (opcode from type and value, frees from declared string and
+  list locals, long constants marked), measured by how many of the 1545 still match with hints off.
   Original description:
 - **W3c. Compiler (L).** Parser and checker for the language, code generator to bytecode, the
   relocations a changed function size forces (offsets inside the class, event table, class

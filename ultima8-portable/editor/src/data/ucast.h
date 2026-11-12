@@ -16,6 +16,14 @@ namespace Ucast
 struct Expr;
 using E = std::shared_ptr<const Expr>;
 
+// An instruction the text does not show (a free, an adjustment of the stack), kept where it
+// stood so the code generator can put it back.
+struct RawOp
+{
+	uint8_t op = 0;
+	std::vector<int64_t> args;
+};
+
 struct Expr
 {
 	enum Kind { Const, Var, Str, Bin, Un, Deref, Addr, Flag, Call, Pid, Cast, Ref, Finder };
@@ -25,6 +33,14 @@ struct Expr
 	QString s;		// a variable's name; an operator; a call's name; a cast's type
 	QByteArray bytes;	// a string
 	std::vector<E> k;	// operands, arguments
+	// What the stack code did, for the code generator:
+	int size = 2;		// bytes the value takes on the stack (-1: a search's finder)
+	char type = 'i';	// i word, l long, s string, L list, p pointer, b bytes
+	uint8_t op = 0;		// the instruction that made it
+	std::vector<int64_t> opArgs;	// its operands
+	mutable std::vector<RawOp> post;	// a call's frees, after it and before its stack adjustment
+	std::vector<E> hoist;	// a call's temporaries pushed before its arguments, deepest first
+	mutable uint8_t tempOp = 0;	// a call's result taken by this push_temp, push_temp_byte or push_temp_long
 };
 
 E make(Expr::Kind kind, const QString &s = QString(), std::vector<E> k = {}, int64_t v = 0);
@@ -32,6 +48,8 @@ E konst(int64_t v);
 E var(const QString &name);
 E flag(int64_t bit, int width);
 E str(const QByteArray &bytes);
+// A new expression to fill in before it is shared.
+std::shared_ptr<Expr> newExpr(Expr::Kind kind);
 
 // The name a local (negative offset) or an argument has in the text.
 QString varNameOf(int64_t offset);
@@ -58,6 +76,14 @@ struct Stmt
 	bool endless = false;
 	bool each = false;	// While: foreach (lhs in cond)
 	bool consumed = false;	// Call: its result was taken by a later instruction
+	// What the stack code did, for the code generator:
+	std::vector<RawOp> raw;	// instructions the text does not show, just before this statement
+	std::vector<RawOp> tail;	// ... and just after it (what a block's last statement leaves to clean up)
+	std::vector<RawOp> mid;	// ... and after its value, before the store or branch that uses it
+	uint8_t op = 0;		// the instruction (a store, a return, a jump)
+	std::vector<int64_t> opArgs;
+	E lhsE;			// Assign through a pointer: the pointer
+	bool hidden = false;	// printed as nothing (a jump to the next instruction)
 };
 
 S stmt(Stmt::Kind kind);

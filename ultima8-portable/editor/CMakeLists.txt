@@ -40,6 +40,8 @@ add_library(u8edit_core STATIC
 	src/data/ucast.h
 	src/data/ucdecomp.cpp
 	src/data/ucdecomp.h
+	src/data/ucgen.cpp
+	src/data/ucgen.h
 	src/data/ucparse.cpp
 	src/data/ucparse.h
 	src/data/ucode.cpp

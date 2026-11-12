@@ -28,6 +28,7 @@
 #include "ui/usecodegraph.h"
 #include "data/ucasm.h"
 #include "data/ucdecomp.h"
+#include "data/ucgen.h"
 #include "data/ucparse.h"
 
 #include <QGraphicsScene>
@@ -119,6 +120,7 @@ private slots:
 	void usecodeGraph();
 	void usecodeAssembly();
 	void usecodeDecompile();
+	void usecodeGenerate();
 	void searchEveryMap();
 
 private:
@@ -684,10 +686,117 @@ void Tests::usecodeDecompile()
 	QVERIFY(egg.contains(QStringLiteral("await spawn 1409::1c19(0, 60);")));
 	QVERIFY(egg.contains(QStringLiteral("await Item::hurl(&local_2, 0, 0, 0, 4);")));
 	const QString stalag = Ucdecomp::classText(u.record(330), 330, &u, &error);
-	QVERIFY(stalag.contains(QStringLiteral("await Item::bark(arg_6, \"stalactite \");")));
+	QVERIFY(stalag.contains(QStringLiteral("await Item::bark(arg_6, (ptr)\"stalactite \");")));
 	QVERIFY(stalag.contains(QStringLiteral("while (local_2 <= 10) {")));
 	const QString keyring = Ucdecomp::classText(u.record(DoorInfo::KeyringShape), DoorInfo::KeyringShape, &u, &error);
 	QVERIFY(keyring.contains(QStringLiteral("foreach (local_2 in search_container(")));
+}
+
+// The tree gives the code back: every lifted routine is generated again and compared with the
+// shipped bytes. (This first generator reads its choices from what the decompiler recorded.)
+void Tests::usecodeGenerate()
+{
+	World w;
+	QString error;
+	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
+	const Usecode &u = w.usecode();
+	int total = 0, same = 0, shown = 0;
+	QHash<QString, int> why;
+	for (int k = 0; k < u.classCount(); k++)
+	{
+		if (!u.hasClass(k))
+			continue;
+		const QByteArray record = u.record(k);
+		const QByteArray code = record.mid(12);
+		QVector<Ucasm::Insn> insns;
+		QVERIFY(Ucasm::decodeInsns(code, &insns, &error));
+		QVector<Ucdecomp::Routine> routines;
+		QVERIFY(Ucdecomp::decompile(record, k, &routines, &error));
+		for (const auto &r : routines)
+		{
+			if (!r.lifted)
+				continue;
+			total++;
+			QString gerr;
+			const QByteArray gen = Ucgen::generate(r.tree, r.hasFrame, r.frame, &gerr);
+			const QByteArray orig = code.mid(r.start, r.end - r.start);
+			if (gen == orig)
+			{
+				same++;
+				continue;
+			}
+			if (qEnvironmentVariable("U8_GEN_ROUTINE") == QStringLiteral("%1:%2").arg(k).arg(r.start, 4, 16, QLatin1Char('0')))
+			{
+				auto dump = [&](const char *title, const QByteArray &bytes) {
+					QVector<Ucasm::Insn> v;
+					QByteArray padded(0x80, char(0));
+					padded.append(bytes);
+					Ucasm::decodeInsns(padded, &v, nullptr);
+					for (const auto &i : v)
+					{
+						QStringList a;
+						for (int64_t x : i.args)
+							a << QString::number(x);
+						qInfo("%s %04x %s %s", title, i.at - 0x80, qPrintable(i.name), qPrintable(a.join(QChar(','))));
+					}
+				};
+				dump("S", orig);
+				dump("M", gen);
+			}
+			QString key;
+			if (gen.isEmpty())
+				key = QStringLiteral("cannot: ") + gerr.left(40);
+			else
+			{
+				int d = 0;
+				while (d < gen.size() && d < orig.size() && gen[d] == orig[d])
+					d++;
+				QString mn = QStringLiteral("(end)");
+				for (const auto &i : insns)
+					if (i.at <= r.start + d && r.start + d < i.at + i.size)
+					{
+						mn = i.name;
+						break;
+					}
+				key = (gen.size() == orig.size() ? QStringLiteral("same size, ") : QStringLiteral("size differs, ")) + mn;
+				if (shown++ < 12 || qEnvironmentVariable("U8_GEN_SHOW") == key)
+				{
+					qInfo("class %d routine %04x differs at +%x (%s): generated %d bytes, shipped %d", k, r.start, d, qPrintable(mn),
+						int(gen.size()), int(orig.size()));
+					auto list = [&](const QByteArray &bytes, int at) {
+						QVector<Ucasm::Insn> v;
+						QByteArray padded(0x80, char(0));
+						padded.append(bytes);
+						QStringList out;
+						if (Ucasm::decodeInsns(padded, &v, nullptr))
+							for (const auto &i : v)
+								if (i.at >= 0x80 + at - 14 && i.at <= 0x80 + at + 14)
+								{
+									QStringList a;
+									for (int64_t x : i.args)
+										a << QString::number(x);
+									out << QStringLiteral("%1 %2").arg(i.name, a.join(QChar(',')) + (i.text.isEmpty() ? QString() : QStringLiteral(" '%1'").arg(QString::fromLatin1(i.text.left(12)))));
+								}
+						return out.join(QStringLiteral(" | "));
+					};
+					qInfo("   shipped: %s", qPrintable(list(orig, d)));
+					qInfo("   made:    %s", qPrintable(list(gen, d)));
+				}
+			}
+			why[key]++;
+		}
+	}
+	QList<QPair<int, QString>> sorted;
+	for (auto it = why.cbegin(); it != why.cend(); ++it)
+		sorted.append({it.value(), it.key()});
+	std::sort(sorted.begin(), sorted.end(), [](const auto &a, const auto &b) { return a.first > b.first; });
+	QStringList lines;
+	for (int i = 0; i < qMin(int(sorted.size()), 25); i++)
+		lines << QStringLiteral("%1 %2").arg(sorted[i].first).arg(sorted[i].second);
+	qInfo("%d of %d lifted routines generate to the shipped bytes; first differences: %s", same, total,
+		qPrintable(lines.join(QStringLiteral("; "))));
+	QVERIFY(total > 1500);
+	QVERIFY(same * 100 / total >= 98);
 }
 
 // Every class disassembles; KEY's look event names its keys with Item::bark, its use event spawns
