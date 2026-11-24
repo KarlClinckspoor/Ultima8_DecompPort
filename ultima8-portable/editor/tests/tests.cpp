@@ -9,6 +9,9 @@
 #include <QDir>
 #include <QLineEdit>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QStandardPaths>
 #include <QTableWidget>
 #include <QTemporaryDir>
@@ -26,6 +29,7 @@
 #include "ui/manualview.h"
 #include "ui/usecodeview.h"
 #include "ui/usecodegraph.h"
+#include "ui/webexport.h"
 #include "data/ucasm.h"
 #include "data/ucdecomp.h"
 #include "data/ucgen.h"
@@ -122,6 +126,7 @@ private slots:
 	void usecodeDecompile();
 	void usecodeGenerate();
 	void searchEveryMap();
+	void webExport();
 
 private:
 	QTemporaryDir temp_;
@@ -969,6 +974,89 @@ void Tests::searchEveryMap()
 	panel.setKinds(SearchPanel::AllKinds);
 	QTRY_VERIFY_WITH_TIMEOUT(!panel.searching(), 300000);
 	QCOMPARE(panel.found(), all);
+}
+
+// The web export of Tenebrae: drawing its items.bin in order, from the atlas, gives the map view's
+// picture pixel for pixel; every reference resolves; a second export gives the same bytes.
+void Tests::webExport()
+{
+	World w;
+	QString error;
+	QVERIFY2(w.load(data_, QString(), &error), qPrintable(error));
+	const QString a = temp_.filePath("web-a"), b = temp_.filePath("web-b");
+	WebExport::Options options;
+	options.maps = {3};
+	QString text;
+	QTextStream report(&text);
+	QVERIFY2(WebExport::write(w, a, options, report, &error), qPrintable(error));
+	QVERIFY2(WebExport::write(w, b, options, report, &error), qPrintable(error));
+	for (const QString &f : {"manifest.json", "frames.bin", "shapes.json", "graph.json", "atlas-0.png",
+			"maps/3/items.bin", "maps/3/info.json"})
+	{
+		QFile fa(QDir(a).filePath(f)), fb(QDir(b).filePath(f));
+		QVERIFY2(fa.open(QIODevice::ReadOnly) && fb.open(QIODevice::ReadOnly), qPrintable(f));
+		QVERIFY2(fa.readAll() == fb.readAll(), qPrintable(f));
+	}
+
+	auto readAll = [&](const QString &f) {
+		QFile file(QDir(a).filePath(f));
+		return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+	};
+	const QJsonObject manifest = QJsonDocument::fromJson(readAll("manifest.json")).object();
+	QCOMPARE(manifest["format"].toString(), QStringLiteral("u8web"));
+	const QJsonObject entry = manifest["maps"].toArray().first().toObject();
+	const QJsonObject bounds = entry["bounds"].toObject();
+	std::vector<QImage> atlas;
+	for (const QJsonValue &v : manifest["atlas"].toArray())
+		atlas.push_back(QImage(QDir(a).filePath(v.toObject()["file"].toString())));
+	const QByteArray frames = readAll("frames.bin"), items = readAll("maps/3/items.bin");
+	const QJsonArray info = QJsonDocument::fromJson(readAll("maps/3/info.json")).array();
+	auto u16 = [](const QByteArray &d, int at) { return int(uint8_t(d[at]) | uint8_t(d[at + 1]) << 8); };
+	auto i16 = [&](const QByteArray &d, int at) { return int(int16_t(u16(d, at))); };
+	auto i32 = [&](const QByteArray &d, int at) { return int(uint32_t(u16(d, at)) | uint32_t(u16(d, at + 2)) << 16); };
+
+	MapRender r;
+	r.build(w, 3);
+	const LayerOptions o;
+	int drawn = 0;
+	for (const MapRender::Entry &e : r.entries())
+		drawn += r.shows(e, o);
+	QCOMPARE(entry["drawn"].toInt(), drawn);
+	QCOMPARE(items.size(), 16 * entry["items"].toInt());
+	const QImage want = r.renderOverview(o, 1);
+	QCOMPARE(want.width(), bounds["maxX"].toInt() - bounds["minX"].toInt());
+	QCOMPARE(want.height(), bounds["maxY"].toInt() - bounds["minY"].toInt());
+
+	QImage got(want.size(), QImage::Format_ARGB32_Premultiplied);
+	got.fill(Qt::black);
+	QPainter p(&got);
+	p.translate(-bounds["minX"].toInt(), -bounds["minY"].toInt());
+	for (int i = 0; i < items.size() / 16; i++)
+	{
+		const int at = i * 16, id = u16(items, at + 8), flags = uint8_t(items[at + 11]);
+		const uint32_t index = uint32_t(i32(items, at + 12));
+		QVERIFY(id < frames.size() / 16);
+		QCOMPARE(index != 0xffffffffu, bool(flags & 0x10));
+		QVERIFY(index == 0xffffffffu || int(index) < info.size());
+		if (flags & 0x08)
+			continue;
+		const int f = id * 16;
+		const QImage tile = atlas[size_t(uint8_t(frames[f]))].copy(u16(frames, f + 2), u16(frames, f + 4),
+			u16(frames, f + 6), u16(frames, f + 8));
+		p.setOpacity(flags & 0x20 ? 0.6 : 1);
+		p.drawImage(QPoint(i32(items, at) + i16(frames, f + 10), i32(items, at + 4) + i16(frames, f + 12)), tile);
+	}
+	p.end();
+	QVERIFY(got == want.convertToFormat(QImage::Format_ARGB32_Premultiplied));
+
+	const QJsonObject graph = QJsonDocument::fromJson(readAll("graph.json")).object();
+	QCOMPARE(graph["transitions"].toArray().size(), w.transitions().size());
+	for (const QJsonValue &v : graph["transitions"].toArray())
+		for (const char *side : {"fromItem", "toItem"})
+		{
+			const QJsonValue idx = v.toObject()[QLatin1String(side)];
+			QVERIFY(idx.isNull() || idx.toInt() < info.size());
+		}
 }
 
 QTEST_MAIN(Tests)

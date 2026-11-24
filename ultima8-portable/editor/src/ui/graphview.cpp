@@ -550,6 +550,14 @@ void TransitionGraph::savePositions()
 		s.setValue(QStringLiteral("graph/%1").arg(n->map()), n->pos());
 }
 
+QHash<int, QPointF> TransitionGraph::positions() const
+{
+	QHash<int, QPointF> out;
+	for (auto it = nodes_.begin(); it != nodes_.end(); ++it)
+		out.insert(it.key(), it.value()->pos());
+	return out;
+}
+
 QImage TransitionGraph::grabGraph(QSize size)
 {
 	resize(size);

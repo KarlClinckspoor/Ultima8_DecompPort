@@ -135,19 +135,28 @@ QString itemLabel(const World &world, int map, const MapItem &item)
 
 QString itemTooltip(const World &world, int map, int item)
 {
-	const MapData &m = world.map(map);
-	const MapItem &it = m.items[item];
-	const TypeInfo &t = world.shapes().type(it.shape);
+	const MapItem &it = world.map(map).items[item];
 	QStringList rows;
-	auto add = [&](const QString &field, const QString &value) {
+	for (const Fact &f : itemFacts(world, map, item))
 		rows << QStringLiteral("<tr><td style='color:#9aa4b0; padding-right:8px'>%1</td><td>%2</td></tr>")
-			.arg(field.toHtmlEscaped(), value.toHtmlEscaped());
-	};
+			.arg(f.field.toHtmlEscaped(), f.value.toHtmlEscaped());
 	const QString name = itemName(world, map, it);
 	QString head = QStringLiteral("<b>%1</b>").arg(name.toHtmlEscaped());
 	const QString now = world.itemName(map, it, false);
 	if (fullNames() && !now.isEmpty() && now != name)
 		head += QStringLiteral("<br><i>%1</i>").arg(QObject::tr("in this saved game: %1").arg(now).toHtmlEscaped());
+	return QStringLiteral("%1<table cellspacing=0 cellpadding=0 style='margin-top:4px'>%2</table>")
+		.arg(head, rows.join(QString()));
+}
+
+QVector<Fact> itemFacts(const World &world, int map, int item)
+{
+	const MapData &m = world.map(map);
+	const MapItem &it = m.items[item];
+	const TypeInfo &t = world.shapes().type(it.shape);
+	QVector<Fact> rows;
+	bool basic = true;
+	auto add = [&](const QString &field, const QString &value) { rows.push_back({field, value, basic}); };
 
 	const QString cls = world.usecode().className(world.classOf(it));
 	add(QObject::tr("Shape"), QObject::tr("%1, frame %2%3").arg(it.shape).arg(it.frame)
@@ -166,6 +175,7 @@ QString itemTooltip(const World &world, int map, int item)
 	case MapItem::Npc: from = QObject::tr("an NPC or what one carries"); break;
 	}
 	add(QObject::tr("Kind"), QObject::tr("%1; family %2").arg(from, familyName(t.family)));
+	basic = false;
 
 	switch (t.family)
 	{
@@ -247,9 +257,7 @@ QString itemTooltip(const World &world, int map, int item)
 		flags << QObject::tr("shown only in editors");
 	if (!flags.isEmpty())
 		add(QObject::tr("Flags"), flags.join(QStringLiteral(", ")));
-
-	return QStringLiteral("%1<table cellspacing=0 cellpadding=0 style='margin-top:4px'>%2</table>")
-		.arg(head, rows.join(QString()));
+	return rows;
 }
 
 bool write(const QString &path, QString *error)

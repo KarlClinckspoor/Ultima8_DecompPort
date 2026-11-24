@@ -85,6 +85,8 @@ add_library(u8edit_core STATIC
 	src/ui/usecodegraph.h
 	src/ui/usecodeview.cpp
 	src/ui/usecodeview.h
+	src/ui/webexport.cpp
+	src/ui/webexport.h
 )
 target_include_directories(u8edit_core PUBLIC src)
 # The manual (Help > Manual), built into the program.

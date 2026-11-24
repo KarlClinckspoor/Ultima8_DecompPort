@@ -4,6 +4,7 @@
 #pragma once
 
 #include <QString>
+#include <QVector>
 
 class World;
 struct MapItem;
@@ -36,6 +37,14 @@ QString itemLabel(const World &world, int map, const MapItem &item);
 // A rich tooltip for the item at index item on map: its name, where it is and how big, and in
 // plain words what its fields mean for its kind (an egg's job, a door's lock, an NPC's numbers).
 QString itemTooltip(const World &world, int map, int item);
+// The tooltip's rows: a field and its value. The basic ones (shape, where it is, size, kind)
+// say what any item has; the rest say what its fields mean for its kind.
+struct Fact
+{
+	QString field, value;
+	bool basic = false;
+};
+QVector<Fact> itemFacts(const World &world, int map, int item);
 
 // The names file: "map N = name" and "shape N = name" lines. Reading it adds to and replaces
 // the names given; returns false and says why when the file cannot be used.

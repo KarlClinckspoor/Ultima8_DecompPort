@@ -1,12 +1,14 @@
 // u8edit.
 //
 //   u8edit [--data DIR] [--save FILE] [--map N]
+//   u8edit [--data DIR] [--save FILE] --export-web OUT [--maps 1,3,...]
 //
 // An editor for Ultima VIII's world and game data.
 //
 // With no --data it uses U8_DATA, then the folder it last used, then the port's (data= in
 // u8port.cfg), then asks. The switches after that are for testing and for pictures: they set up
-// a view, save it, and quit.
+// a view, save it, and quit. --export-web writes the maps for the Ultima Cartographer
+// (ui/webexport.h) without a window, prints a size report, and quits.
 
 #include <QAction>
 #include <QApplication>
@@ -18,13 +20,21 @@
 #include <QSpinBox>
 #include <QStyleFactory>
 #include <QTabWidget>
+#include <QTextStream>
 #include <QTimer>
+
+#include <cstdio>
+#include <cstring>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #include "ui/graphview.h"
 #include "ui/itempanel.h"
 #include "ui/mainwindow.h"
 #include "ui/mapview.h"
 #include "ui/usecodeview.h"
+#include "ui/webexport.h"
 
 static void darkPalette(QApplication &app)
 {
@@ -48,8 +58,66 @@ static void darkPalette(QApplication &app)
 	app.setPalette(p);
 }
 
+// --export-web: load, write, report, quit; 0 on success.
+static int exportWeb(const QString &dir, const QString &save, const QString &out, const QString &mapList)
+{
+#ifdef _WIN32
+	// A windowed program has no console; print to the one it was started from.
+	if (!GetStdHandle(STD_OUTPUT_HANDLE) && AttachConsole(ATTACH_PARENT_PROCESS))
+	{
+		freopen("CONOUT$", "w", stdout);
+		freopen("CONOUT$", "w", stderr);
+	}
+#endif
+	QTextStream report(stdout);
+	QTextStream err(stderr);
+	if (dir.isEmpty())
+	{
+		err << "u8edit: no game folder (give --data)" << Qt::endl;
+		return 1;
+	}
+	World world;
+	QString error;
+	if (!world.load(dir, save, &error))
+	{
+		err << "u8edit: " << error << Qt::endl;
+		return 1;
+	}
+	WebExport::Options options;
+	for (const QString &m : mapList.split(QLatin1Char(','), Qt::SkipEmptyParts))
+	{
+		bool ok = false;
+		options.maps << m.trimmed().toInt(&ok);
+		if (!ok)
+		{
+			err << "u8edit: --maps wants numbers, as 1,3,5" << Qt::endl;
+			return 1;
+		}
+	}
+	// The Transitions view's layout: the places saved in the settings, else its own arrangement.
+	{
+		TransitionGraph graph;
+		graph.setWorld(&world);
+		options.graphPositions = graph.positions();
+	}
+	if (!WebExport::write(world, out, options, report, &error))
+	{
+		err << "u8edit: " << error << Qt::endl;
+		return 1;
+	}
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
+#ifndef _WIN32
+	// The export opens no window, so it can run where there is no display. (On Windows the
+	// usual platform plugin is enough, and the offscreen one is often not shipped.)
+	for (int i = 1; i < argc; i++)
+		if (!strncmp(argv[i], "--export-web", 12) && qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM") &&
+			qEnvironmentVariableIsEmpty("DISPLAY") && qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY"))
+			qputenv("QT_QPA_PLATFORM", "offscreen");
+#endif
 	QApplication app(argc, argv);
 	QApplication::setOrganizationName("u8port");
 	QApplication::setApplicationName("u8edit");
@@ -72,7 +140,10 @@ int main(int argc, char **argv)
 	QCommandLineOption usecodeClass("class", "Show this usecode class in the Usecode tab.", "n");
 	QCommandLineOption codeGraph("code-graph", "With --class: show it as a graph, at this event.", "event");
 	QCommandLineOption noEggs("no-eggs", "Start with eggs hidden.");
-	cl.addOptions({data, save, map, at, zoom, pick, roof, size, shot, graph, tab, usecodeClass, codeGraph, noEggs});
+	QCommandLineOption exportWebDir("export-web", "Write the maps for the Ultima Cartographer to this folder, then quit.", "dir");
+	QCommandLineOption exportMaps("maps", "With --export-web: the maps to write (default: every map with items).", "1,3,...");
+	cl.addOptions({data, save, map, at, zoom, pick, roof, size, shot, graph, tab, usecodeClass, codeGraph, noEggs,
+		exportWebDir, exportMaps});
 	cl.process(app);
 
 	QString dir = cl.value(data);
@@ -82,6 +153,9 @@ int main(int argc, char **argv)
 		dir = QSettings().value("dataDir").toString();
 	if (dir.isEmpty())
 		dir = MainWindow::portDataDir();
+
+	if (cl.isSet(exportWebDir))
+		return exportWeb(dir, cl.value(save), cl.value(exportWebDir), cl.value(exportMaps));
 
 	MainWindow window;
 	if (cl.isSet(size))

@@ -34,6 +34,8 @@ public:
 	void setCurrentMap(int map);
 	QImage grabGraph(QSize size);
 	void fit();
+	// Where each map's node is (node -1: usecode tied to no map), as saved or as laid out.
+	QHash<int, QPointF> positions() const;
 
 	// Node -1 stands for usecode that is not tied to any map (spells, books).
 	static QString mapLabel(int map);

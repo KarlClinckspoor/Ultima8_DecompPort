@@ -104,6 +104,24 @@ remembers (`data=` in the port's `u8port.cfg`), and then asks.
 **Work on a copy of the game folder.** Saving changes the files in the folder that is open
 (the first time each file is written, the original is kept beside it as `name.orig`).
 
+### The web export
+
+    u8edit --data <game folder> --export-web <out> [--maps 1,3,...] [--save <U8SAVE.nnn>]
+
+Writes the maps for the Ultima Cartographer's Ultima VIII view without opening a window, prints a
+size report, and quits (`src/ui/webexport.h`; the format is the Cartographer's
+`docs/u8-export.md`). `<out>` gets `manifest.json`, `atlas-<k>.png`, `frames.bin`, `shapes.json`,
+`graph.json` and `maps/<n>/items.bin` and `info.json`; files an earlier export wrote are
+replaced, anything else there is left alone. The same input gives the same bytes. Map and shape
+names and the Transitions view's layout come from the editor's settings. On Windows, run it from
+a terminal with its output redirected (`> report.txt`) to keep the report, since u8edit is a
+windowed program.
+
+Besides what `u8-export.md` describes: `items.bin` lists eggs and other shapes only editors show,
+flagged as not drawn (bit 3, as invisible items are), so that clicks can find teleport eggs; bit 5
+marks translucent shapes, which u8edit draws at 60%. Info entries have `item` (the item's index
+in u8edit, for `--select`), and graph map entries have `exported`.
+
 ## What it edits, and where it goes
 
 | What | File | Notes |
